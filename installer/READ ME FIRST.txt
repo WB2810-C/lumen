@@ -18,4 +18,5 @@ No Android Studio. The installer downloads Google's small "adb" tool (7 MB) by i
 
 Update later: run the installer again with the new PlaizierOS.apk. Your theme and favourites stay.
 Undo: Back-to-Google-TV.bat
+Tried "Draw at 1920x1080" and it feels slower? Back-to-720p.bat undoes just that.
 Something not working? The installer saves plaizieros-report.txt (or run PlaizierOS-report.bat): send it to Claude.

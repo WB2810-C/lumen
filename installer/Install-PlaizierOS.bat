@@ -7,12 +7,14 @@ set "PKG=com.wolfram.lumen"
 set "MODE=install"
 if /i "%~1"=="restore" set "MODE=restore"
 if /i "%~1"=="report" set "MODE=report"
+if /i "%~1"=="sd" set "MODE=sd"
 
 echo.
 echo   ==========================================
 if "%MODE%"=="restore" echo     Back to the Google TV home screen
 if "%MODE%"=="install" echo     PlaizierOS  -  put it on your TV
 if "%MODE%"=="report" echo     PlaizierOS report  -  what the TV says
+if "%MODE%"=="sd" echo     Back to 1280x720 drawing
 echo   ==========================================
 echo.
 
@@ -87,6 +89,7 @@ echo.
 echo   Connected to the TV.
 if "%MODE%"=="restore" goto :restore
 if "%MODE%"=="report" goto :reportonly
+if "%MODE%"=="sd" goto :res720
 
 echo.
 echo   Installing PlaizierOS... this takes a moment.
@@ -112,6 +115,15 @@ echo   Switching on the microphone and Now Playing for PlaizierOS...
 %ADB% -s %TARGET% shell appops set %PKG% SYSTEM_ALERT_WINDOW allow >nul 2>&1
 echo   Setting the TV picture to 1080p...
 %ADB% -s %TARGET% shell cmd display set-user-preferred-display-mode 1920 1080 60 >nul 2>&1
+echo.
+echo   Your TV lets apps draw at 1280x720 and stretches that to its 1920x1080 screen.
+echo   PlaizierOS can ask it to draw everything at 1920x1080 instead. On some TVs that is
+echo   sharper; on others the TV's chip still shrinks it, and then it is only a bit slower.
+echo   You can always undo it with Back-to-720p.bat.
+choice /c YN /n /m "  Draw at 1920x1080? [Y/N] "
+if errorlevel 2 goto :skiphd
+call :sethd
+:skiphd
 echo   Opening PlaizierOS on the TV...
 %ADB% -s %TARGET% shell am start -n %PKG%/.MainActivity >nul 2>&1
 echo.
@@ -156,6 +168,8 @@ echo   Switching the Google TV home screen back on...
 %ADB% -s %TARGET% shell pm enable --user 0 com.google.android.apps.tv.launcherx >nul 2>&1
 %ADB% -s %TARGET% shell pm enable --user 0 com.google.android.tungsten.setupwraith >nul 2>&1
 %ADB% -s %TARGET% shell cmd package set-home-activity --user 0 com.google.android.apps.tv.launcherx/com.google.android.apps.tv.launcherx.home.HomeActivity >nul 2>&1
+%ADB% -s %TARGET% shell wm size reset >nul 2>&1
+%ADB% -s %TARGET% shell wm density reset >nul 2>&1
 echo.
 choice /c YN /n /m "  Also remove PlaizierOS from the TV? [Y/N] "
 if errorlevel 2 goto :restored
@@ -191,6 +205,24 @@ exit /b 1
 echo.
 pause
 exit /b 0
+
+rem Asks the TV to draw at 1920x1080, keeping everything the same size on screen.
+:sethd
+set "DENS="
+for /f "tokens=3" %%d in ('%ADB% -s %TARGET% shell wm density ^| find "Physical"') do set "DENS=%%d"
+if not defined DENS set "DENS=213"
+set /a NEWD=DENS*3/2
+%ADB% -s %TARGET% shell wm size 1920x1080 >nul 2>&1
+%ADB% -s %TARGET% shell wm density %NEWD% >nul 2>&1
+echo   The TV now draws at 1920x1080 [density %NEWD%].
+exit /b 0
+
+:res720
+echo   Switching back to the TV's own 1280x720 drawing...
+%ADB% -s %TARGET% shell wm size reset >nul 2>&1
+%ADB% -s %TARGET% shell wm density reset >nul 2>&1
+echo   Done.
+goto :end
 
 rem Writes plaizieros-report.txt: what the TV says about PlaizierOS, the picture, the internet and voice.
 :report

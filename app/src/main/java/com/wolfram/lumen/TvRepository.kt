@@ -9,6 +9,7 @@ import android.graphics.drawable.Drawable
 import android.media.tv.TvInputManager
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.toArgb
 import androidx.core.graphics.drawable.toBitmap
@@ -139,6 +140,17 @@ class TvRepository(private val context: Context) {
     }
 
     private val bigBanners = android.util.LruCache<String, ImageBitmap>(3)
+    private val dockBanners = android.util.LruCache<String, ImageBitmap>(40)
+
+    /**
+     * The app's logo for the dock: taken from the best resolution it ships and shrunk in halving steps
+     * to 320 pixels wide (smooth and sharp, where one big jump would look rough on the TV).
+     */
+    fun dockBanner(pkg: String): ImageBitmap? {
+        dockBanners.get(pkg)?.let { return it }
+        val big = hiResBanner(pkg)?.asAndroidBitmap() ?: return null
+        return smoothShrink(big, 320).asImageBitmap().also { dockBanners.put(pkg, it) }
+    }
 
     /**
      * The app's TV logo in the highest resolution it ships (for the big preview at the top), sharp at 1080p.
@@ -302,3 +314,11 @@ private fun darken(color: Color, amount: Float): Color =
         green = color.green * (1f - amount),
         blue = color.blue * (1f - amount),
     )
+
+/** Shrinks a picture to [width] pixels wide in halving steps, which keeps fine logo edges smooth. */
+internal fun smoothShrink(src: Bitmap, width: Int): Bitmap {
+    var b = if (src.config == Bitmap.Config.HARDWARE) src.copy(Bitmap.Config.ARGB_8888, false) else src
+    while (b.width / 2 >= width) b = Bitmap.createScaledBitmap(b, b.width / 2, (b.height / 2).coerceAtLeast(1), true)
+    if (b.width > width) b = Bitmap.createScaledBitmap(b, width, (width.toFloat() * b.height / b.width).roundToInt().coerceAtLeast(1), true)
+    return b
+}

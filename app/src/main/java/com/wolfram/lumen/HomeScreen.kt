@@ -61,6 +61,7 @@ import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.platform.LocalContext
@@ -286,7 +287,13 @@ fun LumenApp(
     }
 
     // The dock: only your favourites — real apps, Xbox and PlayStation.
-    val dock = favourites
+    // Their logos in the dock come in a sharp, smoothly shrunk version, loaded in the background.
+    var dockBanners by remember { mutableStateOf<Map<String, ImageBitmap>>(emptyMap()) }
+    LaunchedEffect(favourites.map { it.key }) {
+        val wanted = favourites.filter { it.kind == TileKind.APP }
+        dockBanners = withContext(Dispatchers.IO) { wanted.mapNotNull { t -> repo.dockBanner(t.key)?.let { t.key to it } }.toMap() }
+    }
+    val dock = remember(favourites, dockBanners) { favourites.map { t -> dockBanners[t.key]?.let { t.copy(banner = it) } ?: t } }
 
     /** Plays the logo takeover for [shown] and then opens [target] (a console's tile opens its HDMI input). */
     val onOpenAs: (Tile, Rect, Tile) -> Unit = { shown, from, target ->

@@ -254,7 +254,7 @@ fun SpecialFace(tile: Tile, tileSize: TileSize) {
                 .padding(if (big) 22.dp else 7.dp),
             contentAlignment = Alignment.Center,
         ) {
-            Image(logo, contentDescription = tile.label, contentScale = ContentScale.Fit, modifier = Modifier.fillMaxSize())
+            Image(logo, contentDescription = tile.label, contentScale = ContentScale.Fit, filterQuality = androidx.compose.ui.graphics.FilterQuality.High, modifier = Modifier.fillMaxSize())
         }
         return
     }

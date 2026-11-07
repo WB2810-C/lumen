@@ -167,7 +167,8 @@ object Consoles {
             )
             white
         }.getOrNull()
-        val logo = (fromPhone ?: fromApp ?: bundled)?.asImageBitmap()
+        // Shrunk smoothly to a sensible size for the tiles (a 512-pixel logo squeezed into a small tile looks rough).
+        val logo = (fromPhone ?: fromApp ?: bundled)?.let { smoothShrink(it, 240) }?.asImageBitmap()
         return console.tile.copy(banner = logo)
     }
 

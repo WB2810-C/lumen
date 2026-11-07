@@ -572,8 +572,9 @@ private fun SceneDock(
                 },
         ) {
             LazyRow(
-                horizontalArrangement = Arrangement.spacedBy(11.dp),
-                contentPadding = PaddingValues(horizontal = 13.dp, vertical = 10.dp),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                // Room around the tiles, so the selected one (a little bigger) never touches the glass edge.
+                contentPadding = PaddingValues(horizontal = 18.dp, vertical = 12.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier
                     .focusRestorer()
@@ -588,7 +589,7 @@ private fun SceneDock(
                     ) {
                         // A thin line between your apps and PlaizierOS's own buttons.
                         if (index == dock.size && dock.isNotEmpty()) {
-                            Box(Modifier.padding(end = 11.dp).width(1.dp).height(32.dp).background(Color.White.copy(alpha = 0.22f)))
+                            Box(Modifier.padding(end = 10.dp).width(1.dp).height(30.dp).background(Color.White.copy(alpha = 0.22f)))
                         }
                         DockTile(
                             tile = tile,
@@ -608,7 +609,8 @@ private fun SceneDock(
             hasFocus -> all.firstOrNull { it.key == selected }?.label.orEmpty()
             else -> ""
         }
-        val centre = centers[movingKey ?: selected ?: ""]
+        val target = centers[movingKey ?: selected ?: ""]
+        val centre by animateFloatAsState(target ?: 0f, tween(260, easing = androidx.compose.animation.core.FastOutSlowInEasing), label = "labelX")
         Text(
             label,
             color = Color.White,
@@ -622,7 +624,7 @@ private fun SceneDock(
                 .layout { measurable, constraints ->
                     val placeable = measurable.measure(constraints.copy(minWidth = 0))
                     layout(constraints.maxWidth, placeable.height) {
-                        val x = ((centre ?: (constraints.maxWidth / 2f)) - placeable.width / 2f).roundToInt()
+                        val x = ((if (target == null) constraints.maxWidth / 2f else centre) - placeable.width / 2f).roundToInt()
                         placeable.place(x.coerceIn(0, (constraints.maxWidth - placeable.width).coerceAtLeast(0)), 0)
                     }
                 },
@@ -642,30 +644,35 @@ private fun DockTile(
     onHold: (Tile) -> Unit,
 ) {
     var focused by remember { mutableStateOf(false) }
-    val lift by animateFloatAsState(if (focused) 1f else 0f, tween(180), label = "lift")
+    // Everything about being selected follows this one value, eased in and out over 260 ms,
+    // and is only read while drawing: moving along the dock never recomposes anything.
+    val lift by animateFloatAsState(
+        if (focused || moving) 1f else 0f,
+        tween(260, easing = androidx.compose.animation.core.FastOutSlowInEasing),
+        label = "lift",
+    )
     val coordinates = remember { arrayOfNulls<LayoutCoordinates>(1) }
-    val shape = RoundedCornerShape(9.dp)
+    val shape = RoundedCornerShape(8.dp)
     // Apps and consoles use the TV's 16:9 banner shape, so their logos fit exactly as their makers drew them.
     val wide = tile.kind != TileKind.LUMEN
     Box(
         modifier
-            .size(width = if (wide) 77.dp else 43.dp, height = 43.dp)
+            .size(width = if (wide) 72.dp else 40.5.dp, height = 40.5.dp)
             .graphicsLayer {
-                val s = 1f + 0.16f * lift
+                val s = 1f + 0.10f * lift
                 scaleX = s
                 scaleY = s
-                translationY = -5.dp.toPx() * lift
+                translationY = -2.dp.toPx() * lift
             }
             .onGloballyPositioned { coordinates[0] = it }
             .drawWithContent {
                 drawContent()
-                if (focused || moving) {
-                    val gap = 0.dp.toPx()
+                // Tiles that aren't selected are a little darker; the selected one brightens softly.
+                drawRect(Color.Black.copy(alpha = 0.2f * (1f - lift)))
+                if (lift > 0.01f) {
                     drawRoundRect(
-                        color = Color.White,
-                        topLeft = Offset(-gap, -gap),
-                        size = Size(size.width + gap * 2, size.height + gap * 2),
-                        cornerRadius = CornerRadius(9.dp.toPx()),
+                        color = Color.White.copy(alpha = lift),
+                        cornerRadius = CornerRadius(8.dp.toPx()),
                         style = Stroke(width = 2.dp.toPx()),
                     )
                 }
@@ -689,22 +696,25 @@ private fun DockTile(
             ),
         contentAlignment = Alignment.Center,
     ) {
-        DockFace(tile, dimmed = !focused)
+        DockFace(tile)
     }
 }
 
 @Composable
-private fun DockFace(tile: Tile, dimmed: Boolean) {
-    val dim = if (dimmed) ColorFilter.colorMatrix(androidx.compose.ui.graphics.ColorMatrix().apply { setToScale(0.82f, 0.82f, 0.82f, 1f) }) else null
+private fun DockFace(tile: Tile) {
+    val dim: ColorFilter? = null
     when (tile.kind) {
         TileKind.APP, TileKind.INPUT -> {
             val icon = tile.icon
             val banner = tile.banner
             when {
                 // The app's own TV banner fills the tile; without one, its icon sits in the middle on its colour.
-                banner != null -> Image(banner, contentDescription = tile.label, contentScale = ContentScale.Crop, colorFilter = dim, modifier = Modifier.fillMaxSize())
+                banner != null -> Image(
+                    banner, contentDescription = tile.label, contentScale = ContentScale.Crop, colorFilter = dim,
+                    filterQuality = androidx.compose.ui.graphics.FilterQuality.High, modifier = Modifier.fillMaxSize(),
+                )
                 icon != null -> Box(Modifier.fillMaxSize().background(tile.takeoverColor), contentAlignment = Alignment.Center) {
-                    Image(icon, contentDescription = tile.label, contentScale = ContentScale.Fit, colorFilter = dim, modifier = Modifier.fillMaxHeight(0.78f))
+                    Image(icon, contentDescription = tile.label, contentScale = ContentScale.Fit, colorFilter = dim, filterQuality = androidx.compose.ui.graphics.FilterQuality.High, modifier = Modifier.fillMaxHeight(0.78f))
                 }
                 else -> Box(Modifier.fillMaxSize().background(Color(0xFF2A2A30)), contentAlignment = Alignment.Center) {
                     Text(tile.label, color = Color.White, fontSize = 9.sp, fontWeight = FontWeight.SemiBold, maxLines = 2)
