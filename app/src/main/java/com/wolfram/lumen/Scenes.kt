@@ -515,7 +515,8 @@ private fun SceneCardView(card: SceneCard, glass: ImageBitmap?, onClick: () -> U
             }
             Text(
                 card.title, color = Color.White, fontSize = 13.sp, lineHeight = 16.sp, fontWeight = FontWeight.SemiBold,
-                maxLines = if (card.subtitle.isBlank() && card.progress == null) 3 else 2, overflow = TextOverflow.Ellipsis,
+                // Everything has to fit the 72 dp card: two lines, or one when there's a line under it.
+                maxLines = if (card.subtitle.isNotBlank() && card.progress == null) 1 else 2, overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.padding(top = 2.dp),
             )
             if (card.subtitle.isNotBlank() && card.progress == null) {

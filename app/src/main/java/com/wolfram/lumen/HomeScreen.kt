@@ -595,7 +595,7 @@ fun LumenApp(
     val playing = nowPlaying.current
     val cards = buildList {
         news.items.firstOrNull()?.let {
-            add(SceneCard("news", "$newsSource · ${clockTime(it.published)}", it.title, it.summary, image = it.image))
+            add(SceneCard("news", "$newsSource · ${clockTime(it.published)}", it.title, "", image = it.image)) // the headline gets both lines
         }
         val live = schedule.live.firstOrNull { it.live } ?: schedule.live.firstOrNull()
         if (live != null) {
