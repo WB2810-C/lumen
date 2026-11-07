@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#E6E8EC">
-<title>Lumen Remote</title>
+<title>PlaizierOS Remote</title>
 <style>
   :root { --ink:#12151C; --mut:rgba(18,21,28,.62); --card:rgba(255,255,255,.82); --line:rgba(18,21,28,.08); --soft:rgba(18,21,28,.05); }
   * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
@@ -61,13 +61,13 @@
 <main>
   <header>
     <div>
-      <h1>Lumen</h1>
+      <h1>PlaizierOS</h1>
       <div class="status"><span class="dot" id="dot"></span><span id="status">Connected to your TV</span></div>
     </div>
   </header>
 
   <section class="card">
-    <div class="label">Ask Lumen</div>
+    <div class="label">Ask PlaizierOS</div>
     <form class="row" id="askForm">
       <input id="ask" placeholder="Ask anything…" autocomplete="off" enterkeyhint="send">
       <button class="go" aria-label="Send"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M4 12l16-8-6 16-2.5-6.5z"/></svg></button>
@@ -131,7 +131,7 @@
     $('ask').value = ''; $('ask').blur();
     const box = $('answer'); box.textContent = 'Thinking…'; box.classList.add('show');
     try { const r = await api('/api/ask', { text }); box.textContent = r.answer || '…'; }
-    catch { box.textContent = 'The TV didn’t answer. Is Lumen open?'; }
+    catch { box.textContent = 'The TV didn’t answer. Is PlaizierOS open?'; }
   });
 
   $('ytForm').addEventListener('submit', async e => {

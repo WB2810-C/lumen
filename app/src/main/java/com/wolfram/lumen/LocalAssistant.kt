@@ -271,7 +271,7 @@ fun freeAssistantPrompt(info: LiveInfo, apps: List<Tile>): String {
     val news = info.news.items.take(6).joinToString("\n") { "- ${it.title}" }.ifBlank { "not loaded" }
     val scores = info.matches.joinToString("; ") { "${it.home.name} ${it.home.score}-${it.away.score} ${it.away.name} (${it.clock})" }.ifBlank { "no live matches" }
     return """
-        You are the assistant built into Lumen, $owner's TV home screen.
+        You are the assistant built into PlaizierOS, $owner's TV home screen.
         Answers are shown on a TV: reply in the user's language (Dutch or English), in one to three short sentences, no markdown.
         You can't control the TV yourself. If asked to open an app, change a setting or play something, say they can just ask "open Netflix", "HDMI 1", "theme Ocean" or "search YouTube for …".
         If you don't know something current, say so instead of guessing.

@@ -1,6 +1,6 @@
-# Lumen — a home screen for your Peaq Google TV
+# PlaizierOS — a home screen for your Peaq Google TV
 
-Lumen replaces the Google TV home screen with your own, in the **Cinema** layout (like Apple TV,
+PlaizierOS (inside the code still called Lumen) replaces the Google TV home screen with your own, in the **Cinema** layout (like Apple TV,
 but better): tabs at the top, a floating glass dock with your favourites at the bottom, and a big
 preview that fills the screen with whatever you select — "Good evening, Wolfram" with the big
 clock and the weather, the top VRT NWS story with its photo, your teams' scores, the song that's
@@ -64,12 +64,12 @@ GitHub builds the app for you in the cloud, for free (`.github/workflows/build.y
 
 1. Put this project in a GitHub repository (Claude can do this for you once GitHub is
    connected). Every change starts a build that takes about 5 minutes.
-2. Download **Lumen-installer.zip** from the repository's **Releases** page (or Claude sends it).
-3. Unzip it on your laptop and double-click **Install-Lumen.bat**. It downloads Google's small adb tool by itself, connects to
+2. Download **PlaizierOS-installer.zip** from the repository's **Releases** page (or Claude sends it).
+3. Unzip it on your laptop and double-click **Install-PlaizierOS.bat**. It downloads Google's small adb tool by itself, connects to
    the TV, installs Lumen, switches on the microphone and Now Playing, checks that Lumen starts,
    sets the TV picture to 1080p, and only then asks whether to make it your home screen.
-   Undo with **Back-to-Google-TV.bat**. Something not working? It saves **lumen-report.txt**
-   (or run **Lumen-report.bat**): that file shows what the TV says about the picture, the
+   Undo with **Back-to-Google-TV.bat**. Something not working? It saves **plaizieros-report.txt**
+   (or run **PlaizierOS-report.bat**): that file shows what the TV says about the picture, the
    internet and voice.
 
 That replaces steps 1 to 5 below. If a build fails, the log is on the `build-output` branch.

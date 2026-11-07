@@ -269,14 +269,15 @@ fun LumenApp(
     }
 
     // The dock: Lumen, VRT NWS and Scores first, then your favourites (with Xbox and PlayStation), then Files.
+    val appName = stringResource(R.string.app_name)
     val newsLabel = stringResource(R.string.news_source)
     val scoresLabel = stringResource(R.string.dock_scores)
     val filesLabel = stringResource(R.string.tab_files)
-    val dock = remember(favourites, theme, newsLabel, scoresLabel, filesLabel) {
+    val dock = remember(favourites, theme, appName, newsLabel, scoresLabel, filesLabel) {
         fun own(key: String, label: String, colour: Color) =
             Tile(key = key, label = label, kind = TileKind.LUMEN, banner = null, icon = null, takeoverColor = colour, glow = colour)
         listOf(
-            own(LUMEN_NOW, "Lumen", theme.main),
+            own(LUMEN_NOW, appName, theme.main),
             own(LUMEN_NEWS, newsLabel, Color(0xFF5A6B8C)),
             own(LUMEN_SCORES, scoresLabel, Color(0xFF1E9E5A)),
         ) + favourites + own(LUMEN_FILES, filesLabel, Color(0xFF3B82F6))

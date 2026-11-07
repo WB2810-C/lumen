@@ -14,7 +14,7 @@ import java.net.URL
 
 /** Small helpers for downloading text and pictures. */
 object Net {
-    private const val USER_AGENT = "Lumen-TV/2.0 (personal Android TV home screen)"
+    private const val USER_AGENT = "PlaizierOS-TV/4.2 (personal Android TV home screen)"
     private val images = LruCache<String, ImageBitmap>(48)
 
     suspend fun get(url: String, timeoutMs: Int = 15_000): String = withContext(Dispatchers.IO) {

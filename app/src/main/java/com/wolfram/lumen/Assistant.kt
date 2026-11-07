@@ -282,7 +282,7 @@ fun lumenTools(): JSONArray = JSONArray().apply {
         JSONObject().put("app_name", stringProp("The app's name, e.g. \"YouTube\" or \"Netflix\".")), listOf("app_name")))
     put(tool("open_input", "Switch the TV to one of its HDMI inputs.",
         JSONObject().put("input_name", stringProp("The input's name, e.g. \"HDMI 1\".")), listOf("input_name")))
-    put(tool("set_theme", "Change the colour theme of the Lumen home screen.",
+    put(tool("set_theme", "Change the colour theme of the PlaizierOS home screen.",
         JSONObject().put("theme", stringProp("The theme id.", THEMES.map { it.id })), listOf("theme")))
     put(tool("show_page", "Show a page of the home screen.",
         JSONObject().put("page", stringProp("Which page.", listOf("home", "apps", "inputs", "themes"))), listOf("page")))
@@ -317,7 +317,7 @@ fun assistantSystemPrompt(
     val now = SimpleDateFormat("EEEE d MMMM yyyy, HH:mm", Locale.ENGLISH).format(Date())
     val owner = LumenConfig.OWNER_NAME.ifBlank { "the owner" }
     return """
-        You are the assistant built into Lumen, $owner's own TV home screen (an Android TV launcher).
+        You are the assistant built into PlaizierOS, $owner's own TV home screen (an Android TV launcher).
         Your answers are shown on a TV and read from the sofa: reply in the language the user speaks
         (usually Dutch or English) in one to three short sentences. No markdown, no lists unless asked.
 

@@ -363,7 +363,7 @@ fun WelcomeOverlay(progress: Float, glow: Color) {
                     .border(1.5.dp, ink.copy(alpha = 0.6f), CircleShape),
                 contentAlignment = Alignment.Center,
             ) {
-                Text("L", color = ink, fontSize = 60.sp, fontWeight = FontWeight.SemiBold)
+                Text("P", color = ink, fontSize = 60.sp, fontWeight = FontWeight.SemiBold)
             }
             Text(
                 text = stringResource(R.string.app_name),

@@ -32,7 +32,7 @@
     <string name="theme_stone">Steen</string>
     <string name="theme_silver">Zilver</string>
     <string name="theme_cloud">Wolk</string>
-    <string name="assistant_title">Lumen-assistent</string>
+    <string name="assistant_title">PlaizierOS-assistent</string>
     <string name="assistant_subtitle">Vraag alles · open apps · wissel van thema</string>
     <string name="assistant_intro">Probeer “open Netflix”, “HDMI 1”, “thema Oceaan”, “zoek … op YouTube”, “wat voor weer is het?” of “het nieuws”.</string>
     <string name="assistant_error_laptop">Ik kan de AI op je laptop niet bereiken. Staat hij aan en draait Ollama?</string>
@@ -51,7 +51,7 @@
     <string name="assistant_suggest_theme">Zet het thema op Oceaan</string>
     <string name="assistant_suggest_weather">Wat voor weer is het vandaag?</string>
     <string name="assistant_setup_title">Zet de assistent aan</string>
-    <string name="assistant_setup_body">Zet je Claude API-sleutel in local.properties en bouw Lumen opnieuw. In de README staat hoe — het duurt twee minuten.</string>
+    <string name="assistant_setup_body">Zet je Claude API-sleutel in local.properties en bouw PlaizierOS opnieuw. In de README staat hoe — het duurt twee minuten.</string>
     <string name="assistant_error_key">Je Claude API-sleutel werkt niet. Controleer hem in local.properties.</string>
     <string name="assistant_error_credit">Je API-tegoed is op. Vul het aan in de Claude Console.</string>
     <string name="assistant_error_busy">Claude heeft het nu druk. Probeer het zo meteen opnieuw.</string>
@@ -86,7 +86,7 @@
     <string name="island_goal">GOAL · %1$s</string>
     <string name="remote_button">Telefoon als afstandsbediening</string>
     <string name="remote_title">Gebruik je telefoon als afstandsbediening</string>
-    <string name="remote_steps">1. Verbind je telefoon met dezelfde wifi\n2. Scan deze code met de camera\n3. Typ, vraag Lumen iets, open apps, stuur YouTube-links of toon foto\'s, video\'s en bestanden (ook uit iCloud Drive)</string>
+    <string name="remote_steps">1. Verbind je telefoon met dezelfde wifi\n2. Scan deze code met de camera\n3. Typ, vraag PlaizierOS iets, open apps, stuur YouTube-links of toon foto\'s, video\'s en bestanden (ook uit iCloud Drive)</string>
     <string name="remote_no_wifi">Verbind de tv eerst met wifi</string>
     <string name="files_title">Van je telefoon</string>
     <string name="files_empty">Nog niets hier. Open de telefoon-afstandsbediening, tik op “Toon op tv” en kies foto\'s, video\'s, pdf\'s of muziek — uit je bibliotheek, de Bestanden-app of iCloud Drive.</string>
@@ -103,13 +103,13 @@
     <string name="net_error_ssl">beveiligde verbinding mislukt, controleer de datum en tijd van de tv</string>
     <string name="net_error_http">de server gaf fout %1$d</string>
     <string name="net_error_format">de server stuurde een onverwacht antwoord</string>
-    <string name="net_error_permission">Lumen mag het internet niet gebruiken</string>
+    <string name="net_error_permission">PlaizierOS mag het internet niet gebruiken</string>
     <string name="net_error_other">fout %1$s</string>
     <string name="assistant_voice_unavailable">Spraak werkt nog niet op deze tv. Typ je vraag hier, of gebruik de telefoon-afstandsbediening: daar werkt de microfoon van het iPhone-toetsenbord.</string>
     <string name="dock_scores">Scores</string>
     <string name="hold_rearrange">Houd OK ingedrukt om te verplaatsen</string>
     <string name="move_hint">◀ ▶ verplaatsen · OK klaar · ▼ verwijderen</string>
-    <string name="hero_lumen_hint">Druk op OK om Lumen iets te vragen</string>
+    <string name="hero_lumen_hint">Druk op OK om PlaizierOS iets te vragen</string>
     <string name="hero_last_opened">Laatst geopend %1$s</string>
     <string name="hero_open_hint">Druk op OK om te openen</string>
     <string name="time_today">vandaag om %1$s</string>
@@ -118,11 +118,11 @@
     <string name="console_found">Op %1$s · automatisch gevonden</string>
     <string name="console_on">Op %1$s</string>
     <string name="console_switch">Druk op OK om ernaar over te schakelen</string>
-    <string name="console_not_found">Lumen heeft hem nog niet gevonden. Zet hem aan, of kies zijn HDMI-poort.</string>
+    <string name="console_not_found">PlaizierOS heeft hem nog niet gevonden. Zet hem aan, of kies zijn HDMI-poort.</string>
     <string name="console_choose_port">Kies HDMI-poort</string>
     <string name="console_choose_title">Op welke HDMI-poort zit je %1$s?</string>
-    <string name="console_choose_body">Lumen onthoudt het. Als de console zijn naam via HDMI aan de tv doorgeeft, vindt Lumen hem zelf, ook op een andere poort.</string>
-    <string name="console_no_ports">Lumen ziet geen HDMI-poorten op deze tv en kan dus niet naar de console overschakelen. Gebruik de bronknop van de tv.</string>
+    <string name="console_choose_body">PlaizierOS onthoudt het. Als de console zijn naam via HDMI aan de tv doorgeeft, vindt PlaizierOS hem zelf, ook op een andere poort.</string>
+    <string name="console_no_ports">PlaizierOS ziet geen HDMI-poorten op deze tv en kan dus niet naar de console overschakelen. Gebruik de bronknop van de tv.</string>
     <string name="scores_live">LIVE</string>
     <string name="scores_next">Volgende · jouw ploegen</string>
     <string name="scores_quiet">Nu geen live wedstrijden</string>
@@ -130,7 +130,7 @@
     <string name="scores_none_soon">Geen wedstrijden in de komende twee weken.</string>
     <string name="files_count">%1$d bestanden van je telefoon</string>
     <string name="files_open_hint">Druk op OK om ze te openen</string>
-    <string name="screen_info">Scherm: Lumen tekent op %1$s pixels · tv-beeld %2$s</string>
+    <string name="screen_info">Scherm: PlaizierOS tekent op %1$s pixels · tv-beeld %2$s</string>
     <string name="theme_cinema">Cinema</string>
     <string name="theme_cinema_light">Cinema licht</string>
 </resources>

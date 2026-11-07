@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- 320x180 banner shown for Lumen in the TV's own app list -->
+<!-- 320x180 banner shown for PlaizierOS in the TV's own app list -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="320dp"
     android:height="180dp"
@@ -27,5 +27,5 @@
         android:strokeWidth="9"
         android:strokeLineCap="round"
         android:strokeLineJoin="round"
-        android:pathData="M146,72L146,108L176,108" />
+        android:pathData="M146,110L146,70L162,70A13,13 0,0 1,162,96L146,96" />
 </vector>

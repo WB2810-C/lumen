@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Lumen</string>
+    <string name="app_name">PlaizierOS</string>
     <string name="tab_home">Home</string>
     <string name="tab_apps">Apps</string>
     <string name="search">Search</string>
@@ -33,7 +33,7 @@
     <string name="theme_stone">Stone</string>
     <string name="theme_silver">Silver</string>
     <string name="theme_cloud">Cloud</string>
-    <string name="assistant_title">Lumen Assistant</string>
+    <string name="assistant_title">PlaizierOS Assistant</string>
     <string name="assistant_subtitle">Ask anything · open apps · change themes</string>
     <string name="assistant_intro">Try “open Netflix”, “HDMI 1”, “theme Ocean”, “search YouTube for…”, “what\'s the weather?” or “the news”.</string>
     <string name="assistant_error_laptop">I can\'t reach the AI on your laptop. Is it switched on, with Ollama running?</string>
@@ -52,7 +52,7 @@
     <string name="assistant_suggest_theme">Change the theme to Ocean</string>
     <string name="assistant_suggest_weather">What\'s the weather today?</string>
     <string name="assistant_setup_title">Switch on the assistant</string>
-    <string name="assistant_setup_body">Add your Claude API key to local.properties and rebuild Lumen. The README explains how — it takes two minutes.</string>
+    <string name="assistant_setup_body">Add your Claude API key to local.properties and rebuild PlaizierOS. The README explains how — it takes two minutes.</string>
     <string name="assistant_error_key">Your Claude API key isn\'t working. Check it in local.properties.</string>
     <string name="assistant_error_credit">Your API credit has run out. Top it up in the Claude Console.</string>
     <string name="assistant_error_busy">Claude is busy right now. Try again in a moment.</string>
@@ -87,7 +87,7 @@
     <string name="island_goal">GOAL · %1$s</string>
     <string name="remote_button">Phone remote</string>
     <string name="remote_title">Use your phone as a remote</string>
-    <string name="remote_steps">1. Connect your phone to the same Wi-Fi\n2. Scan this code with the camera\n3. Type, ask Lumen, open apps, send YouTube links, or show photos, videos and files (also from iCloud Drive)</string>
+    <string name="remote_steps">1. Connect your phone to the same Wi-Fi\n2. Scan this code with the camera\n3. Type, ask PlaizierOS, open apps, send YouTube links, or show photos, videos and files (also from iCloud Drive)</string>
     <string name="remote_no_wifi">Connect the TV to Wi-Fi first</string>
     <string name="files_title">From your phone</string>
     <string name="files_empty">Nothing here yet. Open the phone remote, tap “Show on TV” and pick photos, videos, PDFs or music — from your library, the Files app or iCloud Drive.</string>
@@ -104,13 +104,13 @@
     <string name="net_error_ssl">the secure connection failed, check the TV\'s date and time</string>
     <string name="net_error_http">the server answered with error %1$d</string>
     <string name="net_error_format">the server sent an unexpected answer</string>
-    <string name="net_error_permission">Lumen isn\'t allowed to use the internet</string>
+    <string name="net_error_permission">PlaizierOS isn\'t allowed to use the internet</string>
     <string name="net_error_other">error %1$s</string>
     <string name="assistant_voice_unavailable">Voice doesn\'t work on this TV yet. Type your question here, or use the phone remote: the microphone on the iPhone keyboard works there.</string>
     <string name="dock_scores">Scores</string>
     <string name="hold_rearrange">Hold OK to rearrange</string>
     <string name="move_hint">◀ ▶ move · OK done · ▼ remove</string>
-    <string name="hero_lumen_hint">Press OK to ask Lumen anything</string>
+    <string name="hero_lumen_hint">Press OK to ask PlaizierOS anything</string>
     <string name="hero_last_opened">Last opened %1$s</string>
     <string name="hero_open_hint">Press OK to open</string>
     <string name="time_today">today at %1$s</string>
@@ -119,11 +119,11 @@
     <string name="console_found">On %1$s · found automatically</string>
     <string name="console_on">On %1$s</string>
     <string name="console_switch">Press OK to switch to it</string>
-    <string name="console_not_found">Lumen hasn\'t found it yet. Switch it on, or choose its HDMI port.</string>
+    <string name="console_not_found">PlaizierOS hasn\'t found it yet. Switch it on, or choose its HDMI port.</string>
     <string name="console_choose_port">Choose HDMI port</string>
     <string name="console_choose_title">Which HDMI port is your %1$s on?</string>
-    <string name="console_choose_body">Lumen remembers it. When the console tells the TV its name over HDMI, Lumen finds it by itself, even on another port.</string>
-    <string name="console_no_ports">Lumen can\'t see any HDMI ports on this TV, so it can\'t switch to the console. Use the TV\'s input button instead.</string>
+    <string name="console_choose_body">PlaizierOS remembers it. When the console tells the TV its name over HDMI, PlaizierOS finds it by itself, even on another port.</string>
+    <string name="console_no_ports">PlaizierOS can\'t see any HDMI ports on this TV, so it can\'t switch to the console. Use the TV\'s input button instead.</string>
     <string name="scores_live">LIVE</string>
     <string name="scores_next">Next · your teams</string>
     <string name="scores_quiet">No live matches right now</string>
@@ -131,7 +131,7 @@
     <string name="scores_none_soon">No matches in the next two weeks.</string>
     <string name="files_count">%1$d files from your phone</string>
     <string name="files_open_hint">Press OK to open them</string>
-    <string name="screen_info">Screen: Lumen draws at %1$s pixels · TV picture %2$s</string>
+    <string name="screen_info">Screen: PlaizierOS draws at %1$s pixels · TV picture %2$s</string>
     <string name="theme_cinema">Cinema</string>
     <string name="theme_cinema_light">Cinema Light</string>
 </resources>

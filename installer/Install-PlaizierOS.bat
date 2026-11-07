@@ -1,6 +1,6 @@
 @echo off
 setlocal EnableExtensions
-title Lumen - TV installer
+title PlaizierOS - TV installer
 cd /d "%~dp0"
 set "ADB=platform-tools\adb.exe"
 set "PKG=com.wolfram.lumen"
@@ -11,15 +11,15 @@ if /i "%~1"=="report" set "MODE=report"
 echo.
 echo   ==========================================
 if "%MODE%"=="restore" echo     Back to the Google TV home screen
-if "%MODE%"=="install" echo     Lumen  -  put it on your TV
-if "%MODE%"=="report" echo     Lumen report  -  what the TV says
+if "%MODE%"=="install" echo     PlaizierOS  -  put it on your TV
+if "%MODE%"=="report" echo     PlaizierOS report  -  what the TV says
 echo   ==========================================
 echo.
 
 if not "%MODE%"=="install" goto :getadb
-if exist "Lumen.apk" goto :getadb
-echo   Lumen.apk is not next to this file.
-echo   Unzip Lumen-installer.zip first: right-click it, Extract All, then open that folder.
+if exist "PlaizierOS.apk" goto :getadb
+echo   PlaizierOS.apk is not next to this file.
+echo   Unzip PlaizierOS-installer.zip first: right-click it, Extract All, then open that folder.
 goto :fail
 
 :getadb
@@ -89,53 +89,53 @@ if "%MODE%"=="restore" goto :restore
 if "%MODE%"=="report" goto :reportonly
 
 echo.
-echo   Installing Lumen... this takes a moment.
+echo   Installing PlaizierOS... this takes a moment.
 echo   If the TV shows a Play Protect message, choose "Install anyway".
-%ADB% -s %TARGET% install -r Lumen.apk > "%TEMP%\lumen-install.txt" 2>&1
+%ADB% -s %TARGET% install -r PlaizierOS.apk > "%TEMP%\lumen-install.txt" 2>&1
 type "%TEMP%\lumen-install.txt"
 findstr /c:"Success" "%TEMP%\lumen-install.txt" >nul
 if not errorlevel 1 goto :installed
 findstr /c:"UPDATE_INCOMPATIBLE" /c:"SIGNATURES" "%TEMP%\lumen-install.txt" >nul
 if errorlevel 1 goto :installfail
-echo   An older Lumen made with a different key is on the TV. Replacing it...
+echo   An older PlaizierOS made with a different key is on the TV. Replacing it...
 %ADB% -s %TARGET% uninstall %PKG% >nul 2>&1
-%ADB% -s %TARGET% install Lumen.apk > "%TEMP%\lumen-install.txt" 2>&1
+%ADB% -s %TARGET% install PlaizierOS.apk > "%TEMP%\lumen-install.txt" 2>&1
 type "%TEMP%\lumen-install.txt"
 findstr /c:"Success" "%TEMP%\lumen-install.txt" >nul
 if errorlevel 1 goto :installfail
 
 :installed
 echo.
-echo   Switching on the microphone and Now Playing for Lumen...
+echo   Switching on the microphone and Now Playing for PlaizierOS...
 %ADB% -s %TARGET% shell pm grant %PKG% android.permission.RECORD_AUDIO >nul 2>&1
 %ADB% -s %TARGET% shell cmd notification allow_listener %PKG%/%PKG%.MediaListener >nul 2>&1
 %ADB% -s %TARGET% shell appops set %PKG% SYSTEM_ALERT_WINDOW allow >nul 2>&1
 echo   Setting the TV picture to 1080p...
 %ADB% -s %TARGET% shell cmd display set-user-preferred-display-mode 1920 1080 60 >nul 2>&1
-echo   Opening Lumen on the TV...
+echo   Opening PlaizierOS on the TV...
 %ADB% -s %TARGET% shell am start -n %PKG%/.MainActivity >nul 2>&1
 echo.
-choice /c YN /n /m "  Do you see Lumen on the TV now? [Y/N] "
+choice /c YN /n /m "  Do you see PlaizierOS on the TV now? [Y/N] "
 if errorlevel 2 goto :notshowing
 
 echo.
-echo   Make Lumen the home screen? Then the Home button on the remote opens Lumen.
+echo   Make PlaizierOS the home screen? Then the Home button on the remote opens PlaizierOS.
 echo   You can undo it any time with Back-to-Google-TV.bat.
-choice /c YN /n /m "  Make Lumen the home screen? [Y/N] "
+choice /c YN /n /m "  Make PlaizierOS the home screen? [Y/N] "
 if errorlevel 2 goto :donenohome
 %ADB% -s %TARGET% shell cmd package set-home-activity --user 0 %PKG%/.MainActivity >nul 2>&1
 %ADB% -s %TARGET% shell pm disable-user --user 0 com.google.android.apps.tv.launcherx >nul 2>&1
 %ADB% -s %TARGET% shell pm disable-user --user 0 com.google.android.tungsten.setupwraith >nul 2>&1
 %ADB% -s %TARGET% shell input keyevent KEYCODE_HOME >nul 2>&1
 echo.
-echo   Done! Press Home on the remote and Lumen opens.
-echo   To update Lumen later, just run this file again with the new Lumen.apk.
+echo   Done! Press Home on the remote and PlaizierOS opens.
+echo   To update PlaizierOS later, just run this file again with the new PlaizierOS.apk.
 call :report
 goto :end
 
 :donenohome
 echo.
-echo   Done! Lumen is in the TV's app list. Your normal home screen stays.
+echo   Done! PlaizierOS is in the TV's app list. Your normal home screen stays.
 call :report
 goto :end
 
@@ -145,10 +145,10 @@ goto :end
 
 :notshowing
 echo.
-echo   Then Lumen didn't start properly. Your normal home screen stays as it is.
-echo   Saving what the TV reported in lumen-crash.txt - send that file to Claude.
-%ADB% -s %TARGET% logcat -d -b crash > lumen-crash.txt 2>&1
-%ADB% -s %TARGET% logcat -d -t 400 *:E >> lumen-crash.txt 2>&1
+echo   Then PlaizierOS didn't start properly. Your normal home screen stays as it is.
+echo   Saving what the TV reported in plaizieros-crash.txt - send that file to Claude.
+%ADB% -s %TARGET% logcat -d -b crash > plaizieros-crash.txt 2>&1
+%ADB% -s %TARGET% logcat -d -t 400 *:E >> plaizieros-crash.txt 2>&1
 goto :end
 
 :restore
@@ -157,7 +157,7 @@ echo   Switching the Google TV home screen back on...
 %ADB% -s %TARGET% shell pm enable --user 0 com.google.android.tungsten.setupwraith >nul 2>&1
 %ADB% -s %TARGET% shell cmd package set-home-activity --user 0 com.google.android.apps.tv.launcherx/com.google.android.apps.tv.launcherx.home.HomeActivity >nul 2>&1
 echo.
-choice /c YN /n /m "  Also remove Lumen from the TV? [Y/N] "
+choice /c YN /n /m "  Also remove PlaizierOS from the TV? [Y/N] "
 if errorlevel 2 goto :restored
 %ADB% -s %TARGET% uninstall %PKG%
 :restored
@@ -192,13 +192,13 @@ echo.
 pause
 exit /b 0
 
-rem Writes lumen-report.txt: what the TV says about Lumen, the picture, the internet and voice.
+rem Writes plaizieros-report.txt: what the TV says about PlaizierOS, the picture, the internet and voice.
 :report
 echo.
-echo   Writing lumen-report.txt - if something doesn't work, send that file to Claude.
+echo   Writing plaizieros-report.txt - if something doesn't work, send that file to Claude.
 timeout /t 5 /nobreak >nul
-set "R=lumen-report.txt"
-> "%R%" echo Lumen report %date% %time%
+set "R=plaizieros-report.txt"
+> "%R%" echo PlaizierOS report %date% %time%
 >> "%R%" echo ==== TV
 %ADB% -s %TARGET% shell getprop ro.product.manufacturer >> "%R%" 2>&1
 %ADB% -s %TARGET% shell getprop ro.product.model >> "%R%" 2>&1
@@ -220,12 +220,12 @@ set "R=lumen-report.txt"
 >> "%R%" echo ==== Voice
 %ADB% -s %TARGET% shell cmd package query-services -a android.speech.RecognitionService >> "%R%" 2>&1
 %ADB% -s %TARGET% shell cmd package query-activities -a android.speech.action.RECOGNIZE_SPEECH >> "%R%" 2>&1
->> "%R%" echo ==== Lumen
+>> "%R%" echo ==== PlaizierOS
 %ADB% -s %TARGET% shell "dumpsys package %PKG% | grep -E 'versionName|RECORD_AUDIO|INTERNET'" >> "%R%" 2>&1
 %ADB% -s %TARGET% logcat -d -s Lumen >> "%R%" 2>&1
 >> "%R%" echo ==== Crashes
 %ADB% -s %TARGET% logcat -d -b crash >> "%R%" 2>&1
-echo   Saved lumen-report.txt
+echo   Saved plaizieros-report.txt
 exit /b 0
 
 rem Waits up to 90 seconds until the TV is connected and allowed. errorlevel 0 = ready.
