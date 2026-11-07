@@ -14,6 +14,9 @@ object LumenConfig {
     /** Play the welcome animation when the TV starts. */
     const val WELCOME_ANIMATION = true
 
+    /** After standby the TV comes back on Lumen's home screen, not on the app you were watching. */
+    const val HOME_AFTER_STANDBY = true
+
     /**
      * Ask the TV for the sharpest picture it can take (1080p on yours) while Lumen is on screen,
      * instead of the 720p the stick sometimes picks.

@@ -36,7 +36,10 @@ class MainActivity : ComponentActivity() {
         requestSharpestPicture()
         Sounds.init(applicationContext)
         PhoneRemoteServer.start(applicationContext)
-        val showIntro = savedInstanceState == null
+        WakeToHome.register(applicationContext)
+        // The welcome animation only plays when the TV has just started, never when you come back
+        // to Lumen or wake the TV from standby: then the home screen is there instantly.
+        val showIntro = savedInstanceState == null && SystemClock.elapsedRealtime() < 5 * 60_000L
         setContent {
             LumenApp(
                 resumeTick = resumeTick.intValue,

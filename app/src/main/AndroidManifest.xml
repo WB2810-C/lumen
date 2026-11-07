@@ -12,6 +12,8 @@
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <!-- To show the TV's address in the phone-remote QR code -->
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <!-- Lets Lumen come back to the front when the TV goes to standby (the installer switches it on) -->
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
 
     <!-- Lets the launcher see the other apps installed on the TV (Android 11+ package visibility) -->
     <queries>
