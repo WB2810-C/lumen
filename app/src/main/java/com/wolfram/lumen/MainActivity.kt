@@ -1,8 +1,11 @@
 package com.wolfram.lumen
 
 import android.content.Intent
+import android.os.Build
 import android.os.Bundle
 import android.os.SystemClock
+import android.util.Log
+import android.view.Display
 import android.view.KeyEvent
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -29,6 +32,8 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        Perf.init(applicationContext)
+        requestSharpestPicture()
         Sounds.init(applicationContext)
         PhoneRemoteServer.start(applicationContext)
         val showIntro = savedInstanceState == null
@@ -54,6 +59,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
+        requestSharpestPicture()
         wake()
         resumeTick.intValue += 1
     }
@@ -79,6 +85,35 @@ class MainActivity : ComponentActivity() {
             return true
         }
         return super.dispatchKeyEvent(event)
+    }
+
+    /**
+     * Picks the TV's sharpest picture mode (1920×1080 on a Full HD TV) at the refresh rate it's using now,
+     * and asks Android to switch to it while Lumen is on screen.
+     */
+    private fun requestSharpestPicture() {
+        if (!LumenConfig.SHARPEST_PICTURE) return
+        runCatching {
+            val screen: Display = (if (Build.VERSION.SDK_INT >= 30) display else null)
+                ?: @Suppress("DEPRECATION") windowManager.defaultDisplay
+                ?: return
+            val current = screen.mode
+            val best = screen.supportedModes.maxWithOrNull(
+                compareBy<Display.Mode>(
+                    { it.physicalWidth.toLong() * it.physicalHeight },
+                    { -kotlin.math.abs(it.refreshRate - current.refreshRate) },
+                ),
+            ) ?: return
+            Log.i(
+                LOG_TAG,
+                "display: now ${current.physicalWidth}x${current.physicalHeight}@${current.refreshRate}, " +
+                    "best ${best.physicalWidth}x${best.physicalHeight}@${best.refreshRate}, " +
+                    "all " + screen.supportedModes.joinToString { "${it.physicalWidth}x${it.physicalHeight}@${it.refreshRate}" },
+            )
+            if (window.attributes.preferredDisplayModeId != best.modeId) {
+                window.attributes = window.attributes.also { it.preferredDisplayModeId = best.modeId }
+            }
+        }.onFailure { Log.w(LOG_TAG, "display: couldn't pick a picture mode", it) }
     }
 
     private fun wake() {

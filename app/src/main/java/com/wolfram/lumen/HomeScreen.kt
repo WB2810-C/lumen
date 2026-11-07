@@ -141,19 +141,16 @@ fun LumenApp(
     LaunchedEffect(tab) { if (tab == Tab.FILES) files = FileStore.list(context) }
 
     // Live things on the home screen.
-    val weather by rememberWeather()
+    // Weather and VRT NWS refresh by themselves (every 15 minutes / every hour), retry quickly
+    // when they fail, and reload when the Wi-Fi comes back or Lumen comes back on screen.
+    val weatherLive by rememberWeather(resumeTick)
+    val weather = weatherLive.value
     val history by rememberHistoryFact()
-    var news by remember { mutableStateOf(NewsState()) }
-    var newsStart by remember { mutableStateOf<Int?>(null) }
-    // VRT NWS refreshes by itself every hour (every 5 minutes while it can't be reached).
-    LaunchedEffect(Unit) {
-        while (true) {
-            val ok = runCatching { fetchVrtNews() }
-                .onSuccess { if (it.isNotEmpty()) news = NewsState(it, System.currentTimeMillis()) }
-                .isSuccess
-            delay(if (ok) LumenConfig.NEWS_REFRESH_MINUTES * 60_000L else 5 * 60_000L)
-        }
+    val newsLive by rememberLive("news", LumenConfig.NEWS_REFRESH_MINUTES * 60_000L, resumeTick) {
+        fetchVrtNews().takeIf { it.isNotEmpty() }
     }
+    val news = remember(newsLive) { NewsState(newsLive.value.orEmpty(), newsLive.updatedAt, newsLive.error) }
+    var newsStart by remember { mutableStateOf<Int?>(null) }
     LaunchedEffect(tab) { if (tab != Tab.NEWS) newsStart = null }
 
     val nowPlaying = remember { NowPlayingMonitor(context.applicationContext) }
@@ -516,6 +513,7 @@ fun LumenApp(
                             favourites = favourites,
                             apps = apps,
                             weather = weather,
+                            weatherError = weatherLive.error,
                             history = history,
                             news = news,
                             nowPlaying = nowPlaying,
@@ -743,6 +741,7 @@ private fun HomeContent(
     favourites: List<Tile>,
     apps: List<Tile>,
     weather: WeatherNow?,
+    weatherError: Throwable?,
     history: HistoryFact?,
     news: NewsState,
     nowPlaying: NowPlayingMonitor,
@@ -782,6 +781,7 @@ private fun HomeContent(
                     .align(Alignment.TopStart)
                     .padding(start = 10.dp)
                     .then(widget),
+                error = weatherError,
             )
             GreetingClock(glow = tint, clockSize = 92.sp, modifier = Modifier.align(Alignment.TopCenter))
             val playing = nowPlaying.current

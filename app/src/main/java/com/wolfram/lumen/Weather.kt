@@ -15,6 +15,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.State
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -109,14 +110,10 @@ suspend fun fetchWeather(): WeatherNow {
     )
 }
 
-/** The weather in your city, refreshed every 15 minutes. */
+/** The weather in your city, refreshed every 15 minutes (sooner when it failed). */
 @Composable
-fun rememberWeather(): State<WeatherNow?> = produceState<WeatherNow?>(initialValue = null) {
-    while (true) {
-        runCatching { fetchWeather() }.onSuccess { value = it }
-        delay(15 * 60_000L)
-    }
-}
+fun rememberWeather(wakeKey: Any?): State<Live<WeatherNow>> =
+    rememberLive("weather", 15 * 60_000L, wakeKey) { fetchWeather() }
 
 /* ---------- The sky effect over the background ---------- */
 
@@ -139,11 +136,13 @@ fun WeatherSky(weather: WeatherNow?, modifier: Modifier = Modifier) {
     var flash by remember { mutableFloatStateOf(0f) }
     val random = remember { Random(9) }
     val drops = remember(sky, weather.intensity) {
-        val count = when (sky) {
+        val full = when (sky) {
             Sky.SNOW -> (70 + 90 * weather.intensity).toInt()
             Sky.DRIZZLE -> 70
             else -> (90 + 120 * weather.intensity).toInt()
         }
+        // Half as many on small TV sticks: still looks like rain, half the work per frame.
+        val count = if (Perf.lite) full / 2 else full
         List(count) {
             Drop(
                 x = random.nextFloat(), y = random.nextFloat(),
@@ -154,7 +153,7 @@ fun WeatherSky(weather: WeatherNow?, modifier: Modifier = Modifier) {
             )
         }
     }
-    val starField = remember { List(110) { Triple(random.nextFloat(), random.nextFloat() * 0.6f, random.nextFloat()) } }
+    val starField = remember { List(if (Perf.lite) 60 else 110) { Triple(random.nextFloat(), random.nextFloat() * 0.6f, random.nextFloat()) } }
     var nextFlashAt by remember { mutableStateOf(8f) }
 
     if (animated) {
@@ -250,11 +249,18 @@ private fun DrawScope.drawFog(time: Float) {
 /* ---------- The widget ---------- */
 
 @Composable
-fun WeatherWidget(weather: WeatherNow?, modifier: Modifier = Modifier) {
+fun WeatherWidget(weather: WeatherNow?, modifier: Modifier = Modifier, error: Throwable? = null) {
     val theme = LocalLumenTheme.current
+    val context = LocalContext.current
     GlassCard(modifier) {
         if (weather == null) {
-            Text(stringResource(R.string.weather_loading), color = theme.content.copy(alpha = 0.7f), fontSize = 12.sp)
+            if (error == null) {
+                Text(stringResource(R.string.weather_loading), color = theme.content.copy(alpha = 0.7f), fontSize = 12.sp)
+            } else {
+                Text(stringResource(R.string.weather_failed), color = theme.content.copy(alpha = 0.85f), fontSize = 12.sp, fontWeight = FontWeight.Medium)
+                Spacer(Modifier.size(4.dp))
+                Text(netReason(context, error), color = theme.content.copy(alpha = 0.65f), fontSize = 9.sp, lineHeight = 12.sp)
+            }
             return@GlassCard
         }
         Row(verticalAlignment = Alignment.CenterVertically) {

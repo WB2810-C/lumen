@@ -95,4 +95,15 @@
     <string name="file_deleted">%1$s verwijderd</string>
     <string name="file_page">Pagina %1$d van %2$d</string>
     <string name="file_controls">◀ ▶ vorige / volgende · OK afspelen / pauze · Terug sluiten</string>
+    <string name="weather_failed">Weer niet beschikbaar · probeert opnieuw</string>
+    <string name="news_failed">VRT NWS laadt niet: %1$s. Probeert opnieuw.</string>
+    <string name="net_error_dns">geen internet, de servernaam wordt niet gevonden</string>
+    <string name="net_error_timeout">de server antwoordde niet op tijd</string>
+    <string name="net_error_connect">kon geen verbinding maken met de server</string>
+    <string name="net_error_ssl">beveiligde verbinding mislukt, controleer de datum en tijd van de tv</string>
+    <string name="net_error_http">de server gaf fout %1$d</string>
+    <string name="net_error_format">de server stuurde een onverwacht antwoord</string>
+    <string name="net_error_permission">Lumen mag het internet niet gebruiken</string>
+    <string name="net_error_other">fout %1$s</string>
+    <string name="assistant_voice_unavailable">Spraak werkt nog niet op deze tv. Typ je vraag hier, of gebruik de telefoon-afstandsbediening: daar werkt de microfoon van het iPhone-toetsenbord.</string>
 </resources>

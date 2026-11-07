@@ -57,10 +57,12 @@ GitHub builds the app for you in the cloud, for free (`.github/workflows/build.y
 1. Put this project in a GitHub repository (Claude can do this for you once GitHub is
    connected). Every change starts a build that takes about 5 minutes.
 2. Download **Lumen-installer.zip** from the repository's **Releases** page (or Claude sends it).
-3. Unzip it on your laptop and double-click **Install-Lumen.bat** (Windows) or
-   **install-lumen.command** (Mac). It downloads Google's small adb tool by itself, connects to
+3. Unzip it on your laptop and double-click **Install-Lumen.bat**. It downloads Google's small adb tool by itself, connects to
    the TV, installs Lumen, switches on the microphone and Now Playing, checks that Lumen starts,
-   and only then asks whether to make it your home screen. Undo with **Back-to-Google-TV**.
+   sets the TV picture to 1080p, and only then asks whether to make it your home screen.
+   Undo with **Back-to-Google-TV.bat**. Something not working? It saves **lumen-report.txt**
+   (or run **Lumen-report.bat**): that file shows what the TV says about the picture, the
+   internet and voice.
 
 That replaces steps 1 to 5 below. If a build fails, the log is on the `build-output` branch.
 

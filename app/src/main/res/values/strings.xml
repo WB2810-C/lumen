@@ -96,4 +96,15 @@
     <string name="file_deleted">%1$s deleted</string>
     <string name="file_page">Page %1$d of %2$d</string>
     <string name="file_controls">◀ ▶ previous / next · OK play / pause · Back close</string>
+    <string name="weather_failed">Weather unavailable · trying again</string>
+    <string name="news_failed">VRT NWS isn\'t loading: %1$s. Trying again.</string>
+    <string name="net_error_dns">no internet, the server\'s name can\'t be found</string>
+    <string name="net_error_timeout">the server didn\'t answer in time</string>
+    <string name="net_error_connect">couldn\'t connect to the server</string>
+    <string name="net_error_ssl">the secure connection failed, check the TV\'s date and time</string>
+    <string name="net_error_http">the server answered with error %1$d</string>
+    <string name="net_error_format">the server sent an unexpected answer</string>
+    <string name="net_error_permission">Lumen isn\'t allowed to use the internet</string>
+    <string name="net_error_other">error %1$s</string>
+    <string name="assistant_voice_unavailable">Voice doesn\'t work on this TV yet. Type your question here, or use the phone remote: the microphone on the iPhone keyboard works there.</string>
 </resources>

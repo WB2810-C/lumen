@@ -43,7 +43,9 @@ suspend fun fetchHistoryFact(context: Context): HistoryFact? {
         if (year != null && text != null) return HistoryFact(year, text)
     }
     val fact = runCatching { if (BuildConfig.CLAUDE_API_KEY.isNotBlank()) factFromClaude() else null }.getOrNull()
-        ?: runCatching { factFromWikipedia() }.getOrNull()
+        ?: runCatching { factFromWikipedia() }
+            .onFailure { android.util.Log.w(LOG_TAG, "history (Wikipedia) failed: ${it.javaClass.name}: ${it.message}") }
+            .getOrNull()
         ?: return null
     prefs.edit()
         .putString("history_day", key)
@@ -100,8 +102,9 @@ fun rememberHistoryFact(): State<HistoryFact?> {
     return produceState<HistoryFact?>(initialValue = null) {
         while (true) {
             fetchHistoryFact(context)?.let { value = it }
-            // Look again after midnight (and retry every hour if it failed).
-            delay(if (value == null) 60 * 60_000L else msUntilMidnight() + 60_000L)
+            // Look again after midnight (and retry every 2 minutes if it failed).
+            if (value == null) android.util.Log.w(LOG_TAG, "history fact failed, retrying in 2 minutes")
+            delay(if (value == null) 2 * 60_000L else msUntilMidnight() + 60_000L)
         }
     }
 }

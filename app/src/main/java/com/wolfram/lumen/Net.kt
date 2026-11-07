@@ -26,7 +26,7 @@ object Net {
         }
         try {
             val code = connection.responseCode
-            if (code !in 200..299) throw java.io.IOException("HTTP $code for $url")
+            if (code !in 200..299) throw HttpError(code, url)
             connection.inputStream.bufferedReader(Charsets.UTF_8).use { it.readText() }
         } finally {
             connection.disconnect()

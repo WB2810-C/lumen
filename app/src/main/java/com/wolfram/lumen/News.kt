@@ -35,6 +35,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.LaunchedEffect
@@ -77,7 +78,7 @@ data class NewsItem(
 )
 
 @Immutable
-data class NewsState(val items: List<NewsItem> = emptyList(), val updatedAt: Long = 0L)
+data class NewsState(val items: List<NewsItem> = emptyList(), val updatedAt: Long = 0L, val error: Throwable? = null)
 
 suspend fun fetchVrtNews(): List<NewsItem> {
     val xml = Net.get(LumenConfig.NEWS_FEED_URL)
@@ -129,8 +130,18 @@ fun clockTime(millis: Long): String =
 
 @Composable
 fun NewsStrip(news: NewsState, onOpen: (Int) -> Unit, modifier: Modifier = Modifier) {
-    if (news.items.isEmpty()) return
     val theme = LocalLumenTheme.current
+    if (news.items.isEmpty()) {
+        // Say why the headlines aren't there, instead of leaving an empty gap.
+        val error = news.error ?: return
+        Text(
+            text = stringResource(R.string.news_failed, netReason(LocalContext.current, error)),
+            color = theme.content.copy(alpha = 0.6f),
+            fontSize = 9.sp,
+            modifier = modifier.padding(vertical = 8.dp),
+        )
+        return
+    }
     val shown = news.items.take(5)
     var index by remember { mutableIntStateOf(0) }
     LaunchedEffect(shown) {
@@ -235,7 +246,11 @@ fun NewsPage(news: NewsState, startAt: Int?) {
                 Text(stringResource(R.string.news_source), color = theme.content, fontSize = 32.sp, fontWeight = FontWeight.Bold)
                 Spacer(Modifier.width(12.dp))
                 Text(
-                    text = if (news.updatedAt > 0) stringResource(R.string.news_updated, clockTime(news.updatedAt)) else stringResource(R.string.news_loading),
+                    text = when {
+                        news.updatedAt > 0 -> stringResource(R.string.news_updated, clockTime(news.updatedAt))
+                        news.error != null -> stringResource(R.string.news_failed, netReason(LocalContext.current, news.error))
+                        else -> stringResource(R.string.news_loading)
+                    },
                     color = theme.content.copy(alpha = 0.7f),
                     fontSize = 12.sp,
                     modifier = Modifier.padding(bottom = 5.dp),

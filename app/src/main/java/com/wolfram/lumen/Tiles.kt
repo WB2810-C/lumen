@@ -95,7 +95,7 @@ fun TileCard(
                 scaleY = scale
             }
             .shadow(
-                elevation = if (focused) 20.dp else 0.dp,
+                elevation = if (focused) (if (Perf.lite) 10.dp else 20.dp) else 0.dp,
                 shape = shape,
                 ambientColor = shadowColor,
                 spotColor = shadowColor,

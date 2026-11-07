@@ -10,12 +10,12 @@ No Android Studio. The installer downloads Google's small "adb" tool (7 MB) by i
    - Settings > Network & Internet > your Wi-Fi > write down the IP address
 
 2. On the laptop
-   - Windows: double-click Install-Lumen.bat
+   - Double-click Install-Lumen.bat
      (if Windows says "Windows protected your PC": More info > Run anyway)
-   - Mac: right-click install-lumen.command > Open > Open
 
 3. Type the TV's IP address, choose OK on the TV, and answer the questions.
    The installer checks that Lumen starts before it makes Lumen your home screen.
 
 Update later: run the installer again with the new Lumen.apk. Your theme and favourites stay.
-Undo: Back-to-Google-TV.bat (Windows) or "Back to Google TV.command" (Mac).
+Undo: Back-to-Google-TV.bat
+Something not working? The installer saves lumen-report.txt (or run Lumen-report.bat): send it to Claude.

@@ -45,7 +45,6 @@ jobs:
           mkdir -p out/Lumen-installer
           cp app/build/outputs/apk/release/app-release.apk out/Lumen-installer/Lumen.apk
           cp installer/* out/Lumen-installer/
-          chmod +x out/Lumen-installer/*.command
           cd out && zip -qr Lumen-installer.zip Lumen-installer
 
       - name: Keep it under Artifacts
@@ -63,7 +62,7 @@ jobs:
             out/Lumen-installer.zip out/Lumen-installer/Lumen.apk \
             --target "${{ github.sha }}" \
             --title "Lumen · build ${{ github.run_number }}" \
-            --notes "Download Lumen-installer.zip, unzip it, then double-click Install-Lumen.bat (Windows) or install-lumen.command (Mac)." \
+            --notes "Download Lumen-installer.zip, unzip it, then double-click Install-Lumen.bat." \
             --latest
 
       # Leaves the log (and the installer) on a separate branch, so the result can be read back with plain git.

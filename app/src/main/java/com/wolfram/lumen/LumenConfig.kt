@@ -15,6 +15,12 @@ object LumenConfig {
     const val WELCOME_ANIMATION = true
 
     /**
+     * Ask the TV for the sharpest picture it can take (1080p on yours) while Lumen is on screen,
+     * instead of the 720p the stick sometimes picks.
+     */
+    const val SHARPEST_PICTURE = true
+
+    /**
      * Theme used until you pick one on the TV (side menu → palette icon).
      * One of: "app", "north", "sunset", "ocean", "lavender", "gold", "graphite", "neon",
      * "stone", "silver", "cloud".

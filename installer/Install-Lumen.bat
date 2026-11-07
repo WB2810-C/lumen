@@ -6,15 +6,17 @@ set "ADB=platform-tools\adb.exe"
 set "PKG=com.wolfram.lumen"
 set "MODE=install"
 if /i "%~1"=="restore" set "MODE=restore"
+if /i "%~1"=="report" set "MODE=report"
 
 echo.
 echo   ==========================================
 if "%MODE%"=="restore" echo     Back to the Google TV home screen
 if "%MODE%"=="install" echo     Lumen  -  put it on your TV
+if "%MODE%"=="report" echo     Lumen report  -  what the TV says
 echo   ==========================================
 echo.
 
-if "%MODE%"=="restore" goto :getadb
+if not "%MODE%"=="install" goto :getadb
 if exist "Lumen.apk" goto :getadb
 echo   Lumen.apk is not next to this file.
 echo   Unzip Lumen-installer.zip first: right-click it, Extract All, then open that folder.
@@ -84,6 +86,7 @@ goto :connected
 echo.
 echo   Connected to the TV.
 if "%MODE%"=="restore" goto :restore
+if "%MODE%"=="report" goto :reportonly
 
 echo.
 echo   Installing Lumen... this takes a moment.
@@ -106,6 +109,8 @@ echo.
 echo   Switching on the microphone and Now Playing for Lumen...
 %ADB% -s %TARGET% shell pm grant %PKG% android.permission.RECORD_AUDIO >nul 2>&1
 %ADB% -s %TARGET% shell cmd notification allow_listener %PKG%/%PKG%.MediaListener >nul 2>&1
+echo   Setting the TV picture to 1080p...
+%ADB% -s %TARGET% shell cmd display set-user-preferred-display-mode 1920 1080 60 >nul 2>&1
 echo   Opening Lumen on the TV...
 %ADB% -s %TARGET% shell am start -n %PKG%/.MainActivity >nul 2>&1
 echo.
@@ -124,11 +129,17 @@ if errorlevel 2 goto :donenohome
 echo.
 echo   Done! Press Home on the remote and Lumen opens.
 echo   To update Lumen later, just run this file again with the new Lumen.apk.
+call :report
 goto :end
 
 :donenohome
 echo.
 echo   Done! Lumen is in the TV's app list. Your normal home screen stays.
+call :report
+goto :end
+
+:reportonly
+call :report
 goto :end
 
 :notshowing
@@ -178,6 +189,42 @@ exit /b 1
 %ADB% disconnect %TARGET% >nul 2>&1
 echo.
 pause
+exit /b 0
+
+rem Writes lumen-report.txt: what the TV says about Lumen, the picture, the internet and voice.
+:report
+echo.
+echo   Writing lumen-report.txt - if something doesn't work, send that file to Claude.
+timeout /t 5 /nobreak >nul
+set "R=lumen-report.txt"
+> "%R%" echo Lumen report %date% %time%
+>> "%R%" echo ==== TV
+%ADB% -s %TARGET% shell getprop ro.product.manufacturer >> "%R%" 2>&1
+%ADB% -s %TARGET% shell getprop ro.product.model >> "%R%" 2>&1
+%ADB% -s %TARGET% shell getprop ro.build.version.release >> "%R%" 2>&1
+%ADB% -s %TARGET% shell getprop ro.config.low_ram >> "%R%" 2>&1
+>> "%R%" echo ==== Picture
+%ADB% -s %TARGET% shell wm size >> "%R%" 2>&1
+%ADB% -s %TARGET% shell wm density >> "%R%" 2>&1
+%ADB% -s %TARGET% shell getprop ro.surface_flinger.max_graphics_width >> "%R%" 2>&1
+%ADB% -s %TARGET% shell getprop ro.surface_flinger.max_graphics_height >> "%R%" 2>&1
+%ADB% -s %TARGET% shell cmd display get-user-preferred-display-mode >> "%R%" 2>&1
+%ADB% -s %TARGET% shell "dumpsys display | grep -iE 'mActiveMode|mDefaultMode|supportedModes|mUserPreferredMode|mBaseDisplayInfo' | head -20" >> "%R%" 2>&1
+>> "%R%" echo ==== Internet
+%ADB% -s %TARGET% shell date >> "%R%" 2>&1
+%ADB% -s %TARGET% shell settings get global private_dns_mode >> "%R%" 2>&1
+%ADB% -s %TARGET% shell settings get global private_dns_specifier >> "%R%" 2>&1
+%ADB% -s %TARGET% shell ping -c 1 -W 3 api.open-meteo.com >> "%R%" 2>&1
+%ADB% -s %TARGET% shell ping -c 1 -W 3 www.vrt.be >> "%R%" 2>&1
+>> "%R%" echo ==== Voice
+%ADB% -s %TARGET% shell cmd package query-services -a android.speech.RecognitionService >> "%R%" 2>&1
+%ADB% -s %TARGET% shell cmd package query-activities -a android.speech.action.RECOGNIZE_SPEECH >> "%R%" 2>&1
+>> "%R%" echo ==== Lumen
+%ADB% -s %TARGET% shell "dumpsys package %PKG% | grep -E 'versionName|RECORD_AUDIO|INTERNET'" >> "%R%" 2>&1
+%ADB% -s %TARGET% logcat -d -s Lumen >> "%R%" 2>&1
+>> "%R%" echo ==== Crashes
+%ADB% -s %TARGET% logcat -d -b crash >> "%R%" 2>&1
+echo   Saved lumen-report.txt
 exit /b 0
 
 rem Waits up to 90 seconds until the TV is connected and allowed. errorlevel 0 = ready.

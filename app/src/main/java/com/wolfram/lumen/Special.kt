@@ -4,6 +4,16 @@ import android.graphics.Bitmap
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.foundation.Image
+import androidx.compose.ui.graphics.FilterQuality
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
@@ -81,59 +91,99 @@ fun AuroraBackground(main: Color, modifier: Modifier = Modifier) {
     val third by animateColorAsState(theme.third, spec, label = "third")
     val fourth by animateColorAsState(theme.fourth, spec, label = "fourth")
 
-    var t by remember { mutableFloatStateOf(0f) }
-    if (LumenConfig.LIVING_BACKGROUND) {
-        LaunchedEffect(Unit) {
-            val start = System.nanoTime()
-            while (true) {
-                // One full drift every 40 seconds; 20 updates per second is plenty for slow motion
-                // and keeps it light on small TV sticks.
-                t = (((System.nanoTime() - start) / 1_000_000_000.0) / 40.0 % 1.0).toFloat()
-                delay(50)
-            }
-        }
+    // The aurora is painted once, small, into two pictures; the graphics chip stretches them over the
+    // screen (gradients stay smooth) and slides them slowly in step with the screen refresh.
+    // Nothing is redrawn while it moves, so it stays smooth even on small TV sticks at 1080p.
+    val front = remember(main, light) {
+        auroraLayer(
+            Band(main.copy(alpha = 0.85f), 0.62f, 0.00f, 0.42f, 2.2f, -10f),
+            Band(light.copy(alpha = 0.45f), 0.72f, 0.10f, 0.26f, 2.8f, -16f),
+        )
+    }
+    val back = remember(third, fourth) {
+        auroraLayer(
+            Band(third.copy(alpha = 0.45f), 0.86f, 0.30f, 0.22f, 2.2f, -8f),
+            Band(fourth.copy(alpha = 0.6f), 0.05f, 0.98f, 0.34f, 1.2f, 0f),
+        )
+    }
+    val phase = if (LumenConfig.LIVING_BACKGROUND) {
+        rememberInfiniteTransition(label = "aurora").animateFloat(
+            initialValue = 0f,
+            targetValue = (2 * PI).toFloat(),
+            animationSpec = infiniteRepeatable(tween(durationMillis = 40_000, easing = LinearEasing)),
+            label = "drift",
+        )
+    } else {
+        null
     }
     val grain = remember { grainBrush() }
 
-    Canvas(modifier.fillMaxSize()) {
-        val a = (t * 2 * PI).toFloat()
-        drawRect(base)
-
-        auroraBand(
-            color = main.copy(alpha = 0.85f),
-            center = Offset(size.width * (0.62f + 0.05f * sin(a)), size.height * (0.0f + 0.05f * cos(a))),
-            radius = size.width * 0.42f, stretchX = 2.2f, angle = -10f + 4f * sin(a),
+    Box(modifier.fillMaxSize().background(base)) {
+        Image(
+            bitmap = back,
+            contentDescription = null,
+            contentScale = ContentScale.FillBounds,
+            filterQuality = FilterQuality.Low,
+            modifier = Modifier
+                .fillMaxSize()
+                .graphicsLayer {
+                    val a = phase?.value ?: 0f
+                    scaleX = 1.12f; scaleY = 1.12f
+                    translationX = size.width * 0.035f * sin(a + 1.3f)
+                    translationY = size.height * 0.04f * cos(a + 0.7f)
+                },
         )
-        auroraBand(
-            color = light.copy(alpha = 0.45f),
-            center = Offset(size.width * (0.72f + 0.06f * cos(a)), size.height * (0.10f + 0.04f * sin(a * 2))),
-            radius = size.width * 0.26f, stretchX = 2.8f, angle = -16f + 6f * cos(a),
+        Image(
+            bitmap = front,
+            contentDescription = null,
+            contentScale = ContentScale.FillBounds,
+            filterQuality = FilterQuality.Low,
+            modifier = Modifier
+                .fillMaxSize()
+                .graphicsLayer {
+                    val a = phase?.value ?: 0f
+                    scaleX = 1.12f; scaleY = 1.12f
+                    translationX = size.width * 0.05f * sin(a)
+                    translationY = size.height * 0.05f * cos(a)
+                    rotationZ = 3f * sin(a)
+                },
         )
-        auroraBand(
-            color = third.copy(alpha = 0.45f),
-            center = Offset(size.width * (0.86f + 0.04f * sin(a + 1.3f)), size.height * (0.30f + 0.05f * cos(a + 0.7f))),
-            radius = size.width * 0.22f, stretchX = 2.2f, angle = -8f,
-        )
-        auroraBand(
-            color = fourth.copy(alpha = 0.6f),
-            center = Offset(size.width * (0.05f + 0.03f * cos(a)), size.height * 0.98f),
-            radius = size.width * 0.34f, stretchX = 1.2f, angle = 0f,
-        )
-
-        drawRect(brush = grain, alpha = if (theme.isLight) 0.04f else 0.06f)
+        // Fine film grain (also hides colour banding). Drawn once and kept; skipped on small sticks.
+        if (!Perf.lite) {
+            Canvas(Modifier.fillMaxSize()) {
+                drawRect(brush = grain, alpha = if (theme.isLight) 0.04f else 0.06f)
+            }
+        }
     }
 }
 
-private fun DrawScope.auroraBand(color: Color, center: Offset, radius: Float, stretchX: Float, angle: Float) {
-    rotate(degrees = angle, pivot = center) {
-        scale(scaleX = stretchX, scaleY = 1f, pivot = center) {
-            drawCircle(
-                brush = Brush.radialGradient(listOf(color, Color.Transparent), center = center, radius = radius),
-                radius = radius,
-                center = center,
-            )
-        }
+private class Band(val color: Color, val x: Float, val y: Float, val radius: Float, val stretchX: Float, val angle: Float)
+
+/** Paints soft colour bands into a small transparent picture (384×216, stretched to the screen later). */
+private fun auroraLayer(vararg bands: Band): ImageBitmap {
+    val w = 384
+    val h = 216
+    val bitmap = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
+    val canvas = android.graphics.Canvas(bitmap)
+    val paint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG or android.graphics.Paint.DITHER_FLAG)
+    for (b in bands) {
+        val cx = b.x * w
+        val cy = b.y * h
+        val r = b.radius * w
+        // Fade to the same colour at zero opacity (not to transparent black), so edges don't turn grey.
+        paint.shader = android.graphics.RadialGradient(
+            cx, cy, r,
+            intArrayOf(b.color.toArgb(), b.color.copy(alpha = 0f).toArgb()),
+            null,
+            android.graphics.Shader.TileMode.CLAMP,
+        )
+        canvas.save()
+        canvas.rotate(b.angle, cx, cy)
+        canvas.scale(b.stretchX, 1f, cx, cy)
+        canvas.drawCircle(cx, cy, r, paint)
+        canvas.restore()
     }
+    return bitmap.asImageBitmap()
 }
 
 private fun grainBrush(): ShaderBrush {

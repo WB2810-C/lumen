@@ -2,6 +2,9 @@ package com.wolfram.lumen
 
 import android.Manifest
 import android.content.Context
+import android.os.Handler
+import android.os.Looper
+import android.util.Log
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Bundle
@@ -100,51 +103,112 @@ class VoiceInput(
     private val finalCallback: (String) -> Unit,
     private val errorCallback: (Int) -> Unit,
 ) {
-    val available: Boolean = SpeechRecognizer.isRecognitionAvailable(context)
+    val available: Boolean = runCatching { SpeechRecognizer.isRecognitionAvailable(context) }.getOrDefault(false)
 
     /** How loud you're speaking, 0..1 — makes the orb pulse along. */
     var level by mutableFloatStateOf(0f)
         private set
 
     private var recognizer: SpeechRecognizer? = null
+    private val handler = Handler(Looper.getMainLooper())
+
+    /** Bumped on every start/cancel, so late answers from an old try are ignored. */
+    private var session = 0
+    private var ready = false
+    private var finished = true
+
+    private fun finish(currentSession: Int, block: () -> Unit) {
+        if (currentSession != session || finished) return
+        finished = true
+        level = 0f
+        handler.removeCallbacksAndMessages(null)
+        block()
+    }
 
     fun start() {
-        val r = recognizer ?: SpeechRecognizer.createSpeechRecognizer(context).also { recognizer = it }
+        session++
+        val mySession = session
+        ready = false
+        finished = false
+        handler.removeCallbacksAndMessages(null)
+        val r = try {
+            recognizer ?: SpeechRecognizer.createSpeechRecognizer(context).also { recognizer = it }
+        } catch (e: Exception) {
+            Log.w(LOG_TAG, "speech: can't create the recognizer", e)
+            finish(mySession) { errorCallback(ERROR_NOT_STARTED) }
+            return
+        }
+        runCatching { r.cancel() }
         r.setRecognitionListener(object : RecognitionListener {
-            override fun onReadyForSpeech(params: Bundle?) = Unit
-            override fun onBeginningOfSpeech() = Unit
+            override fun onReadyForSpeech(params: Bundle?) {
+                if (mySession == session) ready = true
+            }
+            override fun onBeginningOfSpeech() {
+                if (mySession == session) ready = true
+            }
             override fun onRmsChanged(rmsdB: Float) {
-                level = ((rmsdB + 2f) / 12f).coerceIn(0f, 1f)
+                if (mySession == session) level = ((rmsdB + 2f) / 12f).coerceIn(0f, 1f)
             }
             override fun onBufferReceived(buffer: ByteArray?) = Unit
             override fun onEndOfSpeech() {
-                level = 0f
+                if (mySession == session) level = 0f
             }
             override fun onError(error: Int) {
-                level = 0f
-                errorCallback(error)
+                Log.w(LOG_TAG, "speech: recognizer error $error (ready=$ready)")
+                finish(mySession) { errorCallback(if (ready) error else ERROR_NOT_STARTED) }
             }
             override fun onResults(results: Bundle?) {
-                level = 0f
-                finalCallback(results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull().orEmpty())
+                finish(mySession) {
+                    finalCallback(results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull().orEmpty())
+                }
             }
             override fun onPartialResults(partialResults: Bundle?) {
+                if (mySession != session) return
                 partialResults?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull()
                     ?.takeIf { it.isNotBlank() }?.let(partialCallback)
             }
             override fun onEvent(eventType: Int, params: Bundle?) = Unit
         })
-        r.startListening(speechIntent(context))
+        try {
+            r.startListening(speechIntent(context))
+        } catch (e: Exception) {
+            Log.w(LOG_TAG, "speech: startListening failed", e)
+            finish(mySession) { errorCallback(ERROR_NOT_STARTED) }
+            return
+        }
+        // Some TVs never answer the recognizer at all. Don't hang on "Listening…" then.
+        handler.postDelayed({
+            if (!ready) {
+                Log.w(LOG_TAG, "speech: recognizer didn't start within ${START_TIMEOUT_MS / 1000} s")
+                runCatching { recognizer?.cancel() }
+                finish(mySession) { errorCallback(ERROR_NOT_STARTED) }
+            }
+        }, START_TIMEOUT_MS)
+        handler.postDelayed({
+            runCatching { recognizer?.cancel() }
+            finish(mySession) { errorCallback(SpeechRecognizer.ERROR_SPEECH_TIMEOUT) }
+        }, MAX_LISTEN_MS)
     }
 
     fun cancel() {
+        session++
+        finished = true
         level = 0f
-        recognizer?.cancel()
+        handler.removeCallbacksAndMessages(null)
+        runCatching { recognizer?.cancel() }
     }
 
     fun destroy() {
-        recognizer?.destroy()
+        cancel()
+        runCatching { recognizer?.destroy() }
         recognizer = null
+    }
+
+    companion object {
+        /** The recognizer inside Lumen didn't start (or doesn't work on this TV). */
+        const val ERROR_NOT_STARTED = -100
+        private const val START_TIMEOUT_MS = 4_000L
+        private const val MAX_LISTEN_MS = 20_000L
     }
 }
 
@@ -182,6 +246,11 @@ fun AssistantPanel(
     var typing by remember { mutableStateOf(false) }
     var notice by remember { mutableStateOf<String?>(null) }
     val didntCatch = stringResource(R.string.assistant_didnt_catch)
+    val voiceUnavailable = stringResource(R.string.assistant_voice_unavailable)
+    val prefs = remember { context.getSharedPreferences("lumen", Context.MODE_PRIVATE) }
+    // Remembered once Lumen found out its own recognizer doesn't work on this TV.
+    var useSystemSpeech by remember { mutableStateOf(prefs.getBoolean("system_speech", false)) }
+    var launchSystemSpeech: () -> Unit = {}
 
     val voice = rememberVoiceInput(
         onPartial = { controller.partial = it },
@@ -195,43 +264,54 @@ fun AssistantPanel(
             controller.phase = AssistantPhase.IDLE
             when (code) {
                 SpeechRecognizer.ERROR_NO_MATCH, SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> notice = didntCatch
-                SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS -> typing = true
                 else -> {
-                    notice = didntCatch
-                    typing = true
+                    // The recognizer inside Lumen doesn't work on this TV: use the TV's own voice screen,
+                    // now and from now on.
+                    useSystemSpeech = true
+                    prefs.edit().putBoolean("system_speech", true).apply()
+                    launchSystemSpeech()
                 }
             }
         },
     )
-    // Fallback: the TV's own speech screen.
+    // Fallback: the TV's own speech screen (Google's voice overlay).
     val systemSpeech = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         controller.phase = AssistantPhase.IDLE
         val text = result.data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)?.firstOrNull()
+        Log.i(LOG_TAG, "speech: TV voice screen returned ${result.resultCode}, text=${!text.isNullOrBlank()}")
         if (text.isNullOrBlank()) notice = didntCatch else onAsk(text)
+    }
+    launchSystemSpeech = {
+        try {
+            controller.phase = AssistantPhase.LISTENING
+            systemSpeech.launch(
+                speechIntent(context).putExtra(RecognizerIntent.EXTRA_PROMPT, context.getString(R.string.assistant_speak)),
+            )
+        } catch (e: Exception) {
+            Log.w(LOG_TAG, "speech: the TV has no voice screen either", e)
+            controller.phase = AssistantPhase.IDLE
+            notice = voiceUnavailable
+            typing = true
+        }
     }
     val micPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         if (granted) {
             controller.phase = AssistantPhase.LISTENING
             voice.start()
         } else {
-            typing = true
+            // The TV's own voice screen doesn't need Lumen's microphone permission.
+            launchSystemSpeech()
         }
     }
     val startListening: () -> Unit = {
         notice = null
         when {
-            voice.available && hasMicPermission(context) -> {
+            useSystemSpeech || !voice.available -> launchSystemSpeech()
+            hasMicPermission(context) -> {
                 controller.phase = AssistantPhase.LISTENING
                 voice.start()
             }
-            voice.available -> micPermission.launch(Manifest.permission.RECORD_AUDIO)
-            else -> try {
-                controller.phase = AssistantPhase.LISTENING
-                systemSpeech.launch(speechIntent(context))
-            } catch (e: Exception) {
-                controller.phase = AssistantPhase.IDLE
-                typing = true
-            }
+            else -> micPermission.launch(Manifest.permission.RECORD_AUDIO)
         }
     }
 
