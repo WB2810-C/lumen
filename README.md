@@ -1,8 +1,12 @@
 # Lumen — a home screen for your Peaq Google TV
 
-Lumen replaces the Google TV home screen with your own: a glass menu down the left side,
-a big bold clock in the middle, rows of your apps with their **real logos**, your **HDMI inputs**,
-and a transition where the logo grows to fill the screen before the app (or HDMI input) opens.
+Lumen replaces the Google TV home screen with your own, in the **Cinema** layout (like Apple TV,
+but better): tabs at the top, a floating glass dock with your favourites at the bottom, and a big
+preview that fills the screen with whatever you select — "Good evening, Wolfram" with the big
+clock and the weather, the top VRT NWS story with its photo, your teams' scores, the song that's
+playing, an app's real logo and when you last opened it, or your **Xbox / PlayStation** and the
+HDMI port it's on. Opening something plays a transition where the logo grows to fill the screen.
+Works in dark themes and in the light Silver/Cloud themes.
 
 **What makes it special:**
 
@@ -13,8 +17,12 @@ and a transition where the logo grows to fill the screen before the app (or HDMI
   roll up when the minute changes. The clock picks up a hint of the glow colour.
 - **Light sweep:** a glint of light slides over each tile when you land on it, with a soft
   shadow in the app's colour underneath.
-- **Ambient mode:** after 3 minutes without the remote, everything fades to a huge clock that
-  drifts very slowly (so nothing burns into the screen). Any button wakes it up.
+- **Xbox and PlayStation:** in your favourites from the start. Lumen finds each console by the name
+  it gives the TV over HDMI ("PS5", "Xbox Series X"), so OK switches straight to the right HDMI port,
+  even if you move it. If the console doesn't say its name, you pick the port once.
+- **Rearrange the dock:** hold OK on a tile, move it with ◀ ▶, OK to drop, ▼ to remove it.
+- **No screensaver clock:** Lumen stays on the home screen when you don't use the remote
+  (set `AMBIENT_AFTER_MINUTES` in `LumenConfig.kt` if you want the drifting clock back).
 - **Welcome animation:** when the TV starts, the Lumen logo appears and zooms into the home
   screen, in the colour of the last app you used.
 - **11 colour themes:** Silver (the default), Cloud (white), Stone (grey), App colour (follows
