@@ -41,14 +41,17 @@ class MainActivity : ComponentActivity() {
         // to Lumen or wake the TV from standby: then the home screen is there instantly.
         val showIntro = savedInstanceState == null && SystemClock.elapsedRealtime() < 5 * 60_000L
         setContent {
-            LumenApp(
-                resumeTick = resumeTick.intValue,
-                homeTick = homeTick.intValue,
-                showIntro = showIntro,
-                ambient = ambient.value,
-                lastInputAt = { lastInputAt.longValue },
-                onAmbientChange = { ambient.value = it },
-            )
+            // Same layout at 720p and 1080p: only sharper.
+            TvGrid {
+                LumenApp(
+                    resumeTick = resumeTick.intValue,
+                    homeTick = homeTick.intValue,
+                    showIntro = showIntro,
+                    ambient = ambient.value,
+                    lastInputAt = { lastInputAt.longValue },
+                    onAmbientChange = { ambient.value = it },
+                )
+            }
         }
     }
 

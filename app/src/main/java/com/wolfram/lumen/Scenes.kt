@@ -677,8 +677,6 @@ private fun DockTile(
             .onGloballyPositioned { coordinates[0] = it }
             .drawWithContent {
                 drawContent()
-                // Tiles that aren't selected are a little darker; the selected one brightens softly.
-                drawRect(Color.Black.copy(alpha = 0.2f * (1f - lift)))
                 if (lift > 0.01f) {
                     drawRoundRect(
                         color = Color.White.copy(alpha = lift),
@@ -688,6 +686,12 @@ private fun DockTile(
                 }
             }
             .clip(shape)
+            // Tiles that aren't selected are a little darker; the selected one brightens softly.
+            // Drawn inside the rounded clip, so the corners stay round (no square edge around them).
+            .drawWithContent {
+                drawContent()
+                drawRect(Color.Black.copy(alpha = 0.2f * (1f - lift)))
+            }
             .onFocusChanged {
                 focused = it.isFocused
                 if (it.isFocused) {

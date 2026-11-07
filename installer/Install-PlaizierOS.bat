@@ -208,10 +208,8 @@ exit /b 0
 
 rem Asks the TV to draw at 1920x1080, keeping everything the same size on screen.
 :sethd
-set "DENS="
-for /f "tokens=3" %%d in ('%ADB% -s %TARGET% shell wm density ^| find "Physical"') do set "DENS=%%d"
-if not defined DENS set "DENS=213"
-set /a NEWD=DENS*3/2
+rem 320 is the standard Android TV density for 1920x1080: everything keeps its normal size, just sharper.
+set "NEWD=320"
 %ADB% -s %TARGET% shell wm size 1920x1080 >nul 2>&1
 %ADB% -s %TARGET% shell wm density %NEWD% >nul 2>&1
 echo   The TV now draws at 1920x1080 [density %NEWD%].
