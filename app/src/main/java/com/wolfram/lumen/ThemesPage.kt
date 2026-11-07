@@ -42,6 +42,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -77,8 +78,9 @@ fun ThemesPage(
             text = stringResource(R.string.themes_hint),
             color = theme.content.copy(alpha = 0.78f),
             fontSize = 13.sp,
-            modifier = Modifier.padding(start = 10.dp, top = 4.dp, bottom = 16.dp),
+            modifier = Modifier.padding(start = 10.dp, top = 4.dp),
         )
+        ScreenInfoLine(Modifier.padding(start = 10.dp, top = 4.dp, bottom = 14.dp))
         LazyVerticalGrid(
             columns = GridCells.Fixed(4),
             contentPadding = PaddingValues(10.dp),
@@ -206,4 +208,24 @@ private fun ThemeCard(
             }
         }
     }
+}
+
+/** "Screen: Lumen draws at 1920×1080 pixels · TV picture 1920×1080" — shows what the TV really gives apps. */
+@Composable
+fun ScreenInfoLine(modifier: Modifier = Modifier) {
+    val context = LocalContext.current
+    val theme = LocalLumenTheme.current
+    val text = remember {
+        val activity = context as? android.app.Activity
+        val drawn = if (android.os.Build.VERSION.SDK_INT >= 30 && activity != null) {
+            activity.windowManager.currentWindowMetrics.bounds.let { "${it.width()}×${it.height()}" }
+        } else {
+            context.resources.displayMetrics.let { "${it.widthPixels}×${it.heightPixels}" }
+        }
+        @Suppress("DEPRECATION")
+        val mode = activity?.windowManager?.defaultDisplay?.mode
+        val picture = mode?.let { "${it.physicalWidth}×${it.physicalHeight}" } ?: "?"
+        context.getString(R.string.screen_info, drawn, picture)
+    }
+    Text(text, color = theme.content.copy(alpha = 0.6f), fontSize = 10.sp, modifier = modifier)
 }

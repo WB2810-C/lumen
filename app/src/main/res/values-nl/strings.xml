@@ -130,4 +130,7 @@
     <string name="scores_none_soon">Geen wedstrijden in de komende twee weken.</string>
     <string name="files_count">%1$d bestanden van je telefoon</string>
     <string name="files_open_hint">Druk op OK om ze te openen</string>
+    <string name="screen_info">Scherm: Lumen tekent op %1$s pixels · tv-beeld %2$s</string>
+    <string name="theme_cinema">Cinema</string>
+    <string name="theme_cinema_light">Cinema licht</string>
 </resources>

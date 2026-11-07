@@ -109,7 +109,9 @@ fun LumenApp(
     var tab by remember { mutableStateOf(Tab.HOME) }
 
     // The Cinema home screen: which dock tile is selected (it fills the preview), and the one being moved.
-    var focusedKey by remember { mutableStateOf(LUMEN_NOW) }
+    // Kept as a State and only read by the parts that show it, so moving along the dock
+    // doesn't make the whole screen recompose.
+    val focusedKey = remember { mutableStateOf(LUMEN_NOW) }
     var movingKey by remember { mutableStateOf<String?>(null) }
     val dockFocus = remember { FocusRequester() }
 
@@ -124,25 +126,14 @@ fun LumenApp(
     var previewTheme by remember { mutableStateOf<LumenTheme?>(null) }
     val theme = previewTheme ?: themeById(themeId)
 
-    // With the "App colour" theme the aurora fades to the colour of the selected app's logo
-    // (starting in the colour of the last app you opened). Other themes have fixed colours.
+    // The background's colours come from the theme and stay put (the colour of what you select is
+    // washed over the home screen separately, which is much cheaper than repainting the background).
+    // Only the "App colour" theme follows the app you select on the Apps page.
     var glowTarget by remember { mutableStateOf(repo.lastGlow()) }
-    val glow by animateColorAsState(
-        targetValue = if (theme.followsApp) glowTarget else theme.main,
-        animationSpec = tween(durationMillis = 700),
-        label = "glow",
-    )
-    // Tint for the clock and the side menu's edge.
-    val tint by animateColorAsState(
-        targetValue = when {
-            theme.followsApp -> glowTarget
-            theme.isLight -> lerp(theme.main, Ink, 0.45f)
-            else -> theme.light
-        },
-        animationSpec = tween(durationMillis = 700),
-        label = "tint",
-    )
-    val onFocusTile: (Tile) -> Unit = { glowTarget = it.glow }
+    val glow = if (theme.followsApp) glowTarget else theme.main
+    // Tint for the big clock.
+    val tint = if (theme.isLight) lerp(theme.main, Ink, 0.45f) else lerp(theme.light, Color.White, 0.55f)
+    val onFocusTile: (Tile) -> Unit = { if (theme.followsApp) glowTarget = it.glow }
     LaunchedEffect(tab) { if (tab != Tab.THEMES) previewTheme = null }
 
     // The AI assistant and the phone-remote panel.
@@ -248,7 +239,7 @@ fun LumenApp(
             viewer = null
             chooser = null
             movingKey = null
-            focusedKey = LUMEN_NOW
+            focusedKey.value = LUMEN_NOW
             delay(80)
             runCatching { dockFocus.requestFocus() }
         }
@@ -565,9 +556,7 @@ fun LumenApp(
     CompositionLocalProvider(LocalLumenTheme provides theme) {
         Box(Modifier.fillMaxSize()) {
             AuroraBackground(main = glow)
-            if (tab == Tab.HOME) {
-                CinemaBackdrop(heroColor(dock.firstOrNull { it.key == focusedKey }, nowPlaying.current, schedule))
-            }
+            if (tab == Tab.HOME) HomeBackdrop(dock, focusedKey, nowPlaying, schedule)
             WeatherSky(weather)
             Column(Modifier.fillMaxSize()) {
                 CinemaTopBar(
@@ -589,7 +578,7 @@ fun LumenApp(
                     when (tab) {
                         Tab.HOME -> CinemaHome(
                             dock = dock,
-                            focusedKey = focusedKey,
+                            focusedKeyState = focusedKey,
                             movingKey = movingKey,
                             firstFocus = dockFocus,
                             tint = tint,
@@ -604,10 +593,7 @@ fun LumenApp(
                             consoleSpots = consoleSpots,
                             lastOpened = { repo.lastOpened(it) },
                             loadBanner = { repo.hiResBanner(it) },
-                            onFocusTile = { t ->
-                                focusedKey = t.key
-                                glowTarget = t.glow
-                            },
+                            onFocusTile = { t -> focusedKey.value = t.key },
                             onOpen = { t, r -> if (movingKey == null) openTile(t, r) },
                             onHold = { t ->
                                 if (t.kind == TileKind.APP || t.kind == TileKind.CONSOLE) {
@@ -628,7 +614,7 @@ fun LumenApp(
                                     val label = dock.firstOrNull { it.key == key }?.label ?: key
                                     Toast.makeText(context, context.getString(R.string.favourite_removed, label), Toast.LENGTH_SHORT).show()
                                     movingKey = null
-                                    focusedKey = LUMEN_NOW
+                                    focusedKey.value = LUMEN_NOW
                                     scope.launch {
                                         delay(120)
                                         runCatching { dockFocus.requestFocus() }

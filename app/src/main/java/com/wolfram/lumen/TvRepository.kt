@@ -86,7 +86,13 @@ class TvRepository(private val context: Context) {
     }
 
     /** The colour theme you chose on the Themes page. */
-    fun themeId(): String = prefs.getString(KEY_THEME, null) ?: LumenConfig.DEFAULT_THEME
+    fun themeId(): String {
+        // Version 4.1 switches once to the dark Cinema look (the first screenshot); after that you choose.
+        if (!prefs.getBoolean(KEY_CINEMA_THEME, false)) {
+            prefs.edit().putBoolean(KEY_CINEMA_THEME, true).putString(KEY_THEME, LumenConfig.DEFAULT_THEME).apply()
+        }
+        return prefs.getString(KEY_THEME, null) ?: LumenConfig.DEFAULT_THEME
+    }
 
     fun saveTheme(id: String) {
         prefs.edit().putString(KEY_THEME, id).apply()
@@ -206,6 +212,7 @@ class TvRepository(private val context: Context) {
         private const val KEY_GLOW = "last_glow"
         private const val KEY_THEME = "theme"
         private const val KEY_CONSOLES_ADDED = "consoles_added"
+        private const val KEY_CINEMA_THEME = "cinema_theme_v1"
 
         /** Shown as favourites on first start, but only the ones that are installed. */
         private val DEFAULT_FAVOURITES = listOf(

@@ -81,29 +81,39 @@ import kotlin.random.Random
  */
 @Composable
 fun AuroraBackground(main: Color, modifier: Modifier = Modifier) {
-    // The other colours come from the current theme and fade when you switch themes.
     val theme = LocalLumenTheme.current
-    val spec = tween<Color>(durationMillis = 700)
-    val base by animateColorAsState(theme.base, spec, label = "base")
-    val light by animateColorAsState(
-        if (theme.followsApp) lerp(main, Color.White, 0.28f) else theme.light, spec, label = "light",
-    )
-    val third by animateColorAsState(theme.third, spec, label = "third")
-    val fourth by animateColorAsState(theme.fourth, spec, label = "fourth")
-
-    // The aurora is painted once, small, into two pictures; the graphics chip stretches them over the
-    // screen (gradients stay smooth) and slides them slowly in step with the screen refresh.
-    // Nothing is redrawn while it moves, so it stays smooth even on small TV sticks at 1080p.
-    val front = remember(main, light) {
+    if (!LumenConfig.LIVING_BACKGROUND) {
+        // Still background: everything in one opaque picture, so the TV draws a single layer.
+        val still = remember(theme.id, main) {
+            auroraLayer(
+                Band(theme.third.copy(alpha = 0.45f), 0.86f, 0.30f, 0.22f, 2.2f, -8f),
+                Band(theme.fourth.copy(alpha = 0.6f), 0.05f, 0.98f, 0.34f, 1.2f, 0f),
+                Band(main.copy(alpha = 0.85f), 0.62f, 0.00f, 0.42f, 2.2f, -10f),
+                Band(theme.light.copy(alpha = 0.45f), 0.72f, 0.10f, 0.26f, 2.8f, -16f),
+                base = theme.base,
+            )
+        }
+        Image(
+            bitmap = still,
+            contentDescription = null,
+            contentScale = ContentScale.FillBounds,
+            filterQuality = FilterQuality.Low,
+            modifier = modifier.fillMaxSize(),
+        )
+        return
+    }
+    // Painted once per theme (small, stretched by the graphics chip) and kept. Nothing here is redrawn
+    // while you move around, so focus animations get the TV's full attention.
+    val front = remember(theme.id, main) {
         auroraLayer(
             Band(main.copy(alpha = 0.85f), 0.62f, 0.00f, 0.42f, 2.2f, -10f),
-            Band(light.copy(alpha = 0.45f), 0.72f, 0.10f, 0.26f, 2.8f, -16f),
+            Band(theme.light.copy(alpha = 0.45f), 0.72f, 0.10f, 0.26f, 2.8f, -16f),
         )
     }
-    val back = remember(third, fourth) {
+    val back = remember(theme.id) {
         auroraLayer(
-            Band(third.copy(alpha = 0.45f), 0.86f, 0.30f, 0.22f, 2.2f, -8f),
-            Band(fourth.copy(alpha = 0.6f), 0.05f, 0.98f, 0.34f, 1.2f, 0f),
+            Band(theme.third.copy(alpha = 0.45f), 0.86f, 0.30f, 0.22f, 2.2f, -8f),
+            Band(theme.fourth.copy(alpha = 0.6f), 0.05f, 0.98f, 0.34f, 1.2f, 0f),
         )
     }
     val phase = if (LumenConfig.LIVING_BACKGROUND) {
@@ -116,9 +126,8 @@ fun AuroraBackground(main: Color, modifier: Modifier = Modifier) {
     } else {
         null
     }
-    val grain = remember { grainBrush() }
 
-    Box(modifier.fillMaxSize().background(base)) {
+    Box(modifier.fillMaxSize().background(theme.base)) {
         Image(
             bitmap = back,
             contentDescription = null,
@@ -148,23 +157,18 @@ fun AuroraBackground(main: Color, modifier: Modifier = Modifier) {
                     rotationZ = 3f * sin(a)
                 },
         )
-        // Fine film grain (also hides colour banding). Drawn once and kept; skipped on small sticks.
-        if (!Perf.lite) {
-            Canvas(Modifier.fillMaxSize()) {
-                drawRect(brush = grain, alpha = if (theme.isLight) 0.04f else 0.06f)
-            }
-        }
     }
 }
 
 private class Band(val color: Color, val x: Float, val y: Float, val radius: Float, val stretchX: Float, val angle: Float)
 
 /** Paints soft colour bands into a small transparent picture (384×216, stretched to the screen later). */
-private fun auroraLayer(vararg bands: Band): ImageBitmap {
+private fun auroraLayer(vararg bands: Band, base: Color? = null): ImageBitmap {
     val w = 384
     val h = 216
     val bitmap = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
     val canvas = android.graphics.Canvas(bitmap)
+    if (base != null) canvas.drawColor(base.toArgb())
     val paint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG or android.graphics.Paint.DITHER_FLAG)
     for (b in bands) {
         val cx = b.x * w
@@ -250,7 +254,6 @@ fun GreetingClock(glow: Color, clockSize: TextUnit, modifier: Modifier = Modifie
         lineHeight = clockSize,
         fontWeight = FontWeight.SemiBold,
         letterSpacing = (-clockSize.value * 0.03f).sp,
-        shadow = Shadow(color = Color.Black.copy(alpha = theme.shadowAlpha), offset = Offset(0f, 8f), blurRadius = 24f),
     )
 
     Column(modifier, horizontalAlignment = if (alignStart) Alignment.Start else Alignment.CenterHorizontally) {

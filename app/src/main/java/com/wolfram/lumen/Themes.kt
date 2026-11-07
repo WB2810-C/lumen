@@ -45,6 +45,9 @@ data class LumenTheme(
 }
 
 val THEMES = listOf(
+    // The two looks from the Cinema screenshots: deep plum with warm red and blue, and soft silver-white.
+    LumenTheme("cinema", R.string.theme_cinema, Color(0xFF09070E), Color(0xFF4E2459), Color(0xFFD9544C), Color(0xFF1C6BB0), Color(0xFF26143A)),
+    LumenTheme("cinema_light", R.string.theme_cinema_light, Color(0xFFE6E8EE), Color(0xFFFFFFFF), Color(0xFFB4BFD6), Color(0xFFD9CBBE), Color(0xFFC7D5EE), isLight = true),
     LumenTheme("app", R.string.theme_app, Color(0xFF0B0A12), Color(0xFFA3202E), Color(0xFFE0485C), Color(0xFF5B2C8C), Color(0xFF1F2A4F), followsApp = true),
     LumenTheme("north", R.string.theme_north, Color(0xFF050E14), Color(0xFF138A6A), Color(0xFF3FD1A8), Color(0xFF2B4F9E), Color(0xFF0E2A3A)),
     LumenTheme("sunset", R.string.theme_sunset, Color(0xFF120909), Color(0xFFC2502A), Color(0xFFF28A4A), Color(0xFFB0305A), Color(0xFF3A1C4F)),

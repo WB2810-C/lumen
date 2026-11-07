@@ -131,4 +131,7 @@
     <string name="scores_none_soon">No matches in the next two weeks.</string>
     <string name="files_count">%1$d files from your phone</string>
     <string name="files_open_hint">Press OK to open them</string>
+    <string name="screen_info">Screen: Lumen draws at %1$s pixels · TV picture %2$s</string>
+    <string name="theme_cinema">Cinema</string>
+    <string name="theme_cinema_light">Cinema Light</string>
 </resources>

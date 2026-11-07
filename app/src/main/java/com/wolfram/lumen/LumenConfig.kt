@@ -11,8 +11,11 @@ object LumenConfig {
      */
     const val AMBIENT_AFTER_MINUTES = 0
 
-    /** Set to false if the background movement is too slow on your TV. */
-    const val LIVING_BACKGROUND = true
+    /**
+     * Slowly drifting background. Off: anything that moves all the time makes the TV redraw the whole
+     * screen 60 times a second, which costs smoothness everywhere else. Set to true to try it.
+     */
+    const val LIVING_BACKGROUND = false
 
     /** Play the welcome animation when the TV starts. */
     const val WELCOME_ANIMATION = true
@@ -28,10 +31,10 @@ object LumenConfig {
 
     /**
      * Theme used until you pick one on the TV (side menu → palette icon).
-     * One of: "app", "north", "sunset", "ocean", "lavender", "gold", "graphite", "neon",
-     * "stone", "silver", "cloud".
+     * One of: "cinema" (dark), "cinema_light", "app", "north", "sunset", "ocean", "lavender", "gold",
+     * "graphite", "neon", "stone", "silver", "cloud".
      */
-    const val DEFAULT_THEME = "silver"
+    const val DEFAULT_THEME = "cinema"
 
     /* ----- Assistant -----
      * Free by default: Lumen understands commands itself and answers from the weather, news and scores.
@@ -58,8 +61,8 @@ object LumenConfig {
     const val LATITUDE = 50.8798
     const val LONGITUDE = 4.7005
 
-    /** Rain, snow, fog, lightning and stars on the screen. */
-    const val WEATHER_EFFECTS = true
+    /** Rain, snow, fog, lightning and stars on the screen (off for smoothness; set to true to try it). */
+    const val WEATHER_EFFECTS = false
 
     /* ----- News (VRT NWS, official feed: headlines and summaries only, no ads) ----- */
 

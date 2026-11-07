@@ -34,6 +34,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateMapOf
@@ -217,11 +218,18 @@ private fun RoundButton(label: String, onClick: () -> Unit, highlight: Brush? = 
 
 /* ---------- Backdrop: the colour of what you selected, washed over the screen ---------- */
 
+/** The backdrop for the home screen; only this little part follows the selected tile. */
+@Composable
+fun HomeBackdrop(dock: List<Tile>, focusedKey: State<String>, nowPlaying: NowPlayingMonitor, schedule: Schedule) {
+    CinemaBackdrop(heroColor(dock.firstOrNull { it.key == focusedKey.value }, nowPlaying.current, schedule))
+}
+
 @Composable
 fun CinemaBackdrop(color: Color) {
     val theme = LocalLumenTheme.current
-    val c by animateColorAsState(color, tween(600), label = "backdrop")
-    val strength = if (theme.isLight) 0.22f else 0.62f
+    // The colour is only read while drawing, so fading it just repaints this one layer.
+    val c by animateColorAsState(color, tween(450), label = "backdrop")
+    val strength = if (theme.isLight) 0.30f else 0.62f
     val base = theme.base
     Canvas(Modifier.fillMaxSize()) {
         drawRect(
@@ -241,7 +249,7 @@ fun CinemaBackdrop(color: Color) {
 @Composable
 fun CinemaHome(
     dock: List<Tile>,
-    focusedKey: String,
+    focusedKeyState: State<String>,
     movingKey: String?,
     firstFocus: FocusRequester,
     tint: Color,
@@ -265,6 +273,7 @@ fun CinemaHome(
     onChoosePort: (Console) -> Unit,
 ) {
     val theme = LocalLumenTheme.current
+    val focusedKey = focusedKeyState.value
     val focused = dock.firstOrNull { it.key == focusedKey } ?: dock.firstOrNull()
     val playing = nowPlaying.current
     val heroKey = when {
@@ -579,7 +588,6 @@ private fun HeroNews(news: NewsState) {
             Modifier
                 .width(380.dp)
                 .height(250.dp)
-                .shadow(18.dp, RoundedCornerShape(14.dp))
                 .clip(RoundedCornerShape(14.dp))
                 .background(Brush.linearGradient(listOf(theme.main, theme.third))),
         ) {
@@ -728,7 +736,6 @@ private fun HeroApp(tile: Tile, lastOpened: Long, loadBanner: suspend (String) -
             Modifier
                 .width(400.dp)
                 .height(225.dp)
-                .shadow(22.dp, RoundedCornerShape(16.dp))
                 .clip(RoundedCornerShape(16.dp))
                 .background(tile.takeoverColor),
             contentAlignment = Alignment.Center,
@@ -769,7 +776,6 @@ private fun HeroConsole(console: Console, spot: ConsoleSpot?, onChoosePort: () -
             Modifier
                 .width(400.dp)
                 .height(225.dp)
-                .shadow(22.dp, RoundedCornerShape(16.dp))
                 .clip(RoundedCornerShape(16.dp)),
         ) {
             SpecialFace(console.tile, TileSize.Large)

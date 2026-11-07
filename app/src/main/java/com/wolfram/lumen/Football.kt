@@ -32,6 +32,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -224,10 +225,8 @@ fun DynamicIsland(matches: List<LiveMatch>, goal: Goal?, visible: Boolean) {
 
 @Composable
 private fun CompactIsland(match: LiveMatch) {
-    val pulse = rememberInfiniteTransition(label = "live").animateFloat(
-        initialValue = 0.35f, targetValue = 1f,
-        animationSpec = infiniteRepeatable(tween(900), RepeatMode.Reverse), label = "dot",
-    )
+    // A steady dot: something pulsing forever would make the TV redraw the whole screen non-stop.
+    val pulse = remember { mutableFloatStateOf(1f) }
     Row(
         modifier = Modifier
             .height(32.dp)
