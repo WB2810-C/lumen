@@ -154,7 +154,20 @@ object Consoles {
                 )
             }.getOrNull()
         }
-        val logo = (fromPhone ?: fromApp)?.asImageBitmap()
+        // Otherwise the console's real logo that comes with PlaizierOS, in white on the console's colour
+        // (the way the consoles' own apps show it).
+        val bundled = if (fromPhone != null || fromApp != null) null else runCatching {
+            val src = context.assets.open("logos/${console.id}.png").use { android.graphics.BitmapFactory.decodeStream(it) }
+            val white = android.graphics.Bitmap.createBitmap(src.width, src.height, android.graphics.Bitmap.Config.ARGB_8888)
+            android.graphics.Canvas(white).drawBitmap(
+                src, 0f, 0f,
+                android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+                    colorFilter = android.graphics.PorterDuffColorFilter(android.graphics.Color.WHITE, android.graphics.PorterDuff.Mode.SRC_IN)
+                },
+            )
+            white
+        }.getOrNull()
+        val logo = (fromPhone ?: fromApp ?: bundled)?.asImageBitmap()
         return console.tile.copy(banner = logo)
     }
 

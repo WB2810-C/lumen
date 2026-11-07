@@ -85,7 +85,15 @@ private val espnDate = SimpleDateFormat("yyyy-MM-dd'T'HH:mm", Locale.ROOT).apply
 /** Matches of one team that are being played now (or just finished). */
 /** A match that hasn't started yet. */
 @Immutable
-data class Fixture(val id: String, val home: String, val away: String, val startsAt: Long, val league: String)
+data class Fixture(
+    val id: String,
+    val home: String,
+    val away: String,
+    val startsAt: Long,
+    val league: String,
+    val homeLogo: String? = null,
+    val awayLogo: String? = null,
+)
 
 /** Live and recent matches, plus the next matches of your teams. */
 @Immutable
@@ -111,14 +119,18 @@ private suspend fun teamSchedule(teamId: Int): Schedule {
         if (state == "pre") {
             // Coming matches in the next two weeks (ESPN sometimes keeps old ones as "pre": skip those).
             if (start > now - 3 * 60 * 60_000L && start < now + 14 * 24 * 60 * 60_000L) {
-                val names = (0 until (competition.optJSONArray("competitors")?.length() ?: 0)).mapNotNull { c ->
+                // Each side's name and crest.
+                val sides = (0 until (competition.optJSONArray("competitors")?.length() ?: 0)).mapNotNull { c ->
                     val comp = competition.optJSONArray("competitors")?.optJSONObject(c) ?: return@mapNotNull null
                     val team = comp.optJSONObject("team") ?: return@mapNotNull null
-                    comp.optString("homeAway") to team.optString("shortDisplayName").ifBlank { team.optString("displayName") }
+                    val logo = team.optJSONArray("logos")?.optJSONObject(0)?.optString("href") ?: team.optString("logo").ifBlank { null }
+                    comp.optString("homeAway") to (team.optString("shortDisplayName").ifBlank { team.optString("displayName") } to logo)
                 }.toMap()
-                val home = names["home"]
-                val away = names["away"]
-                if (home != null && away != null) upcoming.add(Fixture(event.optString("id"), home, away, start, league))
+                val home = sides["home"]
+                val away = sides["away"]
+                if (home != null && away != null) {
+                    upcoming.add(Fixture(event.optString("id"), home.first, away.first, start, league, home.second, away.second))
+                }
             }
             continue
         }

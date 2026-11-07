@@ -251,7 +251,7 @@ fun SpecialFace(tile: Tile, tileSize: TileSize) {
             Modifier
                 .fillMaxSize()
                 .background(Brush.linearGradient(listOf(lerp(tile.takeoverColor, Color.White, 0.10f), lerp(tile.takeoverColor, Color.Black, 0.18f))))
-                .padding(if (big) 22.dp else 8.dp),
+                .padding(if (big) 22.dp else 7.dp),
             contentAlignment = Alignment.Center,
         ) {
             Image(logo, contentDescription = tile.label, contentScale = ContentScale.Fit, modifier = Modifier.fillMaxSize())

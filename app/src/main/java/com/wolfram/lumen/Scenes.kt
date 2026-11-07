@@ -138,29 +138,21 @@ enum class Scene(
     val rimStroke: Color = Color.White.copy(alpha = 0.55f),
     val sheen: Boolean = true,
     val shade: List<Pair<Float, Color>> = emptyList(),
+    /** For the colour backgrounds: which earlier theme's colours to paint. */
+    val aurora: String? = null,
 ) {
+    // The nightfall mountains from couch-tv: the peaks stand in front of the clock.
     NIGHT(
         "night", true, clockTop = 75f, clockSize = 200f, dateTop = 48f,
         photoBrightness = 0.86f, fillBrightness = 1.15f, fillSaturation = 1.2f, fillAlpha = 0.9f,
         rimFill = Color(255, 200, 215).copy(alpha = 0.06f), rimStroke = Color(255, 215, 225).copy(alpha = 0.5f),
     ),
-    GOLDEN("golden", true, clockTop = 76f, clockSize = 195f, dateTop = 53f),
-    WATER(
-        "water", false, clockTop = 134f, clockSize = 210f, dateTop = 108f,
-        shade = listOf(
-            0f to Color(0, 12, 24).copy(alpha = 0.42f), 0.4f to Color(0, 12, 24).copy(alpha = 0.12f),
-            0.52f to Color.Transparent, 1f to Color(0, 20, 40).copy(alpha = 0.5f),
-        ),
-    ),
-    FOG(
-        "fog", true, clockTop = 86f, clockSize = 235f, clockLeft = 48f, dateTop = 58f, dateLeft = 52f, darkText = true,
-        fillBrightness = 0.46f, fillSaturation = 0.8f, fillAlpha = 0.8f,
-        rimFill = Color.Transparent, rimStroke = Color.White.copy(alpha = 0.6f), sheen = false,
-    ),
-    DAWN(
-        "dawn", true, clockTop = 115f, clockSize = 200f, dateTop = 88f,
-        shade = listOf(0f to Color(50, 28, 12).copy(alpha = 0.42f), 0.55f to Color.Transparent),
-    ),
+    // The soft colour backgrounds from the earlier PlaizierOS versions, with the same glass clock.
+    CINEMA("cinema", false, clockTop = 75f, clockSize = 200f, dateTop = 48f, aurora = "cinema"),
+    NORTH("north", false, clockTop = 75f, clockSize = 200f, dateTop = 48f, aurora = "north"),
+    OCEAN("ocean", false, clockTop = 75f, clockSize = 200f, dateTop = 48f, aurora = "ocean"),
+    LAVENDER("lavender", false, clockTop = 75f, clockSize = 200f, dateTop = 48f, aurora = "lavender"),
+    SUNSET("sunset", false, clockTop = 75f, clockSize = 200f, dateTop = 48f, aurora = "sunset"),
 }
 
 /** A scene's pictures, loaded and ready to draw. */
@@ -170,6 +162,11 @@ class LoadedScene(val scene: Scene, val photo: ImageBitmap, val front: ImageBitm
 }
 
 private suspend fun loadScene(context: Context, scene: Scene): LoadedScene? = withContext(Dispatchers.IO) {
+    scene.aurora?.let { id ->
+        // A colour background: painted (small, it's all soft gradients) instead of loaded.
+        val theme = themeById(id)
+        return@withContext LoadedScene(scene, paintAurora(theme, 480, 270).asImageBitmap(), null, frosted(paintAurora(theme, 240, 135)))
+    }
     runCatching {
         fun decode(name: String, sample: Int = 1): Bitmap =
             context.assets.open("scenes/$name").use {
@@ -195,7 +192,7 @@ fun rememberSceneRotation(lastInputAt: () -> Long): State<LoadedScene?> {
     val latestInput by rememberUpdatedState(lastInputAt)
     return produceState<LoadedScene?>(null) {
         val order = Scene.entries
-        var index = (System.currentTimeMillis() / 3_600_000L % order.size).toInt()
+        var index = 0 // always start on the nightfall mountains
         value = loadScene(context, order[index])
         if (LumenConfig.SCENE_SECONDS <= 0) return@produceState
         while (true) {
@@ -273,7 +270,6 @@ private fun GlassClock(s: LoadedScene) {
     Canvas(Modifier.fillMaxSize()) {
         val (fill, rimFill, rimStroke, sheen) = paints
         val textSize = s.scene.clockSize.dp.toPx()
-        val baseline = (s.scene.clockTop + s.scene.clockSize * 0.75f).dp.toPx()
         val left = s.scene.clockLeft
         val align = if (left == null) Paint.Align.CENTER else Paint.Align.LEFT
         val x = left?.dp?.toPx() ?: (size.width / 2f)
@@ -286,9 +282,14 @@ private fun GlassClock(s: LoadedScene) {
             setLocalMatrix(Matrix().apply { setScale(size.width / s.glass.width, size.height / s.glass.height) })
         }
         rimStroke.strokeWidth = 0.72.dp.toPx()
+        // Put the top of the digits exactly where couch-tv has it, whatever the font's own spacing:
+        // measure the real digits and work out the baseline from there.
+        val bounds = android.graphics.Rect()
+        fill.getTextBounds(time, 0, time.length, bounds)
+        val top = (s.scene.clockTop + s.scene.clockSize * 0.055f).dp.toPx()
+        val baseline = top - bounds.top
         val width = fill.measureText(time)
         val x0 = if (left == null) x - width / 2f else x
-        val top = baseline - textSize * 0.72f
         // couch-tv's sheen: linear-gradient(160deg, white 55% → clear at 38% → clear at 70% → white 22%).
         sheen.shader = LinearGradient(
             x0 + width * 0.33f, top, x0 + width * 0.67f, baseline,
@@ -390,7 +391,7 @@ fun SceneHome(
                 .fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(11.dp),
         ) {
-            cards.take(3).forEach { card -> SceneCardView(card, glass, onClick = { onCard(card) }) }
+            cards.take(3).forEach { card -> SceneCardView(card, glass, onClick = { onCard(card) }, modifier = Modifier.weight(1f)) }
         }
 
         SceneDock(
@@ -443,14 +444,14 @@ private fun DateLine(scene: Scene, weather: WeatherNow?) {
 }
 
 @Composable
-private fun SceneCardView(card: SceneCard, glass: ImageBitmap?, onClick: () -> Unit) {
+private fun SceneCardView(card: SceneCard, glass: ImageBitmap?, onClick: () -> Unit, modifier: Modifier = Modifier) {
     var focused by remember { mutableStateOf(false) }
     val scale by animateFloatAsState(if (focused) 1.05f else 1f, tween(200), label = "card")
     val shape = RoundedCornerShape(15.dp)
     Row(
-        Modifier
+        modifier
             .graphicsLayer { scaleX = scale; scaleY = scale }
-            .width(260.dp)
+            .height(72.dp)
             .sceneGlass(glass, shape)
             .then(if (focused) Modifier.border(1.5.dp, Color.White, shape) else Modifier)
             .onFocusChanged {
@@ -464,28 +465,32 @@ private fun SceneCardView(card: SceneCard, glass: ImageBitmap?, onClick: () -> U
             .padding(8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        // The picture on the left: the news photo, both teams' crests, or the album cover.
-        Box(
-            Modifier
-                .size(width = 84.dp, height = 47.5.dp)
-                .clip(RoundedCornerShape(8.dp))
-                .background(Color.White.copy(alpha = 0.08f)),
-            contentAlignment = Alignment.Center,
-        ) {
-            val match = card.match
-            when {
-                match != null -> Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-                    Crest(match.home, 23.dp)
-                    Crest(match.away, 23.dp)
-                }
-                card.bitmap != null -> Image(card.bitmap, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
-                card.image != null -> {
-                    val photo by rememberRemoteImage(card.image, maxSide = 400)
-                    photo?.let { Image(it, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize()) }
+        // The picture on the left (the news photo, both teams' crests, the album cover); none if there isn't one.
+        val match = card.match
+        if (match != null || card.bitmap != null || card.image != null) {
+            Box(
+                Modifier
+                    .size(width = 84.dp, height = 47.5.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(Color.White.copy(alpha = 0.08f)),
+                contentAlignment = Alignment.Center,
+            ) {
+                when {
+                    match != null -> Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                        Crest(match.home, 23.dp)
+                        Crest(match.away, 23.dp)
+                    }
+                    card.bitmap != null -> Image(card.bitmap, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+                    card.image != null -> {
+                        val photo by rememberRemoteImage(card.image, maxSide = 400)
+                        photo?.let { Image(it, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize()) }
+                    }
                 }
             }
+            Spacer(Modifier.width(10.dp))
+        } else {
+            Spacer(Modifier.width(4.dp))
         }
-        Spacer(Modifier.width(10.dp))
         Column(Modifier.weight(1f)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 if (card.live) {
@@ -498,8 +503,12 @@ private fun SceneCardView(card: SceneCard, glass: ImageBitmap?, onClick: () -> U
                     letterSpacing = 0.6.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
                 )
             }
-            Text(card.title, color = Color.White, fontSize = 14.5.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 3.dp))
-            if (card.subtitle.isNotBlank()) {
+            Text(
+                card.title, color = Color.White, fontSize = 13.sp, lineHeight = 16.sp, fontWeight = FontWeight.SemiBold,
+                maxLines = if (card.subtitle.isBlank() && card.progress == null) 3 else 2, overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.padding(top = 2.dp),
+            )
+            if (card.subtitle.isNotBlank() && card.progress == null) {
                 Text(card.subtitle, color = Color.White.copy(alpha = 0.78f), fontSize = 10.5.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
             card.progress?.let { p ->
@@ -542,8 +551,8 @@ private fun SceneDock(
     Column(modifier, horizontalAlignment = Alignment.CenterHorizontally) {
         Box(
             Modifier
-                .widthIn(max = 880.dp)
-                .sceneGlass(glass, RoundedCornerShape(23.dp))
+                .widthIn(max = 900.dp)
+                .sceneGlass(glass, RoundedCornerShape(20.dp))
                 .onPreviewKeyEvent { event ->
                     if (movingKey == null) return@onPreviewKeyEvent false
                     // Moving a favourite: ◀ ▶ move it, ▼ removes it, OK or Back finishes.
@@ -579,7 +588,7 @@ private fun SceneDock(
                     ) {
                         // A thin line between your apps and PlaizierOS's own buttons.
                         if (index == dock.size && dock.isNotEmpty()) {
-                            Box(Modifier.padding(end = 11.dp).width(1.dp).height(38.dp).background(Color.White.copy(alpha = 0.22f)))
+                            Box(Modifier.padding(end = 11.dp).width(1.dp).height(32.dp).background(Color.White.copy(alpha = 0.22f)))
                         }
                         DockTile(
                             tile = tile,
@@ -635,10 +644,12 @@ private fun DockTile(
     var focused by remember { mutableStateOf(false) }
     val lift by animateFloatAsState(if (focused) 1f else 0f, tween(180), label = "lift")
     val coordinates = remember { arrayOfNulls<LayoutCoordinates>(1) }
-    val shape = RoundedCornerShape(12.dp)
+    val shape = RoundedCornerShape(9.dp)
+    // Apps and consoles use the TV's 16:9 banner shape, so their logos fit exactly as their makers drew them.
+    val wide = tile.kind != TileKind.LUMEN
     Box(
         modifier
-            .size(52.dp)
+            .size(width = if (wide) 77.dp else 43.dp, height = 43.dp)
             .graphicsLayer {
                 val s = 1f + 0.16f * lift
                 scaleX = s
@@ -654,7 +665,7 @@ private fun DockTile(
                         color = Color.White,
                         topLeft = Offset(-gap, -gap),
                         size = Size(size.width + gap * 2, size.height + gap * 2),
-                        cornerRadius = CornerRadius(12.dp.toPx()),
+                        cornerRadius = CornerRadius(9.dp.toPx()),
                         style = Stroke(width = 2.dp.toPx()),
                     )
                 }
@@ -690,8 +701,11 @@ private fun DockFace(tile: Tile, dimmed: Boolean) {
             val icon = tile.icon
             val banner = tile.banner
             when {
-                icon != null -> Image(icon, contentDescription = tile.label, contentScale = ContentScale.Crop, colorFilter = dim, modifier = Modifier.fillMaxSize().background(tile.takeoverColor))
+                // The app's own TV banner fills the tile; without one, its icon sits in the middle on its colour.
                 banner != null -> Image(banner, contentDescription = tile.label, contentScale = ContentScale.Crop, colorFilter = dim, modifier = Modifier.fillMaxSize())
+                icon != null -> Box(Modifier.fillMaxSize().background(tile.takeoverColor), contentAlignment = Alignment.Center) {
+                    Image(icon, contentDescription = tile.label, contentScale = ContentScale.Fit, colorFilter = dim, modifier = Modifier.fillMaxHeight(0.78f))
+                }
                 else -> Box(Modifier.fillMaxSize().background(Color(0xFF2A2A30)), contentAlignment = Alignment.Center) {
                     Text(tile.label, color = Color.White, fontSize = 9.sp, fontWeight = FontWeight.SemiBold, maxLines = 2)
                 }
@@ -699,7 +713,7 @@ private fun DockFace(tile: Tile, dimmed: Boolean) {
         }
         TileKind.CONSOLE -> SpecialFace(tile, TileSize.Dock)
         TileKind.LUMEN -> Box(Modifier.fillMaxSize().background(Color.White.copy(alpha = 0.14f)), contentAlignment = Alignment.Center) {
-            ToolGlyph(tile.key, Modifier.size(22.dp), Color.White)
+            ToolGlyph(tile.key, Modifier.size(19.dp), Color.White)
         }
     }
 }
@@ -774,4 +788,58 @@ private fun MenuRow(label: String, modifier: Modifier, onClick: () -> Unit) {
     ) {
         Text(label, color = if (focused) Color(0xFF111111) else Color.White, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
     }
+}
+
+/* ---------- The colour backgrounds of the earlier versions ---------- */
+
+/** Paints an earlier version's soft colour background (the same bands as before) at a small size. */
+private fun paintAurora(theme: LumenTheme, w: Int, h: Int): Bitmap {
+    val bitmap = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
+    val canvas = android.graphics.Canvas(bitmap)
+    canvas.drawColor(theme.base.toArgb())
+    val paint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.DITHER_FLAG)
+    // colour, centre x, centre y, radius (of the width), stretch, angle
+    val bands = listOf(
+        AuroraBand(theme.third.copy(alpha = 0.45f), 0.86f, 0.30f, 0.22f, 2.2f, -8f),
+        AuroraBand(theme.fourth.copy(alpha = 0.6f), 0.05f, 0.98f, 0.34f, 1.2f, 0f),
+        AuroraBand(theme.main.copy(alpha = 0.85f), 0.62f, 0.00f, 0.42f, 2.2f, -10f),
+        AuroraBand(theme.light.copy(alpha = 0.45f), 0.72f, 0.10f, 0.26f, 2.8f, -16f),
+    )
+    for (b in bands) {
+        val cx = b.x * w
+        val cy = b.y * h
+        val r = b.radius * w
+        paint.shader = android.graphics.RadialGradient(
+            cx, cy, r, intArrayOf(b.color.toArgb(), b.color.copy(alpha = 0f).toArgb()), null, Shader.TileMode.CLAMP,
+        )
+        canvas.save()
+        canvas.rotate(b.angle, cx, cy)
+        canvas.scale(b.stretch, 1f, cx, cy)
+        canvas.drawCircle(cx, cy, r, paint)
+        canvas.restore()
+    }
+    return bitmap
+}
+
+private class AuroraBand(val color: Color, val x: Float, val y: Float, val radius: Float, val stretch: Float, val angle: Float)
+
+/** A lighter, frosted copy for the clock's glass and the cards. */
+private fun frosted(src: Bitmap): Bitmap {
+    val out = Bitmap.createBitmap(src.width, src.height, Bitmap.Config.ARGB_8888)
+    android.graphics.Canvas(out).drawBitmap(
+        src, 0f, 0f,
+        Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            colorFilter = ColorMatrixColorFilter(
+                ColorMatrix(
+                    floatArrayOf(
+                        1.25f, 0f, 0f, 0f, 70f,
+                        0f, 1.25f, 0f, 0f, 70f,
+                        0f, 0f, 1.25f, 0f, 70f,
+                        0f, 0f, 0f, 1f, 0f,
+                    ),
+                ),
+            )
+        },
+    )
+    return out
 }

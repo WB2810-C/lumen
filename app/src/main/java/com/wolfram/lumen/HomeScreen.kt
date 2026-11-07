@@ -604,7 +604,16 @@ fun LumenApp(
         } else {
             schedule.upcoming.firstOrNull()?.let { f ->
                 val day = java.text.SimpleDateFormat("EEE d MMM · HH:mm", java.util.Locale.getDefault()).format(java.util.Date(f.startsAt))
-                add(SceneCard("score", scoresNext, "${f.home} – ${f.away}", day.replaceFirstChar { it.titlecase(java.util.Locale.getDefault()) }))
+                // Both clubs' crests on the left, like the live match.
+                val crests = LiveMatch(
+                    id = f.id,
+                    home = Side(f.home, "", 0, f.homeLogo, Color(0xFF3A3D46)),
+                    away = Side(f.away, "", 0, f.awayLogo, Color(0xFF3A3D46)),
+                    clock = "",
+                    live = false,
+                    league = f.league,
+                )
+                add(SceneCard("score", scoresNext, "${f.home} – ${f.away}", day.replaceFirstChar { it.titlecase(java.util.Locale.getDefault()) }, match = crests))
             }
         }
         if (playing != null) {
