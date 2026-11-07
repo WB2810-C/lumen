@@ -120,6 +120,15 @@ fun LumenApp(
     var portsTick by remember { mutableIntStateOf(0) }
     val consoleSpots = remember(ports, portsTick) { Console.entries.associateWith { Consoles.find(context, it, ports) } }
     var chooser by remember { mutableStateOf<Console?>(null) }
+    // The consoles' tiles with their real logos (from their app on the TV, or a picture sent from the phone).
+    var logoTick by remember { mutableIntStateOf(0) }
+    var consoleTiles by remember { mutableStateOf(Console.entries.associateWith { it.tile }) }
+    LaunchedEffect(resumeTick, logoTick) {
+        consoleTiles = withContext(Dispatchers.IO) { Console.entries.associateWith { Consoles.tile(context, it) } }
+    }
+    // When the dock is focused by PlaizierOS itself (at start, or after pressing Home), the preview keeps
+    // showing the greeting and the clock until you move.
+    val keepHomePreview = remember { booleanArrayOf(true) }
 
     // Colour theme: the saved one, or a live preview while you browse the Themes page.
     var themeId by remember { mutableStateOf(repo.themeId()) }
@@ -139,6 +148,10 @@ fun LumenApp(
     // The AI assistant and the phone-remote panel.
     var assistantOpen by remember { mutableStateOf(false) }
     var phoneOpen by remember { mutableStateOf(false) }
+    // "More" in the dock: phone remote, search, colours, Wi-Fi, TV settings.
+    var moreOpen by remember { mutableStateOf(false) }
+    // The couch-tv scenes behind everything; they take turns while you're not using the remote.
+    val sceneState = rememberSceneRotation(lastInputAt)
 
     // Photos, videos and files sent from the phone (also from iCloud Drive), and the viewer.
     var files by remember { mutableStateOf(FileStore.list(context)) }
@@ -238,8 +251,10 @@ fun LumenApp(
             phoneOpen = false
             viewer = null
             chooser = null
+            moreOpen = false
             movingKey = null
             focusedKey.value = LUMEN_NOW
+            keepHomePreview[0] = true
             delay(80)
             runCatching { dockFocus.requestFocus() }
         }
@@ -247,6 +262,8 @@ fun LumenApp(
     // Arriving on the home screen: the remote starts on the first tile of the dock.
     LaunchedEffect(tab) {
         if (tab == Tab.HOME) {
+            focusedKey.value = LUMEN_NOW
+            keepHomePreview[0] = true
             delay(80)
             runCatching { dockFocus.requestFocus() }
         } else {
@@ -264,24 +281,12 @@ fun LumenApp(
         }
     }
 
-    val favourites = remember(apps, favouriteKeys) {
-        favouriteKeys.mapNotNull { key -> Console.byKey(key)?.tile ?: apps.firstOrNull { it.key == key } }
+    val favourites = remember(apps, favouriteKeys, consoleTiles) {
+        favouriteKeys.mapNotNull { key -> Console.byKey(key)?.let { consoleTiles[it] } ?: apps.firstOrNull { it.key == key } }
     }
 
-    // The dock: Lumen, VRT NWS and Scores first, then your favourites (with Xbox and PlayStation), then Files.
-    val appName = stringResource(R.string.app_name)
-    val newsLabel = stringResource(R.string.news_source)
-    val scoresLabel = stringResource(R.string.dock_scores)
-    val filesLabel = stringResource(R.string.tab_files)
-    val dock = remember(favourites, theme, appName, newsLabel, scoresLabel, filesLabel) {
-        fun own(key: String, label: String, colour: Color) =
-            Tile(key = key, label = label, kind = TileKind.LUMEN, banner = null, icon = null, takeoverColor = colour, glow = colour)
-        listOf(
-            own(LUMEN_NOW, appName, theme.main),
-            own(LUMEN_NEWS, newsLabel, Color(0xFF5A6B8C)),
-            own(LUMEN_SCORES, scoresLabel, Color(0xFF1E9E5A)),
-        ) + favourites + own(LUMEN_FILES, filesLabel, Color(0xFF3B82F6))
-    }
+    // The dock: only your favourites — real apps, Xbox and PlayStation.
+    val dock = favourites
 
     /** Plays the logo takeover for [shown] and then opens [target] (a console's tile opens its HDMI input). */
     val onOpenAs: (Tile, Rect, Tile) -> Unit = { shown, from, target ->
@@ -307,6 +312,14 @@ fun LumenApp(
             TileKind.LUMEN -> {
                 Sounds.play(Sound.SELECT)
                 when (tile.key) {
+                    TOOL_APPS -> tab = Tab.APPS
+                    TOOL_NEWS -> {
+                        newsStart = null
+                        tab = Tab.NEWS
+                    }
+                    TOOL_FILES -> tab = Tab.FILES
+                    TOOL_ASK -> assistantOpen = true
+                    TOOL_MORE -> moreOpen = true
                     LUMEN_NOW -> assistantOpen = true
                     LUMEN_NEWS -> {
                         newsStart = 0
@@ -499,7 +512,7 @@ fun LumenApp(
                 assistantOpen = true
                 askWithReply(cmd.text) { turn -> cmd.reply.complete(turn.answer.orEmpty()) }
             }
-            is RemoteCommand.Open -> (apps + inputs + Console.entries.map { it.tile }).firstOrNull { it.key == cmd.key }?.let {
+            is RemoteCommand.Open -> (apps + inputs + consoleTiles.values).firstOrNull { it.key == cmd.key }?.let {
                 phoneOpen = false
                 assistantOpen = false
                 onAmbientChange(false)
@@ -507,6 +520,7 @@ fun LumenApp(
             }
             is RemoteCommand.YouTube -> Launcher.youTube(activity, cmd.query)
             is RemoteCommand.Theme -> THEMES.firstOrNull { it.id == cmd.id }?.let(chooseTheme)
+            is RemoteCommand.LogoChanged -> logoTick++
             is RemoteCommand.ShowFile -> {
                 files = FileStore.list(context)
                 phoneOpen = false
@@ -544,7 +558,7 @@ fun LumenApp(
     }
 
     // The island only shows on the home screen itself.
-    val islandVisible = tab == Tab.HOME && !assistantOpen && !phoneOpen && viewer == null && chooser == null && !ambient && !takeover.isBusy && intro.value >= 1f
+    val islandVisible = tab == Tab.HOME && !assistantOpen && !phoneOpen && !moreOpen && viewer == null && chooser == null && !ambient && !takeover.isBusy && intro.value >= 1f
     val latestIslandVisible by rememberUpdatedState(islandVisible)
     LaunchedEffect(goal) {
         if (goal != null) {
@@ -554,122 +568,162 @@ fun LumenApp(
         }
     }
 
+    // PlaizierOS's own buttons at the end of the dock.
+    val toolLabels = listOf(
+        stringResource(R.string.tab_apps), stringResource(R.string.tab_news), stringResource(R.string.tab_files),
+        stringResource(R.string.assistant_title), stringResource(R.string.more),
+    )
+    val tools = remember(toolLabels) {
+        listOf(TOOL_APPS, TOOL_NEWS, TOOL_FILES, TOOL_ASK, TOOL_MORE).mapIndexed { i, key ->
+            Tile(key = key, label = toolLabels[i], kind = TileKind.LUMEN, banner = null, icon = null, takeoverColor = Color(0xFF2A2A30), glow = theme.main)
+        }
+    }
+
+    // The glass cards: the top VRT NWS story, your teams, and what's playing (or "On this day").
+    val newsSource = stringResource(R.string.news_source)
+    val scoresLive = stringResource(R.string.scores_live)
+    val scoresNext = stringResource(R.string.scores_next)
+    val historyTitle = stringResource(R.string.history_title)
+    val playing = nowPlaying.current
+    val cards = buildList {
+        news.items.firstOrNull()?.let {
+            add(SceneCard("news", "$newsSource · ${clockTime(it.published)}", it.title, it.summary, image = it.image))
+        }
+        val live = schedule.live.firstOrNull { it.live } ?: schedule.live.firstOrNull()
+        if (live != null) {
+            add(
+                SceneCard(
+                    "score",
+                    listOf(if (live.live) scoresLive else "", live.league, live.clock).filter { it.isNotBlank() }.joinToString(" · "),
+                    "${live.home.name} ${live.home.score} – ${live.away.score} ${live.away.name}",
+                    "",
+                    match = live,
+                    live = live.live,
+                ),
+            )
+        } else {
+            schedule.upcoming.firstOrNull()?.let { f ->
+                val day = java.text.SimpleDateFormat("EEE d MMM · HH:mm", java.util.Locale.getDefault()).format(java.util.Date(f.startsAt))
+                add(SceneCard("score", scoresNext, "${f.home} – ${f.away}", day.replaceFirstChar { it.titlecase(java.util.Locale.getDefault()) }))
+            }
+        }
+        if (playing != null) {
+            add(
+                SceneCard(
+                    "music",
+                    context.getString(R.string.now_playing, playing.appName),
+                    playing.title,
+                    playing.artist,
+                    bitmap = playing.art,
+                    progress = if (playing.durationMs > 0) playing.positionNow().toFloat() / playing.durationMs else null,
+                ),
+            )
+        } else {
+            history?.let { h -> add(SceneCard("history", "$historyTitle · ${h.year}", h.text, "")) }
+        }
+    }
+
     CompositionLocalProvider(LocalLumenTheme provides theme) {
         Box(Modifier.fillMaxSize()) {
-            AuroraBackground(main = glow)
-            if (tab == Tab.HOME) HomeBackdrop(dock, focusedKey, nowPlaying, schedule)
-            WeatherSky(weather)
-            Column(Modifier.fillMaxSize()) {
-                CinemaTopBar(
-                    tab = tab,
-                    showInputs = inputs.isNotEmpty(),
+            val loadedScene = sceneState.value
+            SceneStage(loadedScene, showClock = tab == Tab.HOME)
+            if (tab == Tab.HOME) {
+                SceneHome(
+                    loaded = loadedScene,
                     weather = weather,
-                    glow = glow,
-                    onTab = { tab = it },
-                    onAssistant = { assistantOpen = true },
-                    onSearch = { Launcher.openSearch(activity) },
-                    onPhone = { phoneOpen = true },
-                    onSettings = { Launcher.openSettings(activity) },
-                )
-                Box(
-                    Modifier
-                        .weight(1f)
-                        .fillMaxWidth(),
-                ) {
-                    when (tab) {
-                        Tab.HOME -> CinemaHome(
-                            dock = dock,
-                            focusedKeyState = focusedKey,
-                            movingKey = movingKey,
-                            firstFocus = dockFocus,
-                            tint = tint,
-                            weather = weather,
-                            weatherError = weatherLive.error,
-                            news = news,
-                            history = history,
-                            schedule = schedule,
-                            nowPlaying = nowPlaying,
-                            fileCount = files.size,
-                            latestFiles = files.take(3).map { FileStore.displayName(it) },
-                            consoleSpots = consoleSpots,
-                            lastOpened = { repo.lastOpened(it) },
-                            loadBanner = { repo.hiResBanner(it) },
-                            onFocusTile = { t -> focusedKey.value = t.key },
-                            onOpen = { t, r -> if (movingKey == null) openTile(t, r) },
-                            onHold = { t ->
-                                if (t.kind == TileKind.APP || t.kind == TileKind.CONSOLE) {
-                                    Sounds.play(Sound.SELECT)
-                                    movingKey = t.key
-                                }
-                            },
-                            onMove = { delta ->
-                                movingKey?.let { key ->
-                                    favouriteKeys = repo.moveFavourite(key, delta)
-                                    Sounds.play(Sound.FOCUS)
-                                }
-                            },
-                            onRemove = {
-                                movingKey?.let { key ->
-                                    repo.toggleFavourite(key)
-                                    favouriteKeys = repo.favouriteKeys()
-                                    val label = dock.firstOrNull { it.key == key }?.label ?: key
-                                    Toast.makeText(context, context.getString(R.string.favourite_removed, label), Toast.LENGTH_SHORT).show()
-                                    movingKey = null
-                                    focusedKey.value = LUMEN_NOW
-                                    scope.launch {
-                                        delay(120)
-                                        runCatching { dockFocus.requestFocus() }
-                                    }
-                                }
-                            },
-                            onDoneMoving = {
-                                Sounds.play(Sound.SELECT)
-                                movingKey = null
-                            },
-                            onChoosePort = { chooser = it },
-                        )
-                        else -> Box(
-                            Modifier
-                                .fillMaxSize()
-                                .padding(start = 55.dp, end = 30.dp, top = 4.dp),
-                        ) {
-                            when (tab) {
-                                Tab.NEWS -> NewsPage(news, newsStart)
-                                Tab.FILES -> FilesPage(
-                                    files = files,
-                                    onOpen = { viewer = it },
-                                    onDelete = { file ->
-                                        file.delete()
-                                        files = FileStore.list(context)
-                                        Toast.makeText(context, context.getString(R.string.file_deleted, FileStore.displayName(file)), Toast.LENGTH_SHORT).show()
-                                    },
-                                )
-                                Tab.APPS -> TileGrid(stringResource(R.string.row_all_apps), Console.entries.map { it.tile } + apps, openTile, onHold, onFocusTile)
-                                Tab.INPUTS -> TileGrid(stringResource(R.string.row_inputs), inputs, onOpen, null, onFocusTile)
-                                Tab.THEMES -> ThemesPage(
-                                    current = themeById(themeId),
-                                    onPreview = { previewTheme = it },
-                                    onChoose = { chosen ->
-                                        chooseTheme(chosen)
-                                        val name = context.getString(chosen.name)
-                                        Toast.makeText(context, context.getString(R.string.theme_chosen, name), Toast.LENGTH_SHORT).show()
-                                    },
-                                )
-                                Tab.HOME -> Unit
+                    cards = cards,
+                    dock = dock,
+                    tools = tools,
+                    movingKey = movingKey,
+                    firstFocus = dockFocus,
+                    onCard = { card ->
+                        when (card.key) {
+                            "news" -> {
+                                newsStart = 0
+                                tab = Tab.NEWS
+                            }
+                            "music" -> nowPlaying.playPause()
+                            else -> Unit
+                        }
+                    },
+                    onOpen = { t, r -> if (movingKey == null) openTile(t, r) },
+                    onHold = { t ->
+                        if (t.kind == TileKind.APP || t.kind == TileKind.CONSOLE) {
+                            Sounds.play(Sound.SELECT)
+                            movingKey = t.key
+                        }
+                    },
+                    onMove = { delta ->
+                        movingKey?.let { key ->
+                            favouriteKeys = repo.moveFavourite(key, delta)
+                            Sounds.play(Sound.FOCUS)
+                        }
+                    },
+                    onRemove = {
+                        movingKey?.let { key ->
+                            repo.toggleFavourite(key)
+                            favouriteKeys = repo.favouriteKeys()
+                            val label = dock.firstOrNull { it.key == key }?.label ?: key
+                            Toast.makeText(context, context.getString(R.string.favourite_removed, label), Toast.LENGTH_SHORT).show()
+                            movingKey = null
+                            scope.launch {
+                                delay(120)
+                                runCatching { dockFocus.requestFocus() }
                             }
                         }
+                    },
+                    onDoneMoving = {
+                        Sounds.play(Sound.SELECT)
+                        movingKey = null
+                    },
+                    island = { DynamicIsland(matches, goal, islandVisible) },
+                )
+            } else {
+                // The other pages sit on the same scene, darkened. Back returns to the home screen.
+                Box(
+                    Modifier
+                        .fillMaxSize()
+                        .background(Color.Black.copy(alpha = 0.62f))
+                        .padding(start = 40.dp, end = 30.dp, top = 22.dp),
+                ) {
+                    when (tab) {
+                        Tab.NEWS -> NewsPage(news, newsStart)
+                        Tab.FILES -> FilesPage(
+                            files = files,
+                            onOpen = { viewer = it },
+                            onDelete = { file ->
+                                file.delete()
+                                files = FileStore.list(context)
+                                Toast.makeText(context, context.getString(R.string.file_deleted, FileStore.displayName(file)), Toast.LENGTH_SHORT).show()
+                            },
+                        )
+                        Tab.APPS -> TileGrid(stringResource(R.string.row_all_apps), consoleTiles.values.toList() + apps + inputs, openTile, onHold, onFocusTile)
+                        Tab.INPUTS -> TileGrid(stringResource(R.string.row_inputs), inputs, onOpen, null, onFocusTile)
+                        Tab.THEMES -> ThemesPage(
+                            current = themeById(themeId),
+                            onPreview = { previewTheme = it },
+                            onChoose = { chosen ->
+                                chooseTheme(chosen)
+                                val name = context.getString(chosen.name)
+                                Toast.makeText(context, context.getString(R.string.theme_chosen, name), Toast.LENGTH_SHORT).show()
+                            },
+                        )
+                        Tab.HOME -> Unit
                     }
                 }
             }
-            TakeoverOverlay(takeover)
-            Box(
-                Modifier
-                    .fillMaxWidth()
-                    .padding(top = 12.dp),
-                contentAlignment = Alignment.TopCenter,
-            ) {
-                DynamicIsland(matches, goal, islandVisible)
+            if (moreOpen) {
+                MorePanel(
+                    glass = loadedScene?.glassImage,
+                    onPhone = { moreOpen = false; phoneOpen = true },
+                    onSearch = { moreOpen = false; Launcher.openSearch(activity) },
+                    onSettings = { moreOpen = false; Launcher.openSettings(activity) },
+                    onNetwork = { moreOpen = false; Launcher.openNetwork(activity) },
+                    onThemes = { moreOpen = false; tab = Tab.THEMES },
+                    onClose = { moreOpen = false },
+                )
             }
+            TakeoverOverlay(takeover)
             AnimatedVisibility(
                 visible = phoneOpen,
                 enter = fadeIn(tween(250)),

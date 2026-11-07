@@ -3,6 +3,8 @@ package com.wolfram.lumen
 import android.content.Context
 import android.media.tv.TvInputManager
 import android.util.Log
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.core.graphics.drawable.toBitmap
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -47,9 +49,20 @@ enum class Console(
     val color: Color,
     val glow: Color,
     private val words: List<String>,
+    /** Official apps of this console; if one is on the TV, its logo is used for the tile. */
+    val apps: List<String>,
 ) {
-    XBOX("console:xbox", "Xbox", Color(0xFF107C10), Color(0xFF1A8F1D), listOf("xbox")),
-    PLAYSTATION("console:playstation", "PlayStation", Color(0xFF0046A8), Color(0xFF2259C4), listOf("playstation", "ps5", "ps4", "ps3")),
+    /** Short name used for the logo file and by the phone remote ("xbox", "playstation"). */
+    val id: String get() = name.lowercase()
+
+    XBOX(
+        "console:xbox", "Xbox", Color(0xFF107C10), Color(0xFF1A8F1D), listOf("xbox"),
+        apps = listOf("com.microsoft.xboxone.smartglass", "com.microsoft.xcloud", "com.gamepass"),
+    ),
+    PLAYSTATION(
+        "console:playstation", "PlayStation", Color(0xFF0046A8), Color(0xFF2259C4), listOf("playstation", "ps5", "ps4", "ps3"),
+        apps = listOf("com.scee.psxandroid", "com.playstation.remoteplay", "com.playstation.mobilemessenger"),
+    ),
     ;
 
     fun matches(name: String): Boolean {
@@ -57,12 +70,13 @@ enum class Console(
         return words.any { n.contains(it) }
     }
 
-    /** Its tile in the dock and on the Apps page. */
+    /** Its tile without a logo (the logo is added by [Consoles.tile]). */
     val tile: Tile
         get() = Tile(key = key, label = label, kind = TileKind.CONSOLE, banner = null, icon = null, takeoverColor = color, glow = glow)
 
     companion object {
         fun byKey(key: String): Console? = entries.firstOrNull { it.key == key }
+        fun byId(id: String): Console? = entries.firstOrNull { it.id == id }
     }
 }
 
@@ -110,6 +124,38 @@ object Consoles {
             return ConsoleSpot(port.id, port.label, null, automatic = true)
         }
         return null
+    }
+
+    /** Where a logo sent from the phone is kept. */
+    fun logoFile(context: Context, console: Console): java.io.File =
+        java.io.File(java.io.File(context.filesDir, "logos").apply { mkdirs() }, console.id)
+
+    /**
+     * The console's tile with its real logo: a picture you sent from the phone, or else the logo of the
+     * console's own app if it's installed on the TV. Without either, the tile shows the name.
+     */
+    fun tile(context: Context, console: Console): Tile {
+        val fromPhone = runCatching {
+            val file = logoFile(context, console)
+            if (!file.exists()) return@runCatching null
+            val bounds = android.graphics.BitmapFactory.Options().apply { inJustDecodeBounds = true }
+            android.graphics.BitmapFactory.decodeFile(file.absolutePath, bounds)
+            var sample = 1
+            while (bounds.outWidth / (sample * 2) >= 640 || bounds.outHeight / (sample * 2) >= 640) sample *= 2
+            android.graphics.BitmapFactory.decodeFile(file.absolutePath, android.graphics.BitmapFactory.Options().apply { inSampleSize = sample })
+        }.getOrNull()
+        val fromApp = if (fromPhone != null) null else console.apps.firstNotNullOfOrNull { pkg ->
+            runCatching {
+                val pm = context.packageManager
+                val drawable = pm.getApplicationBanner(pkg) ?: pm.getApplicationIcon(pkg)
+                drawable.toBitmap(
+                    if (drawable.intrinsicWidth > 0) drawable.intrinsicWidth.coerceAtMost(640) else 320,
+                    if (drawable.intrinsicHeight > 0) drawable.intrinsicHeight.coerceAtMost(640) else 180,
+                )
+            }.getOrNull()
+        }
+        val logo = (fromPhone ?: fromApp)?.asImageBitmap()
+        return console.tile.copy(banner = logo)
     }
 
     fun assign(context: Context, console: Console, portId: String) {

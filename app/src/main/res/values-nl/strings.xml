@@ -133,4 +133,6 @@
     <string name="screen_info">Scherm: PlaizierOS tekent op %1$s pixels · tv-beeld %2$s</string>
     <string name="theme_cinema">Cinema</string>
     <string name="theme_cinema_light">Cinema licht</string>
+    <string name="more">Meer</string>
+    <string name="console_logo_tip">Voeg het logo toe vanaf je telefoon: open de telefoon-afstandsbediening en tik op Console logos.</string>
 </resources>

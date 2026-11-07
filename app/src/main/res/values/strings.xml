@@ -134,4 +134,6 @@
     <string name="screen_info">Screen: PlaizierOS draws at %1$s pixels · TV picture %2$s</string>
     <string name="theme_cinema">Cinema</string>
     <string name="theme_cinema_light">Cinema Light</string>
+    <string name="more">More</string>
+    <string name="console_logo_tip">Add its logo from your phone: open the phone remote and tap Console logos.</string>
 </resources>

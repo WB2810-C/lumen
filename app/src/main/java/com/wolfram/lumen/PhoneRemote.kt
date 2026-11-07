@@ -70,6 +70,7 @@ sealed class RemoteCommand {
     data class Theme(val id: String) : RemoteCommand()
     data class Media(val action: String) : RemoteCommand()
     data class ShowFile(val path: String) : RemoteCommand()
+    data class LogoChanged(val console: String) : RemoteCommand()
 }
 
 /** The link between the little web server and the home screen. */
@@ -155,6 +156,35 @@ object PhoneRemoteServer {
             return
         }
         // A photo, video or file from the phone: stream it straight to the TV's storage.
+        // A console logo from the phone (Xbox, PlayStation): kept apart from the Files page.
+        val logoFor = query["logo"]?.let { Console.byId(it) }
+        if (method == "POST" && path == "/api/upload" && logoFor != null) {
+            val context = appContext
+            if (context == null || contentLength <= 0 || contentLength > 20L * 1024 * 1024) {
+                return respond(out, 400, "application/json", "{\"error\":\"too big\"}")
+            }
+            client.soTimeout = 60_000
+            val target = Consoles.logoFile(context, logoFor)
+            val part = java.io.File(target.parentFile, target.name + ".part")
+            var remaining = contentLength
+            part.outputStream().use { file ->
+                val buffer = ByteArray(64 * 1024)
+                while (remaining > 0) {
+                    val r = input.read(buffer, 0, minOf(buffer.size.toLong(), remaining).toInt())
+                    if (r == -1) break
+                    file.write(buffer, 0, r)
+                    remaining -= r
+                }
+            }
+            if (remaining > 0) {
+                part.delete()
+                return respond(out, 400, "application/json", "{\"error\":\"incomplete\"}")
+            }
+            target.delete()
+            part.renameTo(target)
+            RemoteBridge.commands.trySend(RemoteCommand.LogoChanged(logoFor.id))
+            return respond(out, 200, "application/json", "{\"ok\":true}")
+        }
         if (method == "POST" && path == "/api/upload") {
             val dir = filesDir
             if (dir == null || contentLength <= 0 || contentLength > MAX_UPLOAD) {

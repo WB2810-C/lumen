@@ -7,3 +7,7 @@ gradlew text eol=lf
 *.jar binary
 *.wav binary
 *.png binary
+*.jpg binary
+*.webp binary
+*.woff2 binary
+*.ttf binary

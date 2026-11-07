@@ -282,3 +282,10 @@ so the glass is a frosted see-through look rather than a real blur.
 - **Football:** ESPN's public score feed. It's free but unofficial, so if ESPN changes it the
   island may stop showing scores until the code is updated.
 - **On this day:** Wikipedia (or Claude, if you ever add a Claude key).
+
+## Credits
+
+The home screen's look comes from **couch-tv** by Seagey (https://github.com/Seagey/couch-tv,
+MIT License): the five scenes (photo, frosted copy and the cut-out in front of the clock, made for
+couch-tv and free to use), the glass clock behind the scenery, the glass cards and the dock.
+The clock font is Antonio (SIL Open Font License 1.1). Licences: `app/src/main/assets/licenses/`.

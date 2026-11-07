@@ -10,6 +10,9 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.wrapContentSize
+import androidx.compose.ui.focus.focusProperties
+import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -93,6 +96,7 @@ import kotlin.math.roundToInt
 
 /* ---------- Top bar ---------- */
 
+@OptIn(ExperimentalComposeUiApi::class)
 @Composable
 fun CinemaTopBar(
     tab: Tab,
@@ -104,31 +108,64 @@ fun CinemaTopBar(
     onSearch: () -> Unit,
     onPhone: () -> Unit,
     onSettings: () -> Unit,
+    onFocusTopBar: () -> Unit,
+    centre: @Composable () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val theme = LocalLumenTheme.current
+    val tabs = buildList {
+        add(Tab.HOME to R.string.tab_home)
+        add(Tab.APPS to R.string.tab_apps)
+        add(Tab.NEWS to R.string.tab_news)
+        add(Tab.FILES to R.string.tab_files)
+        if (showInputs) add(Tab.INPUTS to R.string.row_inputs)
+        add(Tab.THEMES to R.string.tab_themes)
+    }
+    val requesters = remember(tabs.size) { List(tabs.size) { FocusRequester() } }
+    val selectedIndex = tabs.indexOfFirst { it.first == tab }.coerceAtLeast(0)
     Row(
         modifier
             .fillMaxWidth()
-            .padding(start = 65.dp, end = 65.dp, top = 23.dp),
+            .padding(start = 65.dp, end = 65.dp, top = 20.dp)
+            .height(32.dp)
+            .onFocusChanged { if (it.hasFocus) onFocusTopBar() },
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        val tabs = buildList {
-            add(Tab.HOME to R.string.tab_home)
-            add(Tab.APPS to R.string.tab_apps)
-            add(Tab.NEWS to R.string.tab_news)
-            add(Tab.FILES to R.string.tab_files)
-            if (showInputs) add(Tab.INPUTS to R.string.row_inputs)
-            add(Tab.THEMES to R.string.tab_themes)
+        // The tabs, in one glass capsule. Coming up from below always lands on the page you're on.
+        Row(
+            Modifier
+                .glass(RoundedCornerShape(50), fill = theme.glassFill, edge = theme.glassEdge)
+                .focusProperties { enter = { requesters[selectedIndex] } }
+                .focusGroup()
+                .padding(3.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            tabs.forEachIndexed { i, (t, label) ->
+                TabPill(stringResource(label), selected = tab == t, modifier = Modifier.focusRequester(requesters[i])) { onTab(t) }
+            }
         }
-        tabs.forEach { (t, label) -> TabPill(stringResource(label), selected = tab == t) { onTab(t) } }
-        Spacer(Modifier.weight(1f))
-        RoundButton(stringResource(R.string.assistant_title), onAssistant, highlight = Brush.linearGradient(listOf(glow, theme.third))) { c ->
-            SparkleGlyph(Modifier.size(12.dp), c)
+        // The live score sits in the free space between the tabs and the clock, so they never overlap.
+        Box(
+            Modifier
+                .weight(1f)
+                .fillMaxHeight(),
+            contentAlignment = Alignment.Center,
+        ) {
+            Box(Modifier.wrapContentSize(unbounded = true)) { centre() }
         }
-        RoundButton(stringResource(R.string.search), onSearch) { c -> SearchGlyph(Modifier.size(12.dp), c) }
-        RoundButton(stringResource(R.string.remote_button), onPhone) { c -> PhoneGlyph(Modifier.size(12.dp), c) }
-        RoundButton(stringResource(R.string.settings), onSettings) { c -> SettingsGlyph(Modifier.size(12.dp), c, knob = Color.Transparent) }
+        Row(
+            Modifier
+                .glass(RoundedCornerShape(50), fill = theme.glassFill, edge = theme.glassEdge)
+                .padding(3.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            RoundButton(stringResource(R.string.assistant_title), onAssistant, highlight = Brush.linearGradient(listOf(glow, theme.third))) { c ->
+                SparkleGlyph(Modifier.size(12.dp), c)
+            }
+            RoundButton(stringResource(R.string.search), onSearch) { c -> SearchGlyph(Modifier.size(12.dp), c) }
+            RoundButton(stringResource(R.string.remote_button), onPhone) { c -> PhoneGlyph(Modifier.size(12.dp), c) }
+            RoundButton(stringResource(R.string.settings), onSettings) { c -> SettingsGlyph(Modifier.size(12.dp), c, knob = Color.Transparent) }
+        }
         Spacer(Modifier.width(14.dp))
         if (weather != null) {
             WeatherGlyph(weather.sky, weather.isDay, Modifier.size(15.dp), theme.content)
@@ -145,24 +182,25 @@ fun CinemaTopBar(
     }
 }
 
+/**
+ * One tab. Selected: lightly filled. Focused (where the remote is): solid, like on Apple TV.
+ * Nothing grows or moves, so the bar stays calm while you move along it.
+ */
 @Composable
-private fun TabPill(label: String, selected: Boolean, onClick: () -> Unit) {
+private fun TabPill(label: String, selected: Boolean, modifier: Modifier = Modifier, onClick: () -> Unit) {
     val theme = LocalLumenTheme.current
     var focused by remember { mutableStateOf(false) }
-    val scale by animateFloatAsState(if (focused) 1.08f else 1f, tween(140), label = "tab")
     Box(
-        Modifier
-            .graphicsLayer { scaleX = scale; scaleY = scale }
-            .height(25.dp)
+        modifier
+            .height(26.dp)
             .clip(RoundedCornerShape(50))
             .background(
                 when {
-                    selected -> theme.content
-                    focused -> theme.content.copy(alpha = 0.16f)
+                    focused -> theme.content
+                    selected -> theme.content.copy(alpha = 0.16f)
                     else -> Color.Transparent
                 },
             )
-            .border(if (focused) 1.5.dp else 0.dp, if (focused) theme.ring else Color.Transparent, RoundedCornerShape(50))
             .onFocusChanged {
                 focused = it.isFocused
                 if (it.isFocused) Sounds.play(Sound.FOCUS)
@@ -171,14 +209,19 @@ private fun TabPill(label: String, selected: Boolean, onClick: () -> Unit) {
                 Sounds.play(Sound.SELECT)
                 onClick()
             }
-            .padding(horizontal = 11.dp),
+            .padding(horizontal = 12.dp),
         contentAlignment = Alignment.Center,
     ) {
         Text(
             label,
-            color = if (selected) theme.onContent else theme.content.copy(alpha = if (focused) 1f else 0.8f),
+            color = when {
+                focused -> theme.onContent
+                selected -> theme.content
+                else -> theme.content.copy(alpha = 0.72f)
+            },
             fontSize = 10.5.sp,
             fontWeight = FontWeight.SemiBold,
+            maxLines = 1,
         )
     }
 }
@@ -187,15 +230,13 @@ private fun TabPill(label: String, selected: Boolean, onClick: () -> Unit) {
 private fun RoundButton(label: String, onClick: () -> Unit, highlight: Brush? = null, glyph: @Composable (Color) -> Unit) {
     val theme = LocalLumenTheme.current
     var focused by remember { mutableStateOf(false) }
-    val scale by animateFloatAsState(if (focused) 1.14f else 1f, tween(140), label = "round")
     Box(
         Modifier
-            .padding(horizontal = 3.dp)
-            .size(25.dp)
-            .graphicsLayer { scaleX = scale; scaleY = scale }
+            .padding(horizontal = 1.dp)
+            .size(26.dp)
             .clip(CircleShape)
             .semantics { contentDescription = label }
-            .then(if (highlight != null && !focused) Modifier.background(highlight) else Modifier.background(if (focused) theme.content else theme.chip))
+            .then(if (highlight != null && !focused) Modifier.background(highlight) else Modifier.background(if (focused) theme.content else Color.Transparent))
             .onFocusChanged {
                 focused = it.isFocused
                 if (it.isFocused) Sounds.play(Sound.FOCUS)
@@ -296,15 +337,15 @@ fun CinemaHome(
             val tile = dock.firstOrNull { it.key == key.removePrefix("music:") }
             when {
                 key.startsWith("music:") && playing != null -> HeroMusic(playing, nowPlaying)
-                key == LUMEN_NOW -> HeroNow(tint, weather, weatherError, news, history, playing)
+                key == LUMEN_NOW -> HeroNow(tint, weather, weatherError, news, history, playing, schedule)
                 key == LUMEN_NEWS -> HeroNews(news)
                 key == LUMEN_SCORES -> HeroScores(schedule)
                 key == LUMEN_FILES -> HeroFiles(fileCount, latestFiles)
                 tile != null && tile.kind == TileKind.CONSOLE -> Console.byKey(tile.key)?.let { console ->
-                    HeroConsole(console, consoleSpots[console], onChoosePort = { onChoosePort(console) })
+                    HeroConsole(tile, console, consoleSpots[console], onChoosePort = { onChoosePort(console) })
                 }
                 tile != null -> HeroApp(tile, lastOpened(tile.key), loadBanner)
-                else -> HeroNow(tint, weather, weatherError, news, history, playing)
+                else -> HeroNow(tint, weather, weatherError, news, history, playing, schedule)
             }
         }
 
@@ -354,6 +395,8 @@ private fun Dock(
     val listState = rememberLazyListState()
     // Where each tile's middle is, so the name can sit right under the selected one.
     val centers = remember { mutableStateMapOf<String, Float>() }
+    var selected by remember { mutableStateOf<String?>(null) }
+    var dockHasFocus by remember { mutableStateOf(false) }
     Column(modifier.fillMaxWidth()) {
         Box(
             Modifier
@@ -386,7 +429,8 @@ private fun Dock(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier
                     .fillMaxSize()
-                    .focusRestorer(),
+                    .focusRestorer()
+                    .onFocusChanged { dockHasFocus = it.hasFocus },
             ) {
                 itemsIndexed(tiles, key = { _, tile -> tile.key }) { index, tile ->
                     Box(
@@ -399,7 +443,10 @@ private fun Dock(
                             tileSize = TileSize.Dock,
                             onOpen = onOpen,
                             onHold = onHold,
-                            onFocus = onFocus,
+                            onFocus = {
+                                selected = it.key
+                                onFocus(it)
+                            },
                             modifier = if (index == 0) Modifier.focusRequester(firstFocus) else Modifier,
                             focusScale = 1.16f,
                         )
@@ -410,9 +457,10 @@ private fun Dock(
         // The selected tile's name (or how to move it), right under it.
         val label = when {
             movingKey != null -> stringResource(R.string.move_hint)
-            else -> tiles.firstOrNull { it.key == focusedKey }?.label.orEmpty()
+            dockHasFocus -> tiles.firstOrNull { it.key == selected }?.label.orEmpty()
+            else -> ""
         }
-        val center = centers[movingKey ?: focusedKey]
+        val center = centers[movingKey ?: selected ?: ""]
         Text(
             label,
             color = theme.content,
@@ -444,6 +492,7 @@ private fun HeroNow(
     news: NewsState,
     history: HistoryFact?,
     playing: NowPlaying?,
+    schedule: Schedule,
 ) {
     val theme = LocalLumenTheme.current
     val context = LocalContext.current
@@ -513,6 +562,37 @@ private fun HeroNow(
                         Text(stringResource(R.string.now_playing, playing.appName), color = theme.content.copy(alpha = 0.6f), fontSize = 8.sp, fontWeight = FontWeight.Bold)
                         Text(playing.title, color = theme.content, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         Text(playing.artist, color = theme.content.copy(alpha = 0.7f), fontSize = 10.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
+                }
+            } else if (schedule.live.isNotEmpty() || schedule.upcoming.isNotEmpty()) {
+                // Your teams: the live match, or the next one.
+                val live = schedule.live.firstOrNull { it.live } ?: schedule.live.firstOrNull()
+                Column(
+                    Modifier
+                        .fillMaxWidth()
+                        .glass(RoundedCornerShape(15.dp), fill = theme.glassFill, edge = theme.glassEdge)
+                        .padding(horizontal = 15.dp, vertical = 11.dp),
+                ) {
+                    if (live != null) {
+                        Text(
+                            listOf(if (live.live) stringResource(R.string.scores_live) else "", live.league.uppercase(), live.clock).filter { it.isNotBlank() }.joinToString(" · "),
+                            color = theme.content.copy(alpha = 0.65f), fontSize = 8.5.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.8.sp,
+                        )
+                        Spacer(Modifier.height(5.dp))
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Crest(live.home, 22.dp)
+                            Spacer(Modifier.width(7.dp))
+                            Text("${live.home.name}  ${live.home.score}–${live.away.score}  ${live.away.name}", color = theme.content, fontSize = 13.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
+                            Spacer(Modifier.width(7.dp))
+                            Crest(live.away, 22.dp)
+                        }
+                    } else {
+                        val next = schedule.upcoming.first()
+                        val day = remember { SimpleDateFormat("EEE d MMM · HH:mm", Locale.getDefault()) }
+                        Text(stringResource(R.string.scores_next).uppercase(), color = theme.content.copy(alpha = 0.65f), fontSize = 8.5.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.8.sp)
+                        Spacer(Modifier.height(4.dp))
+                        Text("${next.home} – ${next.away}", color = theme.content, fontSize = 13.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(day.format(Date(next.startsAt)).replaceFirstChar { it.titlecase(Locale.getDefault()) }, color = theme.content.copy(alpha = 0.7f), fontSize = 10.sp)
                     }
                 }
             } else if (history != null) {
@@ -753,7 +833,7 @@ private fun HeroApp(tile: Tile, lastOpened: Long, loadBanner: suspend (String) -
 
 /** A console: which HDMI port it's on, and a button to pick the port yourself. */
 @Composable
-private fun HeroConsole(console: Console, spot: ConsoleSpot?, onChoosePort: () -> Unit) {
+private fun HeroConsole(tile: Tile, console: Console, spot: ConsoleSpot?, onChoosePort: () -> Unit) {
     val theme = LocalLumenTheme.current
     Row(Modifier.fillMaxSize(), verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f).padding(end = 30.dp)) {
@@ -771,6 +851,10 @@ private fun HeroConsole(console: Console, spot: ConsoleSpot?, onChoosePort: () -
             }
             Spacer(Modifier.height(14.dp))
             HeroButton(onClick = onChoosePort, wide = true, label = stringResource(R.string.console_choose_port)) { c -> HdmiGlyph(Modifier.size(width = 15.dp, height = 10.dp), c) }
+            if (tile.banner == null) {
+                Spacer(Modifier.height(10.dp))
+                Text(stringResource(R.string.console_logo_tip), color = theme.content.copy(alpha = 0.55f), fontSize = 10.sp, lineHeight = 14.sp)
+            }
         }
         Box(
             Modifier
@@ -778,7 +862,7 @@ private fun HeroConsole(console: Console, spot: ConsoleSpot?, onChoosePort: () -
                 .height(225.dp)
                 .clip(RoundedCornerShape(16.dp)),
         ) {
-            SpecialFace(console.tile, TileSize.Large)
+            SpecialFace(tile, TileSize.Large)
         }
     }
 }

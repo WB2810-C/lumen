@@ -244,6 +244,20 @@ private fun TileFace(tile: Tile, tileSize: TileSize, focused: Boolean) {
 fun SpecialFace(tile: Tile, tileSize: TileSize) {
     val theme = LocalLumenTheme.current
     val big = tileSize != TileSize.Dock && tileSize != TileSize.Small
+    val logo = tile.banner
+    if (tile.kind == TileKind.CONSOLE && logo != null) {
+        // The console's real logo, on its own colour.
+        Box(
+            Modifier
+                .fillMaxSize()
+                .background(Brush.linearGradient(listOf(lerp(tile.takeoverColor, Color.White, 0.10f), lerp(tile.takeoverColor, Color.Black, 0.18f))))
+                .padding(if (big) 22.dp else 8.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            Image(logo, contentDescription = tile.label, contentScale = ContentScale.Fit, modifier = Modifier.fillMaxSize())
+        }
+        return
+    }
     val (fill, ink) = when (tile.key) {
         LUMEN_NOW -> (if (theme.isLight) Color(0xFFDDE1E8) else Color(0xFFE4E7ED)) to Color(0xFF15171C)
         LUMEN_NEWS -> Color(0xFF14161D) to Color.White

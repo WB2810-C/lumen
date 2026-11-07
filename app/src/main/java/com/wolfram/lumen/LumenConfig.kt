@@ -17,6 +17,12 @@ object LumenConfig {
      */
     const val LIVING_BACKGROUND = false
 
+    /**
+     * The couch-tv scenes take turns every this many seconds (only while you're not using the remote).
+     * 0 = keep one scene.
+     */
+    const val SCENE_SECONDS = 60
+
     /** Play the welcome animation when the TV starts. */
     const val WELCOME_ANIMATION = true
 

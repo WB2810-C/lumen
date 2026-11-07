@@ -94,6 +94,16 @@
   </section>
 
   <section class="card">
+    <div class="label">Console logos</div>
+    <div class="sub" style="margin-bottom:10px">Pick a logo picture for each console tile on the TV.</div>
+    <div style="display:flex;gap:10px">
+      <button class="pick" data-logo="xbox" style="flex:1">Xbox logo</button>
+      <button class="pick" data-logo="playstation" style="flex:1">PlayStation logo</button>
+    </div>
+    <input type="file" id="logoFile" accept="image/*" hidden>
+  </section>
+
+  <section class="card">
     <div class="label">YouTube</div>
     <form class="row" id="ytForm">
       <input id="yt" placeholder="Search or paste a link" autocomplete="off" enterkeyhint="go">
@@ -155,10 +165,19 @@
     $('pickSub').textContent = 'From your library, the Files app or iCloud Drive.';
     if (files.length) toast(files.length > 1 ? 'Sent ' + files.length + ' files to the TV' : 'Showing on TV');
   });
-  function upload(f) {
+  let logoFor = null;
+  document.querySelectorAll('[data-logo]').forEach(b => b.addEventListener('click', () => { logoFor = b.dataset.logo; $('logoFile').click(); }));
+  $('logoFile').addEventListener('change', async () => {
+    const f = ($('logoFile').files || [])[0];
+    $('logoFile').value = '';
+    if (!f || !logoFor) return;
+    try { await upload(f, logoFor); toast('Logo set on the TV'); } catch { toast('Couldn\u2019t send the logo'); }
+  });
+
+  function upload(f, logo) {
     return new Promise((resolve, reject) => {
       const xhr = new XMLHttpRequest();
-      xhr.open('POST', '/api/upload?k=' + encodeURIComponent(key) + '&name=' + encodeURIComponent(f.name || 'file'));
+      xhr.open('POST', '/api/upload?k=' + encodeURIComponent(key) + '&name=' + encodeURIComponent(f.name || 'file') + (logo ? '&logo=' + logo : ''));
       xhr.upload.onprogress = e => { if (e.lengthComputable) $('barFill').style.width = Math.round(e.loaded / e.total * 100) + '%'; };
       xhr.onload = () => xhr.status === 200 ? resolve() : reject();
       xhr.onerror = reject;

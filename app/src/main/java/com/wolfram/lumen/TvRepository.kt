@@ -184,8 +184,17 @@ class TvRepository(private val context: Context) {
             info.activityInfo.loadBanner(pm) ?: pm.getApplicationBanner(pkg)
         }.getOrNull()
         val banner = bannerDrawable?.toSafeBitmap(maxSide = 640, fallbackW = 320, fallbackH = 180)
-        val icon = runCatching { info.loadIcon(pm) }.getOrNull()
-            ?.toSafeBitmap(maxSide = 256, fallbackW = 192, fallbackH = 192)
+        // The icon for the square dock tiles, in a high resolution so it stays sharp at 1080p.
+        val icon = runCatching {
+            val app = info.activityInfo.applicationInfo
+            val id = info.activityInfo.iconResource.takeIf { it != 0 } ?: app.icon
+            val sharp = if (id != 0) {
+                pm.getResourcesForApplication(app).getDrawableForDensity(id, android.util.DisplayMetrics.DENSITY_XXHIGH, null)
+            } else {
+                null
+            }
+            (sharp ?: info.loadIcon(pm)).toBitmap(192, 192, Bitmap.Config.ARGB_8888)
+        }.getOrNull()
 
         // Banners nearly always sit on a solid background colour: use it so the logo
         // can grow to full screen without a visible edge.

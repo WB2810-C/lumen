@@ -33,6 +33,21 @@ jobs:
         with:
           gradle-version: 8.11.1
 
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # The clock font (Antonio, from couch-tv) comes as a web font; Android needs a plain TTF.
+      - name: Prepare the clock font
+        shell: bash
+        run: |
+          pip install --quiet fonttools brotli
+          mkdir -p app/src/main/assets/fonts app/src/main/assets/licenses
+          python -c "from fontTools.ttLib import TTFont; f = TTFont('app/fonts/antonio-latin-300.woff2'); f.flavor = None; f.save('app/src/main/assets/fonts/antonio-light.ttf')"
+          curl -fsSL https://raw.githubusercontent.com/google/fonts/main/ofl/antonio/OFL.txt -o app/src/main/assets/licenses/Antonio-OFL.txt \
+            || echo "Antonio is licensed under the SIL Open Font License 1.1: https://openfontlicense.org" > app/src/main/assets/licenses/Antonio-OFL.txt
+          ls -la app/src/main/assets/fonts app/src/main/assets/licenses
+
       - name: Build the APK
         shell: bash
         run: |
