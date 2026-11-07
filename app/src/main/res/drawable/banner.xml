@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 320x180 banner shown for Lumen in the TV's own app list -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="320dp"
+    android:height="180dp"
+    android:viewportWidth="320"
+    android:viewportHeight="180">
+    <path
+        android:fillColor="#0A0E17"
+        android:pathData="M0,0h320v180h-320z" />
+    <path
+        android:fillColor="#1C6E6A"
+        android:fillAlpha="0.7"
+        android:pathData="M250,20m-95,0a95,95 0,1 0,190 0a95,95 0,1 0,-190 0" />
+    <path
+        android:fillColor="#9A5A22"
+        android:fillAlpha="0.45"
+        android:pathData="M30,175m-70,0a70,70 0,1 0,140 0a70,70 0,1 0,-140 0" />
+    <path
+        android:fillColor="#33FFFFFF"
+        android:strokeColor="#55FFFFFF"
+        android:strokeWidth="1.5"
+        android:pathData="M118,52h84a18,18 0,0 1,18 18v40a18,18 0,0 1,-18 18h-84a18,18 0,0 1,-18 -18v-40a18,18 0,0 1,18 -18z" />
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="9"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M146,72L146,108L176,108" />
+</vector>

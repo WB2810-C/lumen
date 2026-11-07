@@ -1,0 +1,82 @@
+# Builds Lumen in the cloud, for free, every time the code changes.
+# No Android Studio needed: GitHub's computers have the Android tools.
+# Result: Releases → latest → Lumen-installer.zip  (also under Actions → the run → Artifacts)
+
+name: Build Lumen
+
+on:
+  push:
+    branches: [main, master]
+    paths-ignore: ["**.md"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build-lumen
+  cancel-in-progress: true
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: 8.11.1
+
+      - name: Build the APK
+        shell: bash
+        run: |
+          set -o pipefail
+          gradle assembleRelease --console=plain --stacktrace 2>&1 | tee build-log.txt
+
+      - name: Pack the installer
+        shell: bash
+        run: |
+          mkdir -p out/Lumen-installer
+          cp app/build/outputs/apk/release/app-release.apk out/Lumen-installer/Lumen.apk
+          cp installer/* out/Lumen-installer/
+          chmod +x out/Lumen-installer/*.command
+          cd out && zip -qr Lumen-installer.zip Lumen-installer
+
+      - name: Keep it under Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: Lumen-installer
+          path: out/Lumen-installer/
+
+      - name: Publish it under Releases
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "build-${{ github.run_number }}" \
+            out/Lumen-installer.zip out/Lumen-installer/Lumen.apk \
+            --target "${{ github.sha }}" \
+            --title "Lumen · build ${{ github.run_number }}" \
+            --notes "Download Lumen-installer.zip, unzip it, then double-click Install-Lumen.bat (Windows) or install-lumen.command (Mac)." \
+            --latest
+
+      # Leaves the log (and the installer) on a separate branch, so the result can be read back with plain git.
+      - name: Leave the result on the build-output branch
+        if: always()
+        shell: bash
+        run: |
+          mkdir -p /tmp/result
+          cp build-log.txt /tmp/result/ 2>/dev/null || echo "The build stopped before Gradle ran." > /tmp/result/build-log.txt
+          cp out/Lumen-installer.zip /tmp/result/ 2>/dev/null || true
+          echo "${{ job.status }} · build ${{ github.run_number }} · ${{ github.sha }}" > /tmp/result/status.txt
+          cd /tmp/result
+          git init -q -b build-output
+          git add -A
+          git -c user.name="Lumen build" -c user.email="actions@users.noreply.github.com" commit -qm "Build ${{ github.run_number }}: ${{ job.status }}"
+          git push -qf "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" build-output

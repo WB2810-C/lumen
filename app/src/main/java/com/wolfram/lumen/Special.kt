@@ -1,0 +1,331 @@
+package com.wolfram.lumen
+
+import android.graphics.Bitmap
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageShader
+import androidx.compose.ui.graphics.ShaderBrush
+import androidx.compose.ui.graphics.Shadow
+import androidx.compose.ui.graphics.TileMode
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.drawscope.rotate
+import androidx.compose.ui.graphics.drawscope.scale
+import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.TextUnit
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.delay
+import java.text.SimpleDateFormat
+import java.util.Calendar
+import java.util.Date
+import java.util.Locale
+import kotlin.math.PI
+import kotlin.math.cos
+import kotlin.math.sin
+import kotlin.random.Random
+
+/* ---------- Living aurora background ---------- */
+
+/**
+ * Slowly drifting aurora in the selected app's colour, with a fine film grain on top
+ * (the grain also stops the soft gradients from showing ugly colour bands on TVs).
+ */
+@Composable
+fun AuroraBackground(main: Color, modifier: Modifier = Modifier) {
+    // The other colours come from the current theme and fade when you switch themes.
+    val theme = LocalLumenTheme.current
+    val spec = tween<Color>(durationMillis = 700)
+    val base by animateColorAsState(theme.base, spec, label = "base")
+    val light by animateColorAsState(
+        if (theme.followsApp) lerp(main, Color.White, 0.28f) else theme.light, spec, label = "light",
+    )
+    val third by animateColorAsState(theme.third, spec, label = "third")
+    val fourth by animateColorAsState(theme.fourth, spec, label = "fourth")
+
+    var t by remember { mutableFloatStateOf(0f) }
+    if (LumenConfig.LIVING_BACKGROUND) {
+        LaunchedEffect(Unit) {
+            val start = System.nanoTime()
+            while (true) {
+                // One full drift every 40 seconds; 20 updates per second is plenty for slow motion
+                // and keeps it light on small TV sticks.
+                t = (((System.nanoTime() - start) / 1_000_000_000.0) / 40.0 % 1.0).toFloat()
+                delay(50)
+            }
+        }
+    }
+    val grain = remember { grainBrush() }
+
+    Canvas(modifier.fillMaxSize()) {
+        val a = (t * 2 * PI).toFloat()
+        drawRect(base)
+
+        auroraBand(
+            color = main.copy(alpha = 0.85f),
+            center = Offset(size.width * (0.62f + 0.05f * sin(a)), size.height * (0.0f + 0.05f * cos(a))),
+            radius = size.width * 0.42f, stretchX = 2.2f, angle = -10f + 4f * sin(a),
+        )
+        auroraBand(
+            color = light.copy(alpha = 0.45f),
+            center = Offset(size.width * (0.72f + 0.06f * cos(a)), size.height * (0.10f + 0.04f * sin(a * 2))),
+            radius = size.width * 0.26f, stretchX = 2.8f, angle = -16f + 6f * cos(a),
+        )
+        auroraBand(
+            color = third.copy(alpha = 0.45f),
+            center = Offset(size.width * (0.86f + 0.04f * sin(a + 1.3f)), size.height * (0.30f + 0.05f * cos(a + 0.7f))),
+            radius = size.width * 0.22f, stretchX = 2.2f, angle = -8f,
+        )
+        auroraBand(
+            color = fourth.copy(alpha = 0.6f),
+            center = Offset(size.width * (0.05f + 0.03f * cos(a)), size.height * 0.98f),
+            radius = size.width * 0.34f, stretchX = 1.2f, angle = 0f,
+        )
+
+        drawRect(brush = grain, alpha = if (theme.isLight) 0.04f else 0.06f)
+    }
+}
+
+private fun DrawScope.auroraBand(color: Color, center: Offset, radius: Float, stretchX: Float, angle: Float) {
+    rotate(degrees = angle, pivot = center) {
+        scale(scaleX = stretchX, scaleY = 1f, pivot = center) {
+            drawCircle(
+                brush = Brush.radialGradient(listOf(color, Color.Transparent), center = center, radius = radius),
+                radius = radius,
+                center = center,
+            )
+        }
+    }
+}
+
+private fun grainBrush(): ShaderBrush {
+    val side = 128
+    val random = Random(7)
+    // Random light and dark specks, so the grain adds texture without brightening the picture.
+    val pixels = IntArray(side * side) {
+        val v = if (random.nextBoolean()) 255 else 0
+        android.graphics.Color.argb(random.nextInt(256), v, v, v)
+    }
+    val bitmap = Bitmap.createBitmap(pixels, side, side, Bitmap.Config.ARGB_8888)
+    return ShaderBrush(ImageShader(bitmap.asImageBitmap(), TileMode.Repeated, TileMode.Repeated))
+}
+
+/* ---------- Greeting + rolling clock ---------- */
+
+@Composable
+fun greetingText(hour: Int): String {
+    val greeting = stringResource(
+        when (hour) {
+            in 5..11 -> R.string.greeting_morning
+            in 12..17 -> R.string.greeting_afternoon
+            in 18..23 -> R.string.greeting_evening
+            else -> R.string.greeting_night
+        },
+    )
+    return if (LumenConfig.OWNER_NAME.isBlank()) greeting else "$greeting, ${LumenConfig.OWNER_NAME}"
+}
+
+/** Current time, updated exactly on the minute. */
+@Composable
+fun rememberNow(): Long {
+    var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
+    LaunchedEffect(Unit) {
+        while (true) {
+            now = System.currentTimeMillis()
+            delay(1000L - now % 1000L)
+        }
+    }
+    return now / 60_000L * 60_000L
+}
+
+/**
+ * Greeting, big bold clock whose digits roll up when they change, and the date.
+ * The clock has a soft gradient that picks up the glow colour.
+ */
+@Composable
+fun GreetingClock(glow: Color, clockSize: TextUnit, modifier: Modifier = Modifier) {
+    val context = LocalContext.current
+    val now = rememberNow()
+    val calendar = remember(now) { Calendar.getInstance().apply { timeInMillis = now } }
+    val time = remember(now) { android.text.format.DateFormat.getTimeFormat(context).format(Date(now)) }
+    val date = remember(now) {
+        SimpleDateFormat("EEEE d MMMM", Locale.getDefault())
+            .format(Date(now))
+            .replaceFirstChar { it.titlecase(Locale.getDefault()) }
+    }
+    val theme = LocalLumenTheme.current
+    val ink = theme.content
+    val small = (clockSize.value * 0.15f).coerceAtLeast(15f).sp
+    val clockStyle = TextStyle(
+        brush = Brush.verticalGradient(listOf(ink, ink, lerp(ink, glow, if (theme.isLight) 0.55f else 0.30f))),
+        fontSize = clockSize,
+        lineHeight = clockSize,
+        fontWeight = FontWeight.SemiBold,
+        letterSpacing = (-clockSize.value * 0.03f).sp,
+        shadow = Shadow(color = Color.Black.copy(alpha = theme.shadowAlpha), offset = Offset(0f, 8f), blurRadius = 24f),
+    )
+
+    Column(modifier, horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(
+            text = greetingText(calendar.get(Calendar.HOUR_OF_DAY)),
+            color = ink.copy(alpha = 0.9f),
+            fontSize = small,
+            fontWeight = FontWeight.Medium,
+            modifier = Modifier.padding(bottom = 4.dp),
+        )
+        Row {
+            time.forEachIndexed { index, char ->
+                key(index) {
+                    AnimatedContent(
+                        targetState = char,
+                        transitionSpec = {
+                            (slideInVertically { it } + fadeIn()) togetherWith (slideOutVertically { -it } + fadeOut())
+                        },
+                        label = "digit",
+                    ) { c ->
+                        Text(text = c.toString(), style = clockStyle)
+                    }
+                }
+            }
+        }
+        Text(
+            text = date,
+            color = ink.copy(alpha = 0.82f),
+            fontSize = small,
+            fontWeight = FontWeight.Medium,
+            modifier = Modifier.padding(top = 6.dp),
+        )
+    }
+}
+
+/* ---------- Ambient mode ---------- */
+
+/** Big clock over the dimmed aurora. It drifts very slowly so nothing burns into the screen. */
+@Composable
+fun AmbientScreen(glow: Color) {
+    var t by remember { mutableFloatStateOf(0f) }
+    LaunchedEffect(Unit) {
+        val start = System.currentTimeMillis()
+        while (true) {
+            t = ((System.currentTimeMillis() - start) / 1000f) / 180f // one loop every 3 minutes
+            delay(1000)
+        }
+    }
+    val a = (t * 2 * PI).toFloat()
+    Box(
+        Modifier
+            .fillMaxSize()
+            .background(LocalLumenTheme.current.base.copy(alpha = 0.55f)),
+    ) {
+        GreetingClock(
+            glow = glow,
+            clockSize = 160.sp,
+            modifier = Modifier
+                .align(Alignment.Center)
+                .offset(x = (40 * sin(a)).dp, y = (24 * cos(a * 0.7f)).dp),
+        )
+        Text(
+            text = stringResource(R.string.ambient_hint),
+            color = LocalLumenTheme.current.content.copy(alpha = 0.6f),
+            fontSize = 11.sp,
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(bottom = 32.dp),
+        )
+    }
+}
+
+/* ---------- Welcome animation ---------- */
+
+/**
+ * [progress] runs 0 → 1: the Lumen mark grows in, holds for a moment,
+ * then zooms towards you while everything fades into the home screen.
+ */
+@Composable
+fun WelcomeOverlay(progress: Float, glow: Color) {
+    if (progress >= 1f) return
+    val appear = (progress / 0.4f).coerceIn(0f, 1f)
+    val leave = ((progress - 0.7f) / 0.3f).coerceIn(0f, 1f)
+    val markScale = mix(0.7f, 1f, appear) * mix(1f, 1.35f, leave)
+    val now = rememberNow()
+    val hour = remember(now) { Calendar.getInstance().apply { timeInMillis = now }.get(Calendar.HOUR_OF_DAY) }
+    val ink = LocalLumenTheme.current.content
+
+    Box(
+        Modifier
+            .fillMaxSize()
+            .alpha(1f - leave),
+    ) {
+        AuroraBackground(main = glow)
+        Column(
+            modifier = Modifier
+                .align(Alignment.Center)
+                .alpha(appear),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(120.dp)
+                    .scale(markScale)
+                    .clip(CircleShape)
+                    .background(ink.copy(alpha = 0.10f))
+                    .border(1.5.dp, ink.copy(alpha = 0.6f), CircleShape),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text("L", color = ink, fontSize = 60.sp, fontWeight = FontWeight.SemiBold)
+            }
+            Text(
+                text = stringResource(R.string.app_name),
+                color = ink,
+                fontSize = 34.sp,
+                fontWeight = FontWeight.SemiBold,
+                modifier = Modifier.padding(top = 20.dp),
+            )
+            Text(
+                text = greetingText(hour),
+                color = ink.copy(alpha = 0.8f),
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Medium,
+                modifier = Modifier.padding(top = 6.dp),
+            )
+        }
+    }
+}
