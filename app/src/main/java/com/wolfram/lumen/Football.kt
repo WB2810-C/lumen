@@ -82,17 +82,45 @@ private fun parseColor(hex: String?): Color = runCatching {
 private val espnDate = SimpleDateFormat("yyyy-MM-dd'T'HH:mm", Locale.ROOT).apply { timeZone = TimeZone.getTimeZone("UTC") }
 
 /** Matches of one team that are being played now (or just finished). */
-private suspend fun teamMatches(teamId: Int): List<LiveMatch> {
-    val json = JSONObject(Net.get("https://site.api.espn.com/apis/site/v2/sports/soccer/all/teams/$teamId/schedule"))
-    val events = json.optJSONArray("events") ?: return emptyList()
+/** A match that hasn't started yet. */
+@Immutable
+data class Fixture(val id: String, val home: String, val away: String, val startsAt: Long, val league: String)
+
+/** Live and recent matches, plus the next matches of your teams. */
+@Immutable
+data class Schedule(val live: List<LiveMatch> = emptyList(), val upcoming: List<Fixture> = emptyList())
+
+private suspend fun teamSchedule(teamId: Int): Schedule {
+    // ESPN keeps played matches and coming matches in two lists; a live match can be in either.
+    val base = "https://site.api.espn.com/apis/site/v2/sports/soccer/all/teams/$teamId/schedule"
+    val events = mutableListOf<JSONObject>()
+    for (url in listOf(base, "$base?fixture=true")) {
+        val list = runCatching { JSONObject(Net.get(url)).optJSONArray("events") }.getOrNull() ?: continue
+        for (i in 0 until list.length()) list.optJSONObject(i)?.let(events::add)
+    }
     val now = System.currentTimeMillis()
     val result = mutableListOf<LiveMatch>()
-    for (i in 0 until events.length()) {
-        val event = events.getJSONObject(i)
+    val upcoming = mutableListOf<Fixture>()
+    for (event in events) {
         val competition = event.optJSONArray("competitions")?.optJSONObject(0) ?: continue
         val type = competition.optJSONObject("status")?.optJSONObject("type") ?: continue
         val state = type.optString("state")
         val start = runCatching { espnDate.parse(event.optString("date").take(16))?.time }.getOrNull() ?: 0L
+        val league = event.optJSONObject("league")?.optString("name").orEmpty()
+        if (state == "pre") {
+            // Coming matches in the next two weeks (ESPN sometimes keeps old ones as "pre": skip those).
+            if (start > now - 3 * 60 * 60_000L && start < now + 14 * 24 * 60 * 60_000L) {
+                val names = (0 until (competition.optJSONArray("competitors")?.length() ?: 0)).mapNotNull { c ->
+                    val comp = competition.optJSONArray("competitors")?.optJSONObject(c) ?: return@mapNotNull null
+                    val team = comp.optJSONObject("team") ?: return@mapNotNull null
+                    comp.optString("homeAway") to team.optString("shortDisplayName").ifBlank { team.optString("displayName") }
+                }.toMap()
+                val home = names["home"]
+                val away = names["away"]
+                if (home != null && away != null) upcoming.add(Fixture(event.optString("id"), home, away, start, league))
+            }
+            continue
+        }
         // Live now, or finished in the last ~2h30 after kick-off (so the final score lingers a bit).
         val recent = state == "post" && now - start in 0..(150 * 60_000L)
         if (state != "in" && !recent) continue
@@ -130,20 +158,26 @@ private suspend fun teamMatches(teamId: Int): List<LiveMatch> {
                 away = away,
                 clock = clock,
                 live = state == "in",
-                league = event.optJSONObject("league")?.optString("name").orEmpty(),
+                league = league,
             ),
         )
     }
-    return result
+    return Schedule(result, upcoming)
+}
+
+/** Live and recent matches plus the next fixtures of all the teams you follow (each match once). */
+suspend fun fetchSchedule(): Schedule = coroutineScope {
+    val all = LumenConfig.FOOTBALL_TEAMS
+        .map { id -> async { runCatching { teamSchedule(id) }.getOrDefault(Schedule()) } }
+        .map { it.await() }
+    Schedule(
+        live = all.flatMap { it.live }.distinctBy { it.id },
+        upcoming = all.flatMap { it.upcoming }.distinctBy { it.id }.sortedBy { it.startsAt }.take(6),
+    )
 }
 
 /** All live matches of the teams you follow (each match once, even if two of your teams play each other). */
-suspend fun fetchLiveMatches(): List<LiveMatch> = coroutineScope {
-    LumenConfig.FOOTBALL_TEAMS
-        .map { id -> async { runCatching { teamMatches(id) }.getOrDefault(emptyList()) } }
-        .flatMap { it.await() }
-        .distinctBy { it.id }
-}
+suspend fun fetchLiveMatches(): List<LiveMatch> = fetchSchedule().live
 
 /* ---------- The Dynamic Island ---------- */
 
@@ -252,7 +286,7 @@ private fun GoalIsland(goal: Goal) {
 
 /** The team's real crest, or a coloured circle with its abbreviation while it loads. */
 @Composable
-private fun Crest(side: Side, size: androidx.compose.ui.unit.Dp) {
+fun Crest(side: Side, size: androidx.compose.ui.unit.Dp) {
     val logo by rememberRemoteImage(side.logo, maxSide = 128)
     Box(
         Modifier

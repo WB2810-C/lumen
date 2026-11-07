@@ -72,6 +72,8 @@ data class NowPlaying(
     val title: String,
     val artist: String,
     val appName: String,
+    /** The app that's playing, so its tile can show the song. */
+    val packageName: String,
     val art: ImageBitmap?,
     val isPlaying: Boolean,
     val positionMs: Long,
@@ -161,6 +163,7 @@ class NowPlayingMonitor(private val context: Context) {
             title = title,
             artist = artist,
             appName = appName,
+            packageName = c.packageName,
             art = art?.let { runCatching { it.copy(Bitmap.Config.ARGB_8888, false).asImageBitmap() }.getOrNull() },
             isPlaying = state.state == PlaybackState.STATE_PLAYING || state.state == PlaybackState.STATE_BUFFERING,
             positionMs = state.position,

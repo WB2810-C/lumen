@@ -5,8 +5,11 @@ object LumenConfig {
     /** Shown in the greeting: "Good evening, Wolfram". Leave empty ("") for no name. */
     const val OWNER_NAME = "Wolfram"
 
-    /** Ambient mode (big clock) starts after this many minutes without touching the remote. */
-    const val AMBIENT_AFTER_MINUTES = 3
+    /**
+     * Ambient mode (big drifting clock) after this many minutes without the remote.
+     * 0 = never: Lumen just stays on the home screen (the TV's own screensaver can still take over).
+     */
+    const val AMBIENT_AFTER_MINUTES = 0
 
     /** Set to false if the background movement is too slow on your TV. */
     const val LIVING_BACKGROUND = true

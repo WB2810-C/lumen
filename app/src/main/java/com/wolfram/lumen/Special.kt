@@ -231,7 +231,7 @@ fun rememberNow(): Long {
  * The clock has a soft gradient that picks up the glow colour.
  */
 @Composable
-fun GreetingClock(glow: Color, clockSize: TextUnit, modifier: Modifier = Modifier) {
+fun GreetingClock(glow: Color, clockSize: TextUnit, modifier: Modifier = Modifier, alignStart: Boolean = false) {
     val context = LocalContext.current
     val now = rememberNow()
     val calendar = remember(now) { Calendar.getInstance().apply { timeInMillis = now } }
@@ -253,7 +253,7 @@ fun GreetingClock(glow: Color, clockSize: TextUnit, modifier: Modifier = Modifie
         shadow = Shadow(color = Color.Black.copy(alpha = theme.shadowAlpha), offset = Offset(0f, 8f), blurRadius = 24f),
     )
 
-    Column(modifier, horizontalAlignment = Alignment.CenterHorizontally) {
+    Column(modifier, horizontalAlignment = if (alignStart) Alignment.Start else Alignment.CenterHorizontally) {
         Text(
             text = greetingText(calendar.get(Calendar.HOUR_OF_DAY)),
             color = ink.copy(alpha = 0.9f),

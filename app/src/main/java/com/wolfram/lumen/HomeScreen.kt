@@ -46,6 +46,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -83,6 +84,8 @@ enum class Tab { HOME, APPS, NEWS, FILES, INPUTS, THEMES }
 enum class TileSize(val width: Dp, val height: Dp, val gap: Dp) {
     Large(160.dp, 90.dp, 16.dp),
     Small(112.dp, 63.dp, 12.dp),
+    /** The glass dock at the bottom of the home screen. */
+    Dock(86.dp, 52.dp, 20.dp),
 }
 
 @Composable
@@ -104,6 +107,17 @@ fun LumenApp(
     var inputs by remember { mutableStateOf(emptyList<Tile>()) }
     var favouriteKeys by remember { mutableStateOf(repo.favouriteKeys()) }
     var tab by remember { mutableStateOf(Tab.HOME) }
+
+    // The Cinema home screen: which dock tile is selected (it fills the preview), and the one being moved.
+    var focusedKey by remember { mutableStateOf(LUMEN_NOW) }
+    var movingKey by remember { mutableStateOf<String?>(null) }
+    val dockFocus = remember { FocusRequester() }
+
+    // HDMI ports and the consoles on them (found by the name they give the TV), and the port chooser.
+    var ports by remember { mutableStateOf(emptyList<HdmiPort>()) }
+    var portsTick by remember { mutableIntStateOf(0) }
+    val consoleSpots = remember(ports, portsTick) { Console.entries.associateWith { Consoles.find(context, it, ports) } }
+    var chooser by remember { mutableStateOf<Console?>(null) }
 
     // Colour theme: the saved one, or a live preview while you browse the Themes page.
     var themeId by remember { mutableStateOf(repo.themeId()) }
@@ -160,13 +174,16 @@ fun LumenApp(
         nowPlaying.start()
     }
 
-    // Live scores of your teams; a goal opens the Dynamic Island for a few seconds.
+    // Live scores of your teams (and their next matches); a goal opens the Dynamic Island for a few seconds.
     var matches by remember { mutableStateOf(emptyList<LiveMatch>()) }
+    var schedule by remember { mutableStateOf(Schedule()) }
     var goal by remember { mutableStateOf<Goal?>(null) }
     LaunchedEffect(Unit) {
         val lastScores = HashMap<String, Pair<Int, Int>>()
         while (true) {
-            val found = runCatching { fetchLiveMatches() }.getOrDefault(matches)
+            val loaded = runCatching { fetchSchedule() }.getOrNull()
+            if (loaded != null) schedule = loaded
+            val found = loaded?.live ?: matches
             found.forEach { m ->
                 val before = lastScores[m.id]
                 if (before != null) {
@@ -217,9 +234,10 @@ fun LumenApp(
     LaunchedEffect(resumeTick) { takeover.returnHome() }
     // ...and refresh the app list (something may have been installed or removed).
     LaunchedEffect(resumeTick) {
-        val loaded = withContext(Dispatchers.IO) { repo.loadApps() to repo.loadInputs() }
+        val loaded = withContext(Dispatchers.IO) { Triple(repo.loadApps(), repo.loadInputs(), Consoles.ports(context)) }
         apps = loaded.first
         inputs = loaded.second
+        ports = loaded.third
     }
     // Pressing Home while already on Lumen jumps back to the Home page.
     LaunchedEffect(homeTick) {
@@ -228,6 +246,20 @@ fun LumenApp(
             assistantOpen = false
             phoneOpen = false
             viewer = null
+            chooser = null
+            movingKey = null
+            focusedKey = LUMEN_NOW
+            delay(80)
+            runCatching { dockFocus.requestFocus() }
+        }
+    }
+    // Arriving on the home screen: the remote starts on the first tile of the dock.
+    LaunchedEffect(tab) {
+        if (tab == Tab.HOME) {
+            delay(80)
+            runCatching { dockFocus.requestFocus() }
+        } else {
+            movingKey = null
         }
     }
     // A TV stick has no HDMI inputs: never stay on an empty Inputs page.
@@ -242,27 +274,77 @@ fun LumenApp(
     }
 
     val favourites = remember(apps, favouriteKeys) {
-        favouriteKeys.mapNotNull { key -> apps.firstOrNull { it.key == key } }
+        favouriteKeys.mapNotNull { key -> Console.byKey(key)?.tile ?: apps.firstOrNull { it.key == key } }
     }
 
-    val onOpen: (Tile, Rect) -> Unit = { tile, from ->
+    // The dock: Lumen, VRT NWS and Scores first, then your favourites (with Xbox and PlayStation), then Files.
+    val newsLabel = stringResource(R.string.news_source)
+    val scoresLabel = stringResource(R.string.dock_scores)
+    val filesLabel = stringResource(R.string.tab_files)
+    val dock = remember(favourites, theme, newsLabel, scoresLabel, filesLabel) {
+        fun own(key: String, label: String, colour: Color) =
+            Tile(key = key, label = label, kind = TileKind.LUMEN, banner = null, icon = null, takeoverColor = colour, glow = colour)
+        listOf(
+            own(LUMEN_NOW, "Lumen", theme.main),
+            own(LUMEN_NEWS, newsLabel, Color(0xFF5A6B8C)),
+            own(LUMEN_SCORES, scoresLabel, Color(0xFF1E9E5A)),
+        ) + favourites + own(LUMEN_FILES, filesLabel, Color(0xFF3B82F6))
+    }
+
+    /** Plays the logo takeover for [shown] and then opens [target] (a console's tile opens its HDMI input). */
+    val onOpenAs: (Tile, Rect, Tile) -> Unit = { shown, from, target ->
         if (!takeover.isBusy) {
-            repo.saveGlow(tile.glow)
+            repo.saveGlow(shown.glow)
             Sounds.play(Sound.WHOOSH)
             scope.launch {
-                takeover.play(tile, from) {
-                    val opened = Launcher.open(activity, tile)
+                takeover.play(shown, from) {
+                    val opened = Launcher.open(activity, target)
                     if (!opened) {
-                        Toast.makeText(context, context.getString(R.string.cannot_open, tile.label), Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, context.getString(R.string.cannot_open, shown.label), Toast.LENGTH_SHORT).show()
                     }
                     opened
                 }
             }
         }
     }
+    val onOpen: (Tile, Rect) -> Unit = { tile, from -> onOpenAs(tile, from, tile) }
+
+    /** OK on any tile: apps and inputs open, consoles switch to their HDMI port, Lumen's own tiles open their page. */
+    val openTile: (Tile, Rect) -> Unit = { tile, from ->
+        when (tile.kind) {
+            TileKind.LUMEN -> {
+                Sounds.play(Sound.SELECT)
+                when (tile.key) {
+                    LUMEN_NOW -> assistantOpen = true
+                    LUMEN_NEWS -> {
+                        newsStart = 0
+                        tab = Tab.NEWS
+                    }
+                    LUMEN_FILES -> tab = Tab.FILES
+                    else -> Unit
+                }
+            }
+            TileKind.CONSOLE -> {
+                val console = Console.byKey(tile.key)
+                val spot = console?.let { consoleSpots[it] }
+                when {
+                    console == null -> Unit
+                    spot == null -> chooser = console
+                    else -> {
+                        repo.markOpened(tile.key)
+                        onOpenAs(tile, from, tile.copy(kind = TileKind.INPUT, key = spot.inputId))
+                    }
+                }
+            }
+            else -> {
+                repo.markOpened(tile.key)
+                onOpen(tile, from)
+            }
+        }
+    }
 
     val onHold: (Tile) -> Unit = { tile ->
-        if (tile.kind == TileKind.APP) {
+        if (tile.kind == TileKind.APP || tile.kind == TileKind.CONSOLE) {
             val added = repo.toggleFavourite(tile.key)
             favouriteKeys = repo.favouriteKeys()
             val message = if (added) R.string.favourite_added else R.string.favourite_removed
@@ -425,11 +507,11 @@ fun LumenApp(
                 assistantOpen = true
                 askWithReply(cmd.text) { turn -> cmd.reply.complete(turn.answer.orEmpty()) }
             }
-            is RemoteCommand.Open -> (apps + inputs).firstOrNull { it.key == cmd.key }?.let {
+            is RemoteCommand.Open -> (apps + inputs + Console.entries.map { it.tile }).firstOrNull { it.key == cmd.key }?.let {
                 phoneOpen = false
                 assistantOpen = false
                 onAmbientChange(false)
-                onOpen(it, Rect.Zero)
+                openTile(it, Rect.Zero)
             }
             is RemoteCommand.YouTube -> Launcher.youTube(activity, cmd.query)
             is RemoteCommand.Theme -> THEMES.firstOrNull { it.id == cmd.id }?.let(chooseTheme)
@@ -470,7 +552,7 @@ fun LumenApp(
     }
 
     // The island only shows on the home screen itself.
-    val islandVisible = tab == Tab.HOME && !assistantOpen && !phoneOpen && viewer == null && !ambient && !takeover.isBusy && intro.value >= 1f
+    val islandVisible = tab == Tab.HOME && !assistantOpen && !phoneOpen && viewer == null && chooser == null && !ambient && !takeover.isBusy && intro.value >= 1f
     val latestIslandVisible by rememberUpdatedState(islandVisible)
     LaunchedEffect(goal) {
         if (goal != null) {
@@ -483,69 +565,112 @@ fun LumenApp(
     CompositionLocalProvider(LocalLumenTheme provides theme) {
         Box(Modifier.fillMaxSize()) {
             AuroraBackground(main = glow)
+            if (tab == Tab.HOME) {
+                CinemaBackdrop(heroColor(dock.firstOrNull { it.key == focusedKey }, nowPlaying.current, schedule))
+            }
             WeatherSky(weather)
-            Row(
-                Modifier
-                    .fillMaxSize()
-                    .padding(start = 24.dp, top = 24.dp, bottom = 24.dp),
-            ) {
-                SideRail(
-                    glow = glow,
-                    tint = tint,
+            Column(Modifier.fillMaxSize()) {
+                CinemaTopBar(
                     tab = tab,
                     showInputs = inputs.isNotEmpty(),
+                    weather = weather,
+                    glow = glow,
                     onTab = { tab = it },
                     onAssistant = { assistantOpen = true },
-                    onPhone = { phoneOpen = true },
                     onSearch = { Launcher.openSearch(activity) },
-                    onNetwork = { Launcher.openNetwork(activity) },
+                    onPhone = { phoneOpen = true },
                     onSettings = { Launcher.openSettings(activity) },
                 )
                 Box(
                     Modifier
                         .weight(1f)
-                        .fillMaxHeight()
-                        .padding(start = 26.dp),
+                        .fillMaxWidth(),
                 ) {
                     when (tab) {
-                        Tab.HOME -> HomeContent(
+                        Tab.HOME -> CinemaHome(
+                            dock = dock,
+                            focusedKey = focusedKey,
+                            movingKey = movingKey,
+                            firstFocus = dockFocus,
                             tint = tint,
-                            favourites = favourites,
-                            apps = apps,
                             weather = weather,
                             weatherError = weatherLive.error,
-                            history = history,
                             news = news,
+                            history = history,
+                            schedule = schedule,
                             nowPlaying = nowPlaying,
-                            onOpenNews = { i ->
-                                newsStart = i
-                                tab = Tab.NEWS
+                            fileCount = files.size,
+                            latestFiles = files.take(3).map { FileStore.displayName(it) },
+                            consoleSpots = consoleSpots,
+                            lastOpened = { repo.lastOpened(it) },
+                            loadBanner = { repo.hiResBanner(it) },
+                            onFocusTile = { t ->
+                                focusedKey = t.key
+                                glowTarget = t.glow
                             },
-                            onOpen = onOpen,
-                            onHold = onHold,
-                            onFocusTile = onFocusTile,
-                        )
-                        Tab.NEWS -> NewsPage(news, newsStart)
-                        Tab.FILES -> FilesPage(
-                            files = files,
-                            onOpen = { viewer = it },
-                            onDelete = { file ->
-                                file.delete()
-                                files = FileStore.list(context)
-                                Toast.makeText(context, context.getString(R.string.file_deleted, FileStore.displayName(file)), Toast.LENGTH_SHORT).show()
+                            onOpen = { t, r -> if (movingKey == null) openTile(t, r) },
+                            onHold = { t ->
+                                if (t.kind == TileKind.APP || t.kind == TileKind.CONSOLE) {
+                                    Sounds.play(Sound.SELECT)
+                                    movingKey = t.key
+                                }
                             },
-                        )
-                        Tab.APPS -> TileGrid(stringResource(R.string.row_all_apps), apps, onOpen, onHold, onFocusTile)
-                        Tab.INPUTS -> TileGrid(stringResource(R.string.row_inputs), inputs, onOpen, null, onFocusTile)
-                        Tab.THEMES -> ThemesPage(
-                            current = themeById(themeId),
-                            onPreview = { previewTheme = it },
-                            onChoose = { chosen ->
-                                chooseTheme(chosen)
-                                val name = context.getString(chosen.name)
-                                Toast.makeText(context, context.getString(R.string.theme_chosen, name), Toast.LENGTH_SHORT).show()
+                            onMove = { delta ->
+                                movingKey?.let { key ->
+                                    favouriteKeys = repo.moveFavourite(key, delta)
+                                    Sounds.play(Sound.FOCUS)
+                                }
                             },
+                            onRemove = {
+                                movingKey?.let { key ->
+                                    repo.toggleFavourite(key)
+                                    favouriteKeys = repo.favouriteKeys()
+                                    val label = dock.firstOrNull { it.key == key }?.label ?: key
+                                    Toast.makeText(context, context.getString(R.string.favourite_removed, label), Toast.LENGTH_SHORT).show()
+                                    movingKey = null
+                                    focusedKey = LUMEN_NOW
+                                    scope.launch {
+                                        delay(120)
+                                        runCatching { dockFocus.requestFocus() }
+                                    }
+                                }
+                            },
+                            onDoneMoving = {
+                                Sounds.play(Sound.SELECT)
+                                movingKey = null
+                            },
+                            onChoosePort = { chooser = it },
                         )
+                        else -> Box(
+                            Modifier
+                                .fillMaxSize()
+                                .padding(start = 55.dp, end = 30.dp, top = 4.dp),
+                        ) {
+                            when (tab) {
+                                Tab.NEWS -> NewsPage(news, newsStart)
+                                Tab.FILES -> FilesPage(
+                                    files = files,
+                                    onOpen = { viewer = it },
+                                    onDelete = { file ->
+                                        file.delete()
+                                        files = FileStore.list(context)
+                                        Toast.makeText(context, context.getString(R.string.file_deleted, FileStore.displayName(file)), Toast.LENGTH_SHORT).show()
+                                    },
+                                )
+                                Tab.APPS -> TileGrid(stringResource(R.string.row_all_apps), Console.entries.map { it.tile } + apps, openTile, onHold, onFocusTile)
+                                Tab.INPUTS -> TileGrid(stringResource(R.string.row_inputs), inputs, onOpen, null, onFocusTile)
+                                Tab.THEMES -> ThemesPage(
+                                    current = themeById(themeId),
+                                    onPreview = { previewTheme = it },
+                                    onChoose = { chosen ->
+                                        chooseTheme(chosen)
+                                        val name = context.getString(chosen.name)
+                                        Toast.makeText(context, context.getString(R.string.theme_chosen, name), Toast.LENGTH_SHORT).show()
+                                    },
+                                )
+                                Tab.HOME -> Unit
+                            }
+                        }
                     }
                 }
             }
@@ -578,6 +703,21 @@ fun LumenApp(
                     onClose = { assistantOpen = false },
                 )
             }
+            chooser?.let { console ->
+                ConsoleChooser(
+                    console = console,
+                    ports = ports,
+                    onChoose = { port ->
+                        Consoles.assign(context, console, port.id)
+                        portsTick++
+                        chooser = null
+                        repo.markOpened(console.key)
+                        val target = port.devices.firstOrNull()?.first ?: port.id
+                        onOpenAs(console.tile, Rect.Zero, console.tile.copy(kind = TileKind.INPUT, key = target))
+                    },
+                    onClose = { chooser = null },
+                )
+            }
             viewer?.let { start ->
                 FileViewer(files = files, startIndex = start, onClose = { viewer = null })
             }
@@ -602,227 +742,6 @@ private fun findTile(tiles: List<Tile>, wanted: String): Tile? {
     return tiles.firstOrNull { norm(it.label) == w }
         ?: tiles.firstOrNull { norm(it.label).startsWith(w) || w.startsWith(norm(it.label)) }
         ?: tiles.firstOrNull { norm(it.label).contains(w) || (norm(it.label).length > 3 && w.contains(norm(it.label))) }
-}
-
-@Composable
-private fun SideRail(
-    glow: Color,
-    tint: Color,
-    tab: Tab,
-    showInputs: Boolean,
-    onTab: (Tab) -> Unit,
-    onAssistant: () -> Unit,
-    onPhone: () -> Unit,
-    onSearch: () -> Unit,
-    onNetwork: () -> Unit,
-    onSettings: () -> Unit,
-) {
-    val theme = LocalLumenTheme.current
-    // The rail's glass edge picks up the glow colour on dark themes.
-    val edge = if (theme.isLight) theme.glassEdge else lerp(Color.White, tint, 0.6f).copy(alpha = 0.55f)
-    Column(
-        modifier = Modifier
-            .width(56.dp)
-            .fillMaxHeight()
-            .glass(RoundedCornerShape(28.dp), fill = theme.glassFill, edge = edge)
-            .padding(vertical = 12.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(6.dp),
-    ) {
-        Box(
-            modifier = Modifier
-                .size(32.dp)
-                .clip(CircleShape)
-                .background(theme.chip),
-            contentAlignment = Alignment.Center,
-        ) {
-            Text("L", color = theme.content, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-        }
-        // The assistant button, with a little colour of its own.
-        RailButton(
-            label = stringResource(R.string.assistant_title),
-            onClick = onAssistant,
-            highlight = Brush.linearGradient(listOf(glow, theme.third)),
-        ) { c ->
-            SparkleGlyph(Modifier.size(15.dp), c)
-        }
-
-        RailButton(stringResource(R.string.tab_home), onClick = { onTab(Tab.HOME) }, selected = tab == Tab.HOME) { c ->
-            HomeGlyph(Modifier.size(15.dp), c)
-        }
-        RailButton(stringResource(R.string.tab_apps), onClick = { onTab(Tab.APPS) }, selected = tab == Tab.APPS) { c ->
-            AppsGlyph(Modifier.size(15.dp), c)
-        }
-        RailButton(stringResource(R.string.tab_news), onClick = { onTab(Tab.NEWS) }, selected = tab == Tab.NEWS) { c ->
-            NewsGlyph(Modifier.size(15.dp), c)
-        }
-        RailButton(stringResource(R.string.tab_files), onClick = { onTab(Tab.FILES) }, selected = tab == Tab.FILES) { c ->
-            FilesGlyph(Modifier.size(15.dp), c)
-        }
-        if (showInputs) {
-            RailButton(stringResource(R.string.row_inputs), onClick = { onTab(Tab.INPUTS) }, selected = tab == Tab.INPUTS) { c ->
-                InputGlyph(Modifier.size(15.dp), c)
-            }
-        }
-        RailButton(stringResource(R.string.search), onClick = onSearch) { c ->
-            SearchGlyph(Modifier.size(15.dp), c)
-        }
-        RailButton(stringResource(R.string.tab_themes), onClick = { onTab(Tab.THEMES) }, selected = tab == Tab.THEMES) { c ->
-            PaletteGlyph(Modifier.size(15.dp), c)
-        }
-
-        Spacer(Modifier.weight(1f))
-
-        RailButton(stringResource(R.string.remote_button), onClick = onPhone) { c ->
-            PhoneGlyph(Modifier.size(15.dp), c)
-        }
-        RailButton(stringResource(R.string.settings), onClick = onSettings) { c ->
-            SettingsGlyph(Modifier.size(15.dp), c, knob = Color.Transparent)
-        }
-    }
-}
-
-@Composable
-private fun RailButton(
-    label: String,
-    onClick: () -> Unit,
-    selected: Boolean = false,
-    highlight: Brush? = null,
-    content: @Composable (Color) -> Unit,
-) {
-    val theme = LocalLumenTheme.current
-    var focused by remember { mutableStateOf(false) }
-    val scale by animateFloatAsState(
-        targetValue = if (focused) 1.12f else 1f,
-        animationSpec = tween(durationMillis = 140),
-        label = "railScale",
-    )
-    val background = when {
-        focused -> theme.content
-        selected -> theme.content.copy(alpha = 0.18f)
-        else -> Color.Transparent
-    }
-    val foreground = when {
-        focused -> theme.onContent
-        highlight != null -> Color.White
-        selected -> theme.content
-        else -> theme.content.copy(alpha = 0.82f)
-    }
-    Box(
-        modifier = Modifier
-            .size(32.dp)
-            .graphicsLayer {
-                scaleX = scale
-                scaleY = scale
-            }
-            .clip(CircleShape)
-            .then(if (highlight != null && !focused) Modifier.background(highlight) else Modifier.background(background))
-            .onFocusChanged {
-                focused = it.isFocused
-                if (it.isFocused) Sounds.play(Sound.FOCUS)
-            }
-            .semantics { contentDescription = label }
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null,
-            ) {
-                Sounds.play(Sound.SELECT)
-                onClick()
-            },
-        contentAlignment = Alignment.Center,
-    ) {
-        content(foreground)
-    }
-}
-
-@Composable
-private fun HomeContent(
-    tint: Color,
-    favourites: List<Tile>,
-    apps: List<Tile>,
-    weather: WeatherNow?,
-    weatherError: Throwable?,
-    history: HistoryFact?,
-    news: NewsState,
-    nowPlaying: NowPlayingMonitor,
-    onOpenNews: (Int) -> Unit,
-    onOpen: (Tile, Rect) -> Unit,
-    onHold: (Tile) -> Unit,
-    onFocusTile: (Tile) -> Unit,
-) {
-    val theme = LocalLumenTheme.current
-    val firstFocus = remember { FocusRequester() }
-    val firstKey = favourites.firstOrNull()?.key ?: apps.firstOrNull()?.key
-    LaunchedEffect(firstKey) {
-        if (firstKey != null) {
-            delay(60)
-            runCatching { firstFocus.requestFocus() }
-        }
-    }
-
-    Column(
-        Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(bottom = 24.dp),
-    ) {
-        // Weather on the left, the big bold clock in the middle, Now Playing or "On this day" on the right.
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = 34.dp, bottom = 10.dp),
-        ) {
-            val widget = Modifier
-                .width(200.dp)
-                .height(106.dp)
-            WeatherWidget(
-                weather,
-                Modifier
-                    .align(Alignment.TopStart)
-                    .padding(start = 10.dp)
-                    .then(widget),
-                error = weatherError,
-            )
-            GreetingClock(glow = tint, clockSize = 92.sp, modifier = Modifier.align(Alignment.TopCenter))
-            val playing = nowPlaying.current
-            val right = Modifier
-                .align(Alignment.TopEnd)
-                .padding(end = 24.dp)
-                .then(widget)
-            if (playing != null) NowPlayingWidget(playing, nowPlaying, right) else HistoryWidget(history, right)
-        }
-        // VRT NWS headlines, changing every few seconds.
-        Box(
-            Modifier
-                .fillMaxWidth()
-                .padding(bottom = 12.dp),
-            contentAlignment = Alignment.Center,
-        ) {
-            NewsStrip(news, onOpenNews, Modifier.width(490.dp))
-        }
-
-        if (favourites.isEmpty()) {
-            RowTitle(stringResource(R.string.row_favourites))
-            Text(
-                text = stringResource(R.string.favourites_empty),
-                color = theme.content.copy(alpha = 0.75f),
-                fontSize = 12.sp,
-                modifier = Modifier.padding(start = 10.dp, top = 8.dp, bottom = 16.dp),
-            )
-        } else {
-            TileRow(stringResource(R.string.row_favourites), favourites, TileSize.Large, onOpen, onHold, onFocusTile, firstFocus)
-        }
-
-        TileRow(
-            title = stringResource(R.string.row_all_apps),
-            tiles = apps,
-            tileSize = TileSize.Small,
-            onOpen = onOpen,
-            onHold = onHold,
-            onFocusTile = onFocusTile,
-            firstFocus = if (favourites.isEmpty()) firstFocus else null,
-        )
-    }
 }
 
 /** The Apps and Inputs pages: every tile in a grid. */
@@ -870,45 +789,4 @@ private fun TileGrid(
             )
         }
     }
-}
-
-@Composable
-private fun TileRow(
-    title: String,
-    tiles: List<Tile>,
-    tileSize: TileSize,
-    onOpen: (Tile, Rect) -> Unit,
-    onHold: ((Tile) -> Unit)?,
-    onFocusTile: (Tile) -> Unit,
-    firstFocus: FocusRequester?,
-) {
-    RowTitle(title)
-    LazyRow(
-        horizontalArrangement = Arrangement.spacedBy(tileSize.gap),
-        // Room around the tiles so the focused one can grow without being cut off.
-        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 12.dp),
-        modifier = Modifier.padding(bottom = 6.dp),
-    ) {
-        itemsIndexed(tiles, key = { _, tile -> tile.key }) { index, tile ->
-            TileCard(
-                tile = tile,
-                tileSize = tileSize,
-                onOpen = onOpen,
-                onHold = onHold,
-                onFocus = onFocusTile,
-                modifier = if (index == 0 && firstFocus != null) Modifier.focusRequester(firstFocus) else Modifier,
-            )
-        }
-    }
-}
-
-@Composable
-private fun RowTitle(text: String) {
-    Text(
-        text = text,
-        color = LocalLumenTheme.current.content.copy(alpha = 0.86f),
-        fontSize = 13.sp,
-        fontWeight = FontWeight.Medium,
-        modifier = Modifier.padding(start = 10.dp, top = 6.dp),
-    )
 }

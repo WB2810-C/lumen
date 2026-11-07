@@ -5,6 +5,7 @@ import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -39,6 +40,9 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.LayoutCoordinates
@@ -58,13 +62,14 @@ fun TileCard(
     onHold: ((Tile) -> Unit)?,
     onFocus: (Tile) -> Unit,
     modifier: Modifier = Modifier,
+    focusScale: Float = 1.08f,
 ) {
     val theme = LocalLumenTheme.current
     var focused by remember { mutableStateOf(false) }
     val coordinates = remember { arrayOfNulls<LayoutCoordinates>(1) }
     val interaction = remember { MutableInteractionSource() }
     val scale by animateFloatAsState(
-        targetValue = if (focused) 1.08f else 1f,
+        targetValue = if (focused) focusScale else 1f,
         animationSpec = tween(durationMillis = 160),
         label = "tileScale",
     )
@@ -162,6 +167,10 @@ fun TileCard(
 @Composable
 private fun TileFace(tile: Tile, tileSize: TileSize, focused: Boolean) {
     val theme = LocalLumenTheme.current
+    if (tile.kind == TileKind.LUMEN || tile.kind == TileKind.CONSOLE) {
+        SpecialFace(tile, tileSize)
+        return
+    }
     val banner = tile.banner
     val appIcon = tile.icon.takeIf { tile.kind == TileKind.APP }
     if (banner != null) {
@@ -229,3 +238,70 @@ private fun TileFace(tile: Tile, tileSize: TileSize, focused: Boolean) {
         }
     }
 }
+
+/** Lumen's own tiles (Lumen, VRT NWS, Scores, Files) and the consoles: drawn here, no logos needed. */
+@Composable
+fun SpecialFace(tile: Tile, tileSize: TileSize) {
+    val theme = LocalLumenTheme.current
+    val big = tileSize != TileSize.Dock && tileSize != TileSize.Small
+    val (fill, ink) = when (tile.key) {
+        LUMEN_NOW -> (if (theme.isLight) Color(0xFFDDE1E8) else Color(0xFFE4E7ED)) to Color(0xFF15171C)
+        LUMEN_NEWS -> Color(0xFF14161D) to Color.White
+        LUMEN_SCORES -> Color(0xFF0C5E33) to Color.White
+        LUMEN_FILES -> Color(0xFF2563EB) to Color.White
+        else -> tile.takeoverColor to Color.White
+    }
+    Box(
+        Modifier
+            .fillMaxSize()
+            .background(Brush.linearGradient(listOf(lerp(fill, Color.White, 0.10f), lerp(fill, Color.Black, 0.18f)))),
+        contentAlignment = Alignment.Center,
+    ) {
+        val glyphSize = if (big) 26.dp else 15.dp
+        when (tile.key) {
+            LUMEN_NOW, LUMEN_SCORES, LUMEN_FILES -> Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Canvas(Modifier.size(glyphSize)) {
+                    val s = size.minDimension
+                    val stroke = Stroke(width = s * 0.09f, cap = StrokeCap.Round)
+                    when (tile.key) {
+                        LUMEN_NOW -> {
+                            drawCircle(ink, radius = s * 0.42f, style = stroke)
+                            drawLine(ink, Offset(s / 2, s / 2), Offset(s / 2, s * 0.24f), strokeWidth = s * 0.09f, cap = StrokeCap.Round)
+                            drawLine(ink, Offset(s / 2, s / 2), Offset(s * 0.68f, s * 0.62f), strokeWidth = s * 0.09f, cap = StrokeCap.Round)
+                        }
+                        LUMEN_SCORES -> {
+                            drawCircle(ink, radius = s * 0.42f, style = stroke)
+                            val p = Path().apply {
+                                moveTo(s * 0.5f, s * 0.30f); lineTo(s * 0.68f, s * 0.43f); lineTo(s * 0.61f, s * 0.64f)
+                                lineTo(s * 0.39f, s * 0.64f); lineTo(s * 0.32f, s * 0.43f); close()
+                            }
+                            drawPath(p, ink)
+                        }
+                        else -> {
+                            val p = Path().apply {
+                                moveTo(s * 0.08f, s * 0.26f); lineTo(s * 0.40f, s * 0.26f); lineTo(s * 0.48f, s * 0.36f)
+                                lineTo(s * 0.92f, s * 0.36f); lineTo(s * 0.92f, s * 0.80f); lineTo(s * 0.08f, s * 0.80f); close()
+                            }
+                            drawPath(p, ink)
+                        }
+                    }
+                }
+                Spacer(Modifier.height(if (big) 6.dp else 3.dp))
+                Text(tile.label, color = ink, fontSize = if (big) 12.sp else 8.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
+            }
+            else -> Text(
+                text = tile.label,
+                color = ink,
+                fontSize = if (big) 22.sp else if (tile.label.length > 8) 11.sp else 13.sp,
+                fontWeight = FontWeight.ExtraBold,
+                letterSpacing = (-0.3).sp,
+                maxLines = 1,
+            )
+        }
+    }
+}
+
+const val LUMEN_NOW = "lumen:now"
+const val LUMEN_NEWS = "lumen:news"
+const val LUMEN_SCORES = "lumen:scores"
+const val LUMEN_FILES = "lumen:files"

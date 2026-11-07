@@ -8,6 +8,7 @@ import android.graphics.Bitmap
 import android.graphics.drawable.Drawable
 import android.media.tv.TvInputManager
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.toArgb
 import androidx.core.graphics.drawable.toBitmap
@@ -100,8 +101,59 @@ class TvRepository(private val context: Context) {
     }
 
     fun favouriteKeys(): List<String> {
-        val saved = prefs.getString(KEY_FAVOURITES, null) ?: return DEFAULT_FAVOURITES
-        return saved.split('|').filter { it.isNotBlank() }
+        val saved = prefs.getString(KEY_FAVOURITES, null)
+        var list = saved?.split('|')?.filter { it.isNotBlank() } ?: DEFAULT_FAVOURITES
+        // Xbox and PlayStation join the favourites once (at the front); after that you decide.
+        if (!prefs.getBoolean(KEY_CONSOLES_ADDED, false)) {
+            list = Console.entries.map { it.key }.filter { it !in list } + list
+            prefs.edit().putBoolean(KEY_CONSOLES_ADDED, true).putString(KEY_FAVOURITES, list.joinToString("|")).apply()
+        }
+        return list
+    }
+
+    /** Moves a favourite one place left (-1) or right (+1). Returns the new list. */
+    fun moveFavourite(key: String, delta: Int): List<String> {
+        val list = favouriteKeys().toMutableList()
+        val from = list.indexOf(key)
+        if (from < 0) return list
+        val to = (from + delta).coerceIn(0, list.lastIndex)
+        if (to != from) {
+            list.removeAt(from)
+            list.add(to, key)
+            prefs.edit().putString(KEY_FAVOURITES, list.joinToString("|")).apply()
+        }
+        return list
+    }
+
+    /** When you last opened an app or console (0 = never, as far as Lumen knows). */
+    fun lastOpened(key: String): Long = prefs.getLong("opened_$key", 0L)
+
+    fun markOpened(key: String) {
+        prefs.edit().putLong("opened_$key", System.currentTimeMillis()).apply()
+    }
+
+    private val bigBanners = android.util.LruCache<String, ImageBitmap>(3)
+
+    /**
+     * The app's TV logo in the highest resolution it ships (for the big preview at the top), sharp at 1080p.
+     * Only kept for the last few apps you selected, so it doesn't use much memory.
+     */
+    fun hiResBanner(pkg: String): ImageBitmap? {
+        bigBanners.get(pkg)?.let { return it }
+        return runCatching {
+            val intent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LEANBACK_LAUNCHER).setPackage(pkg)
+            @Suppress("DEPRECATION")
+            val activity = pm.queryIntentActivities(intent, 0).firstOrNull()?.activityInfo
+            @Suppress("DEPRECATION")
+            val app = pm.getApplicationInfo(pkg, 0)
+            val id = activity?.banner?.takeIf { it != 0 } ?: app.banner.takeIf { it != 0 } ?: return null
+            val drawable = pm.getResourcesForApplication(app)
+                .getDrawableForDensity(id, android.util.DisplayMetrics.DENSITY_XXXHIGH, null) ?: return null
+            val bitmap = (drawable as? android.graphics.drawable.BitmapDrawable)?.bitmap
+                ?.let { if (it.width > 960) Bitmap.createScaledBitmap(it, 960, (960f * it.height / it.width).roundToInt(), true) else it }
+                ?: drawable.toBitmap(960, 540, Bitmap.Config.ARGB_8888)
+            bitmap.asImageBitmap()
+        }.getOrNull()?.also { bigBanners.put(pkg, it) }
     }
 
     /** Adds or removes an app from favourites. Returns true when it was added. */
@@ -153,6 +205,7 @@ class TvRepository(private val context: Context) {
         private const val KEY_FAVOURITES = "favourites"
         private const val KEY_GLOW = "last_glow"
         private const val KEY_THEME = "theme"
+        private const val KEY_CONSOLES_ADDED = "consoles_added"
 
         /** Shown as favourites on first start, but only the ones that are installed. */
         private val DEFAULT_FAVOURITES = listOf(
@@ -204,7 +257,7 @@ private fun cornerColor(bitmap: Bitmap): Color? = runCatching {
 }.getOrNull()
 
 /** The most colourful average of an icon, ignoring transparent and grey pixels. */
-private fun vividColor(bitmap: Bitmap): Color = runCatching {
+internal fun vividColor(bitmap: Bitmap): Color = runCatching {
     val small = Bitmap.createScaledBitmap(bitmap.softwareCopy(), 24, 24, true)
     var r = 0.0
     var g = 0.0

@@ -4,7 +4,14 @@ import androidx.compose.runtime.Immutable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 
-enum class TileKind { APP, INPUT }
+enum class TileKind {
+    APP,
+    INPUT,
+    /** Lumen's own things in the dock: Lumen itself, VRT NWS, Scores, Files. */
+    LUMEN,
+    /** A game console on one of the TV's HDMI ports (Xbox, PlayStation). */
+    CONSOLE,
+}
 
 /** One thing you can open from the home screen: an app or an HDMI input. */
 @Immutable

@@ -22,6 +22,8 @@ object Launcher {
                 Intent.ACTION_VIEW,
                 TvContract.buildChannelUriForPassthroughInput(tile.key),
             )
+            // Consoles and Lumen's own tiles are handled by the home screen itself.
+            TileKind.LUMEN, TileKind.CONSOLE -> null
         } ?: return false
         return start(activity, intent, fade = true)
     }
