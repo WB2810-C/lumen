@@ -52,9 +52,6 @@ enum class Console(
     /** Official apps of this console; if one is on the TV, its logo is used for the tile. */
     val apps: List<String>,
 ) {
-    /** Short name used for the logo file and by the phone remote ("xbox", "playstation"). */
-    val id: String get() = name.lowercase()
-
     XBOX(
         "console:xbox", "Xbox", Color(0xFF107C10), Color(0xFF1A8F1D), listOf("xbox"),
         apps = listOf("com.microsoft.xboxone.smartglass", "com.microsoft.xcloud", "com.gamepass"),
@@ -64,6 +61,9 @@ enum class Console(
         apps = listOf("com.scee.psxandroid", "com.playstation.remoteplay", "com.playstation.mobilemessenger"),
     ),
     ;
+
+    /** Short name used for the logo file and by the phone remote ("xbox", "playstation"). */
+    val id: String get() = name.lowercase()
 
     fun matches(name: String): Boolean {
         val n = name.lowercase()
