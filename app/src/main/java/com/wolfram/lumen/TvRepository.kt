@@ -92,6 +92,10 @@ class TvRepository(private val context: Context) {
         if (!prefs.getBoolean(KEY_CINEMA_THEME, false)) {
             prefs.edit().putBoolean(KEY_CINEMA_THEME, true).putString(KEY_THEME, LumenConfig.DEFAULT_THEME).apply()
         }
+        // Version 5.3: themes became backgrounds; start once on "Automatic" (what the home screen did before).
+        if (!prefs.getBoolean(KEY_BACKGROUNDS, false)) {
+            prefs.edit().putBoolean(KEY_BACKGROUNDS, true).putString(KEY_THEME, "auto").apply()
+        }
         return prefs.getString(KEY_THEME, null) ?: LumenConfig.DEFAULT_THEME
     }
 
@@ -234,6 +238,7 @@ class TvRepository(private val context: Context) {
         private const val KEY_THEME = "theme"
         private const val KEY_CONSOLES_ADDED = "consoles_added"
         private const val KEY_CINEMA_THEME = "cinema_theme_v1"
+        private const val KEY_BACKGROUNDS = "backgrounds_v1"
 
         /** Shown as favourites on first start, but only the ones that are installed. */
         private val DEFAULT_FAVOURITES = listOf(

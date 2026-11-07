@@ -152,7 +152,8 @@ fun LumenApp(
     // "More" in the dock: phone remote, search, colours, Wi-Fi, TV settings.
     var moreOpen by remember { mutableStateOf(false) }
     // The couch-tv scenes behind everything; they take turns while you're not using the remote.
-    val sceneState = rememberSceneRotation(lastInputAt)
+    // The background you picked on the Themes page (while browsing there, the one you are on).
+    val sceneState = rememberSceneRotation(lastInputAt, previewTheme?.id ?: themeId)
 
     // Photos, videos and files sent from the phone (also from iCloud Drive), and the viewer.
     var files by remember { mutableStateOf(FileStore.list(context)) }
@@ -401,9 +402,9 @@ fun LumenApp(
                 }
             }
             "set_theme" -> {
-                val chosen = THEMES.firstOrNull { it.id == input.optString("theme") }
+                val chosen = BACKGROUNDS.firstOrNull { it.id == input.optString("theme") }
                 if (chosen == null) {
-                    ToolOutcome("Unknown theme. Use one of: ${THEMES.joinToString { it.id }}", isError = true)
+                    ToolOutcome("Unknown theme. Use one of: ${BACKGROUNDS.joinToString { it.id }}", isError = true)
                 } else {
                     chooseTheme(chosen)
                     val label = context.getString(chosen.name)
@@ -526,7 +527,7 @@ fun LumenApp(
                 openTile(it, Rect.Zero)
             }
             is RemoteCommand.YouTube -> Launcher.youTube(activity, cmd.query)
-            is RemoteCommand.Theme -> THEMES.firstOrNull { it.id == cmd.id }?.let(chooseTheme)
+            is RemoteCommand.Theme -> BACKGROUNDS.firstOrNull { it.id == cmd.id }?.let(chooseTheme)
             is RemoteCommand.LogoChanged -> logoTick++
             is RemoteCommand.ShowFile -> {
                 files = FileStore.list(context)
@@ -554,7 +555,7 @@ fun LumenApp(
             .put("apps", list(apps))
             .put("favourites", list(favourites))
             .put("inputs", list(inputs))
-            .put("themes", JSONArray(THEMES.map { JSONObject().put("id", it.id).put("name", context.getString(it.name)) }))
+            .put("themes", JSONArray(BACKGROUNDS.map { JSONObject().put("id", it.id).put("name", context.getString(it.name)) }))
             .put("theme", themeId)
             .put(
                 "nowPlaying",
@@ -716,7 +717,8 @@ fun LumenApp(
                         Tab.APPS -> TileGrid(stringResource(R.string.row_all_apps), consoleTiles.values.toList() + apps + inputs, openTile, onHold, onFocusTile)
                         Tab.INPUTS -> TileGrid(stringResource(R.string.row_inputs), inputs, onOpen, null, onFocusTile)
                         Tab.THEMES -> ThemesPage(
-                            current = themeById(themeId),
+                            current = backgroundById(themeId),
+                            choices = BACKGROUNDS,
                             onPreview = { previewTheme = it },
                             onChoose = { chosen ->
                                 chooseTheme(chosen)

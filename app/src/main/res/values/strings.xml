@@ -19,7 +19,9 @@
     <string name="greeting_night">Good night</string>
     <string name="ambient_hint">Press any button</string>
     <string name="tab_themes">Themes</string>
-    <string name="themes_hint">Move to preview · press OK to choose</string>
+    <string name="themes_hint">The home screen background · move to preview, press OK to choose</string>
+    <string name="theme_auto">Automatic</string>
+    <string name="theme_night">Nightfall mountains</string>
     <string name="theme_chosen">%1$s theme on</string>
     <string name="theme_follows_app">Follows the app you select</string>
     <string name="theme_app">App colour</string>

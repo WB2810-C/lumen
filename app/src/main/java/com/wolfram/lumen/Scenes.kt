@@ -148,25 +148,34 @@ enum class Scene(
         rimFill = Color(255, 200, 215).copy(alpha = 0.06f), rimStroke = Color(255, 215, 225).copy(alpha = 0.5f),
     ),
     // The soft colour backgrounds from the earlier PlaizierOS versions, with the same glass clock.
-    CINEMA("cinema", false, clockTop = 75f, clockSize = 200f, dateTop = 48f, aurora = "cinema"),
-    NORTH("north", false, clockTop = 75f, clockSize = 200f, dateTop = 48f, aurora = "north"),
-    OCEAN("ocean", false, clockTop = 75f, clockSize = 200f, dateTop = 48f, aurora = "ocean"),
-    LAVENDER("lavender", false, clockTop = 75f, clockSize = 200f, dateTop = 48f, aurora = "lavender"),
-    SUNSET("sunset", false, clockTop = 75f, clockSize = 200f, dateTop = 48f, aurora = "sunset"),
+    AURORA("aurora", false, clockTop = 75f, clockSize = 200f, dateTop = 48f, aurora = "cinema"),
 }
+
+/** What "Automatic" goes through, one per minute: the mountains and the colour backgrounds. */
+val AUTO_BACKGROUNDS = listOf("night", "cinema", "north", "ocean", "lavender", "sunset")
 
 /** A scene's pictures, loaded and ready to draw. */
 @Immutable
-class LoadedScene(val scene: Scene, val photo: ImageBitmap, val front: ImageBitmap?, val glass: Bitmap) {
+class LoadedScene(val scene: Scene, val photo: ImageBitmap, val front: ImageBitmap?, val glass: Bitmap, val key: String = scene.id) {
     val glassImage: ImageBitmap = glass.asImageBitmap()
 }
 
-private suspend fun loadScene(context: Context, scene: Scene): LoadedScene? = withContext(Dispatchers.IO) {
-    scene.aurora?.let { id ->
+private val sceneCache = HashMap<String, LoadedScene>()
+
+/** Loads a background: "night" is the mountains photo, anything else is that colour theme's background. */
+private suspend fun loadBackground(context: Context, key: String): LoadedScene? = withContext(Dispatchers.IO) {
+    synchronized(sceneCache) { sceneCache[key] }?.let { return@withContext it }
+    val loaded = if (key == Scene.NIGHT.id) {
+        loadScene(context, Scene.NIGHT)
+    } else {
         // A colour background: painted (small, it's all soft gradients) instead of loaded.
-        val theme = themeById(id)
-        return@withContext LoadedScene(scene, paintAurora(theme, 480, 270).asImageBitmap(), null, frosted(paintAurora(theme, 240, 135)))
+        val theme = themeById(key)
+        LoadedScene(Scene.AURORA, paintAurora(theme, 480, 270).asImageBitmap(), null, frosted(paintAurora(theme, 240, 135)), key)
     }
+    loaded?.also { synchronized(sceneCache) { sceneCache[key] = it } }
+}
+
+private suspend fun loadScene(context: Context, scene: Scene): LoadedScene? = withContext(Dispatchers.IO) {
     runCatching {
         fun decode(name: String, sample: Int = 1): Bitmap =
             context.assets.open("scenes/$name").use {
@@ -187,19 +196,20 @@ private suspend fun loadScene(context: Context, scene: Scene): LoadedScene? = wi
  * using the remote, so the change never gets in the way of moving around.
  */
 @Composable
-fun rememberSceneRotation(lastInputAt: () -> Long): State<LoadedScene?> {
+fun rememberSceneRotation(lastInputAt: () -> Long, choice: String): State<LoadedScene?> {
     val context = LocalContext.current.applicationContext
     val latestInput by rememberUpdatedState(lastInputAt)
-    return produceState<LoadedScene?>(null) {
-        val order = Scene.entries
-        var index = 0 // always start on the nightfall mountains
-        value = loadScene(context, order[index])
-        if (LumenConfig.SCENE_SECONDS <= 0) return@produceState
+    // Keyed on the choice: picking (or previewing) another background switches straight to it.
+    return produceState<LoadedScene?>(null, choice) {
+        val order = if (choice == "auto") AUTO_BACKGROUNDS else listOf(choice)
+        var index = 0 // "Automatic" always starts on the nightfall mountains
+        loadBackground(context, order[index])?.let { value = it }
+        if (order.size == 1 || LumenConfig.SCENE_SECONDS <= 0) return@produceState
         while (true) {
             delay(LumenConfig.SCENE_SECONDS * 1000L)
             while (SystemClock.uptimeMillis() - latestInput() < 8_000) delay(2_000)
             index = (index + 1) % order.size
-            loadScene(context, order[index])?.let { value = it }
+            loadBackground(context, order[index])?.let { value = it }
         }
     }
 }

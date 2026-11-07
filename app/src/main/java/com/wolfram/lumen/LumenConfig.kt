@@ -40,7 +40,7 @@ object LumenConfig {
      * One of: "cinema" (dark), "cinema_light", "app", "north", "sunset", "ocean", "lavender", "gold",
      * "graphite", "neon", "stone", "silver", "cloud".
      */
-    const val DEFAULT_THEME = "cinema"
+    const val DEFAULT_THEME = "auto"
 
     /* ----- Assistant -----
      * Free by default: Lumen understands commands itself and answers from the weather, news and scores.

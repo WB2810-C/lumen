@@ -63,5 +63,16 @@ val THEMES = listOf(
 
 fun themeById(id: String?): LumenTheme = THEMES.firstOrNull { it.id == id } ?: THEMES.first()
 
+/** "Automatic": the backgrounds take turns. */
+val AUTO_BACKGROUND = LumenTheme("auto", R.string.theme_auto, Color(0xFF09070E), Color(0xFF4E2459), Color(0xFF2E7BD6), Color(0xFF138A6A), Color(0xFF26143A))
+
+/** The nightfall mountains. */
+val NIGHT_BACKGROUND = LumenTheme("night", R.string.theme_night, Color(0xFF0B1020), Color(0xFF3A3F6E), Color(0xFFE9A6B8), Color(0xFF1C2B3A), Color(0xFF0E1A14))
+
+/** What the Themes page offers: each one is the home screen's background (no light ones: they'd be white). */
+val BACKGROUNDS: List<LumenTheme> = listOf(AUTO_BACKGROUND, NIGHT_BACKGROUND) + THEMES.filter { !it.isLight && it.id != "app" }
+
+fun backgroundById(id: String?): LumenTheme = BACKGROUNDS.firstOrNull { it.id == id } ?: AUTO_BACKGROUND
+
 /** The theme currently showing (including a live preview on the Themes page). */
 val LocalLumenTheme = staticCompositionLocalOf { THEMES.first() }

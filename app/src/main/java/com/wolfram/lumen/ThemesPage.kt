@@ -25,6 +25,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -40,6 +41,13 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.FilterQuality
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.unit.IntSize
+import android.graphics.BitmapFactory
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
@@ -55,6 +63,7 @@ fun ThemesPage(
     current: LumenTheme,
     onPreview: (LumenTheme) -> Unit,
     onChoose: (LumenTheme) -> Unit,
+    choices: List<LumenTheme> = THEMES,
 ) {
     val theme = LocalLumenTheme.current
     val chosenFocus = remember { FocusRequester() }
@@ -87,7 +96,7 @@ fun ThemesPage(
             horizontalArrangement = Arrangement.spacedBy(18.dp),
             verticalArrangement = Arrangement.spacedBy(20.dp),
         ) {
-            items(THEMES, key = { it.id }) { t ->
+            items(choices, key = { it.id }) { t ->
                 ThemeCard(
                     theme = t,
                     chosen = t.id == current.id,
@@ -110,6 +119,18 @@ private fun ThemeCard(
 ) {
     val ring = LocalLumenTheme.current.ring
     var focused by remember { mutableStateOf(false) }
+    // The mountains card shows a small copy of the real picture.
+    val context = LocalContext.current
+    val photo by produceState<ImageBitmap?>(null, theme.id) {
+        if (theme.id != NIGHT_BACKGROUND.id) return@produceState
+        value = withContext(Dispatchers.IO) {
+            runCatching {
+                context.assets.open("scenes/scene-night.jpg").use {
+                    BitmapFactory.decodeStream(it, null, BitmapFactory.Options().apply { inSampleSize = 4 })?.asImageBitmap()
+                }
+            }.getOrNull()
+        }
+    }
     val scale by animateFloatAsState(
         targetValue = if (focused) 1.06f else 1f,
         animationSpec = tween(durationMillis = 160),
@@ -140,6 +161,10 @@ private fun ThemeCard(
             .clip(shape)
             // A small picture of the theme's aurora.
             .drawBehind {
+                photo?.let { p ->
+                    drawImage(p, dstSize = IntSize(size.width.toInt(), size.height.toInt()), filterQuality = FilterQuality.Medium)
+                    return@drawBehind
+                }
                 drawRect(theme.base)
                 val top = Offset(size.width * 0.85f, 0f)
                 drawCircle(

@@ -283,7 +283,7 @@ fun lumenTools(): JSONArray = JSONArray().apply {
     put(tool("open_input", "Switch the TV to one of its HDMI inputs.",
         JSONObject().put("input_name", stringProp("The input's name, e.g. \"HDMI 1\".")), listOf("input_name")))
     put(tool("set_theme", "Change the colour theme of the PlaizierOS home screen.",
-        JSONObject().put("theme", stringProp("The theme id.", THEMES.map { it.id })), listOf("theme")))
+        JSONObject().put("theme", stringProp("The theme id.", BACKGROUNDS.map { it.id })), listOf("theme")))
     put(tool("show_page", "Show a page of the home screen.",
         JSONObject().put("page", stringProp("Which page.", listOf("home", "apps", "inputs", "themes"))), listOf("page")))
     put(tool("search_youtube", "Search YouTube on the TV for a video, song, artist or show.",
@@ -328,7 +328,7 @@ fun assistantSystemPrompt(
 
         Installed apps: ${apps.joinToString { it.label }.ifBlank { "unknown" }}
         HDMI inputs: ${inputs.joinToString { it.label }.ifBlank { "none (this is a TV stick)" }}
-        Themes: ${THEMES.joinToString { "${it.id} (${themeName(it)})" }}
+        Themes: ${BACKGROUNDS.joinToString { "${it.id} (${themeName(it)})" }}
         Current theme: ${theme.id}
         Local time: $now. Location: ${LumenConfig.CITY}, ${LumenConfig.COUNTRY}.
     """.trimIndent()

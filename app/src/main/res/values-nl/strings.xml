@@ -18,7 +18,9 @@
     <string name="greeting_night">Goedenacht</string>
     <string name="ambient_hint">Druk op een knop</string>
     <string name="tab_themes">Thema\'s</string>
-    <string name="themes_hint">Beweeg om te bekijken · druk op OK om te kiezen</string>
+    <string name="themes_hint">De achtergrond van het startscherm · beweeg om te bekijken, druk op OK om te kiezen</string>
+    <string name="theme_auto">Automatisch</string>
+    <string name="theme_night">Bergen bij nacht</string>
     <string name="theme_chosen">Thema %1$s aan</string>
     <string name="theme_follows_app">Volgt de app die je kiest</string>
     <string name="theme_app">Appkleur</string>
