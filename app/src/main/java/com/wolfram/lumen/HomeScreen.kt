@@ -134,6 +134,7 @@ fun LumenApp(
     // Colour theme: the saved one, or a live preview while you browse the Themes page.
     var themeId by remember { mutableStateOf(repo.themeId()) }
     var previewTheme by remember { mutableStateOf<LumenTheme?>(null) }
+    var clockFontId by remember { mutableStateOf(repo.clockFontId()) }
     val theme = previewTheme ?: themeById(themeId)
 
     // The background's colours come from the theme and stay put (the colour of what you select is
@@ -643,7 +644,7 @@ fun LumenApp(
     CompositionLocalProvider(LocalLumenTheme provides theme) {
         Box(Modifier.fillMaxSize()) {
             val loadedScene = sceneState.value
-            SceneStage(loadedScene, showClock = tab == Tab.HOME)
+            SceneStage(loadedScene, showClock = tab == Tab.HOME, clockFont = ClockFont.byId(clockFontId))
             if (tab == Tab.HOME) {
                 SceneHome(
                     loaded = loadedScene,
@@ -724,6 +725,12 @@ fun LumenApp(
                                 chooseTheme(chosen)
                                 val name = context.getString(chosen.name)
                                 Toast.makeText(context, context.getString(R.string.theme_chosen, name), Toast.LENGTH_SHORT).show()
+                            },
+                            clockFont = ClockFont.byId(clockFontId),
+                            onChooseClock = { font ->
+                                clockFontId = font.id
+                                repo.saveClockFont(font.id)
+                                Toast.makeText(context, context.getString(R.string.clock_chosen, font.label), Toast.LENGTH_SHORT).show()
                             },
                         )
                         Tab.HOME -> Unit

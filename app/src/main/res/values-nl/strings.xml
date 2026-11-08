@@ -137,4 +137,6 @@
     <string name="theme_cinema_light">Cinema licht</string>
     <string name="more">Meer</string>
     <string name="console_logo_tip">Voeg het logo toe vanaf je telefoon: open de telefoon-afstandsbediening en tik op Console logos.</string>
+    <string name="clock_fonts">Klok</string>
+    <string name="clock_chosen">Klok %1$s aan</string>
 </resources>

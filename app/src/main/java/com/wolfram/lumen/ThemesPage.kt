@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.CircleShape
@@ -52,7 +53,9 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
@@ -64,6 +67,8 @@ fun ThemesPage(
     onPreview: (LumenTheme) -> Unit,
     onChoose: (LumenTheme) -> Unit,
     choices: List<LumenTheme> = THEMES,
+    clockFont: ClockFont = ClockFont.ANTONIO,
+    onChooseClock: (ClockFont) -> Unit = {},
 ) {
     val theme = LocalLumenTheme.current
     val chosenFocus = remember { FocusRequester() }
@@ -104,6 +109,19 @@ fun ThemesPage(
                     onClick = onChoose,
                     modifier = if (t.id == current.id) Modifier.focusRequester(chosenFocus) else Modifier,
                 )
+            }
+            // The clock's font.
+            item(key = "clock-title", span = { GridItemSpan(maxLineSpan) }) {
+                Text(
+                    text = stringResource(R.string.clock_fonts),
+                    color = theme.content,
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.padding(top = 10.dp),
+                )
+            }
+            items(ClockFont.entries, key = { "clock-" + it.id }) { f ->
+                ClockFontCard(font = f, chosen = f == clockFont, onClick = onChooseClock)
             }
         }
     }
@@ -253,4 +271,82 @@ fun ScreenInfoLine(modifier: Modifier = Modifier) {
         context.getString(R.string.screen_info, drawn, picture)
     }
     Text(text, color = theme.content.copy(alpha = 0.6f), fontSize = 10.sp, modifier = modifier)
+}
+
+/** One clock font: the time written in it, on a dark card. OK chooses it. */
+@Composable
+private fun ClockFontCard(font: ClockFont, chosen: Boolean, onClick: (ClockFont) -> Unit) {
+    val page = LocalLumenTheme.current
+    val context = LocalContext.current
+    var focused by remember { mutableStateOf(false) }
+    val family = remember(font) { FontFamily(ClockFonts.typeface(context, font)) }
+    val digitScale = remember(font) { ClockFonts.scale(context, font) }
+    val now = rememberNow()
+    val time = remember(now) { android.text.format.DateFormat.getTimeFormat(context).format(java.util.Date(now)) }
+    val scale by animateFloatAsState(if (focused) 1.06f else 1f, tween(160), label = "clockScale")
+    val shape = RoundedCornerShape(12.dp)
+    Box(
+        Modifier
+            .fillMaxWidth()
+            .aspectRatio(16f / 9f)
+            .graphicsLayer {
+                scaleX = scale
+                scaleY = scale
+            }
+            .drawWithContent {
+                drawContent()
+                if (focused) {
+                    val gap = 3.dp.toPx()
+                    drawRoundRect(
+                        color = page.ring,
+                        topLeft = Offset(-gap, -gap),
+                        size = Size(this.size.width + gap * 2, this.size.height + gap * 2),
+                        cornerRadius = CornerRadius(12.dp.toPx() + gap),
+                        style = Stroke(width = 2.5.dp.toPx()),
+                    )
+                }
+            }
+            .clip(shape)
+            .background(Brush.verticalGradient(listOf(Color(0xFF2A2336), Color(0xFF110F18))))
+            .border(if (focused) 2.dp else 1.dp, if (focused) page.ring else Color.White.copy(alpha = 0.14f), shape)
+            .onFocusChanged {
+                focused = it.isFocused
+                if (it.isFocused) Sounds.play(Sound.FOCUS)
+            }
+            .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {
+                Sounds.play(Sound.SELECT)
+                onClick(font)
+            },
+    ) {
+        Text(
+            text = time,
+            color = Color.White.copy(alpha = 0.92f),
+            fontFamily = family,
+            fontSize = (40f * digitScale).sp,
+            letterSpacing = font.spacing.em,
+            maxLines = 1,
+            softWrap = false,
+            modifier = Modifier.align(Alignment.Center).padding(bottom = 14.dp),
+        )
+        if (chosen) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(10.dp)
+                    .size(22.dp)
+                    .clip(CircleShape)
+                    .background(Color.White),
+                contentAlignment = Alignment.Center,
+            ) {
+                CheckGlyph(Modifier.size(12.dp), Color(0xFF111111))
+            }
+        }
+        Text(
+            text = font.label,
+            color = Color.White,
+            fontSize = 12.sp,
+            fontWeight = FontWeight.SemiBold,
+            modifier = Modifier.align(Alignment.BottomStart).padding(start = 12.dp, bottom = 9.dp),
+        )
+    }
 }

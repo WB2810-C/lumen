@@ -216,7 +216,7 @@ fun rememberSceneRotation(lastInputAt: () -> Long, choice: String): State<Loaded
 
 /** The photo with the glass clock and the cut-out scenery in front of it. */
 @Composable
-fun SceneStage(loaded: LoadedScene?, showClock: Boolean) {
+fun SceneStage(loaded: LoadedScene?, showClock: Boolean, clockFont: ClockFont = ClockFont.ANTONIO) {
     Crossfade(targetState = loaded, animationSpec = tween(1200), label = "scene") { s ->
         if (s == null) {
             Box(Modifier.fillMaxSize().background(Color(0xFF0B0B10)))
@@ -228,7 +228,7 @@ fun SceneStage(loaded: LoadedScene?, showClock: Boolean) {
         }) else null
         Box(Modifier.fillMaxSize()) {
             Image(s.photo, contentDescription = null, contentScale = ContentScale.Crop, colorFilter = dim, modifier = Modifier.fillMaxSize())
-            if (showClock) GlassClock(s)
+            if (showClock) GlassClock(s, clockFont)
             s.front?.let { Image(it, contentDescription = null, contentScale = ContentScale.Crop, colorFilter = dim, modifier = Modifier.fillMaxSize()) }
             if (s.scene.shade.isNotEmpty()) {
                 Box(Modifier.fillMaxSize().background(Brush.verticalGradient(*s.scene.shade.toTypedArray())))
@@ -239,28 +239,24 @@ fun SceneStage(loaded: LoadedScene?, showClock: Boolean) {
     }
 }
 
-private var clockFont: Typeface? = null
-
-private fun clockTypeface(context: Context): Typeface =
-    clockFont ?: (
-        runCatching { Typeface.createFromAsset(context.assets, "fonts/antonio-light.ttf") }.getOrNull()
-            ?: Typeface.create("sans-serif-condensed-light", Typeface.NORMAL)
-        ).also { clockFont = it }
 
 /**
  * The big clock, filled with a frosted copy of the scene, with a fine light rim and a sheen,
  * exactly like couch-tv's. Drawn once a minute; nothing moves in between.
  */
 @Composable
-private fun GlassClock(s: LoadedScene) {
+private fun GlassClock(s: LoadedScene, font: ClockFont) {
     val context = LocalContext.current
     val now = rememberNow()
     val time = remember(now) { android.text.format.DateFormat.getTimeFormat(context).format(Date(now)) }
-    val face = remember { clockTypeface(context) }
-    val paints = remember(s) {
+    val face = remember(font) { ClockFonts.typeface(context, font) }
+    // Every font is drawn with digits as tall as Antonio's, so the clock never moves or grows into the text.
+    val fontScale = remember(font) { ClockFonts.scale(context, font) }
+    val spacing = font.spacing
+    val paints = remember(s, font) {
         val fill = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             typeface = face
-            letterSpacing = -0.02f
+            letterSpacing = spacing
             colorFilter = ColorMatrixColorFilter(
                 ColorMatrix().apply {
                     setSaturation(s.scene.fillSaturation)
@@ -270,16 +266,20 @@ private fun GlassClock(s: LoadedScene) {
             )
             alpha = (s.scene.fillAlpha * 255).roundToInt()
         }
-        val rimFill = Paint(Paint.ANTI_ALIAS_FLAG).apply { typeface = face; letterSpacing = -0.02f; color = s.scene.rimFill.toArgb() }
+        val rimFill = Paint(Paint.ANTI_ALIAS_FLAG).apply { typeface = face; letterSpacing = spacing; color = s.scene.rimFill.toArgb() }
         val rimStroke = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            typeface = face; letterSpacing = -0.02f; style = Paint.Style.STROKE; color = s.scene.rimStroke.toArgb()
+            typeface = face; letterSpacing = spacing; style = Paint.Style.STROKE; color = s.scene.rimStroke.toArgb()
         }
-        val sheen = Paint(Paint.ANTI_ALIAS_FLAG).apply { typeface = face; letterSpacing = -0.02f }
+        val sheen = Paint(Paint.ANTI_ALIAS_FLAG).apply { typeface = face; letterSpacing = spacing }
         listOf(fill, rimFill, rimStroke, sheen)
     }
     Canvas(Modifier.fillMaxSize()) {
         val (fill, rimFill, rimStroke, sheen) = paints
-        val textSize = s.scene.clockSize.dp.toPx()
+        var textSize = s.scene.clockSize.dp.toPx() * fontScale
+        fill.textSize = textSize
+        // Wide fonts stay a little smaller, so the clock is never wider than 620 dp.
+        val widest = 620.dp.toPx()
+        fill.measureText(time).let { if (it > widest) textSize *= widest / it }
         val left = s.scene.clockLeft
         val align = if (left == null) Paint.Align.CENTER else Paint.Align.LEFT
         val x = left?.dp?.toPx() ?: (size.width / 2f)

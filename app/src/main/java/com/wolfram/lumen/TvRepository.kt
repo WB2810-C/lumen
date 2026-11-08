@@ -99,6 +99,12 @@ class TvRepository(private val context: Context) {
         return prefs.getString(KEY_THEME, null) ?: LumenConfig.DEFAULT_THEME
     }
 
+    fun clockFontId(): String = prefs.getString(KEY_CLOCK_FONT, null) ?: ClockFont.ANTONIO.id
+
+    fun saveClockFont(id: String) {
+        prefs.edit().putString(KEY_CLOCK_FONT, id).apply()
+    }
+
     fun saveTheme(id: String) {
         prefs.edit().putString(KEY_THEME, id).apply()
     }
@@ -239,6 +245,7 @@ class TvRepository(private val context: Context) {
         private const val KEY_CONSOLES_ADDED = "consoles_added"
         private const val KEY_CINEMA_THEME = "cinema_theme_v1"
         private const val KEY_BACKGROUNDS = "backgrounds_v1"
+        private const val KEY_CLOCK_FONT = "clock_font"
 
         /** Shown as favourites on first start, but only the ones that are installed. */
         private val DEFAULT_FAVOURITES = listOf(
