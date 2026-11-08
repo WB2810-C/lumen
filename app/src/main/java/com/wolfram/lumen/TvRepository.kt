@@ -125,6 +125,11 @@ class TvRepository(private val context: Context) {
             list = Console.entries.map { it.key }.filter { it !in list } + list
             prefs.edit().putBoolean(KEY_CONSOLES_ADDED, true).putString(KEY_FAVOURITES, list.joinToString("|")).apply()
         }
+        // Version 5.7: the Proximus TV box (HDMI 1) joins once, at the front.
+        if (!prefs.getBoolean(KEY_PROXIMUS_ADDED, false)) {
+            if (Console.PROXIMUS.key !in list) list = listOf(Console.PROXIMUS.key) + list
+            prefs.edit().putBoolean(KEY_PROXIMUS_ADDED, true).putString(KEY_FAVOURITES, list.joinToString("|")).apply()
+        }
         return list
     }
 
@@ -246,6 +251,7 @@ class TvRepository(private val context: Context) {
         private const val KEY_CINEMA_THEME = "cinema_theme_v1"
         private const val KEY_BACKGROUNDS = "backgrounds_v1"
         private const val KEY_CLOCK_FONT = "clock_font"
+        private const val KEY_PROXIMUS_ADDED = "proximus_added_v1"
 
         /** Shown as favourites on first start, but only the ones that are installed. */
         private val DEFAULT_FAVOURITES = listOf(

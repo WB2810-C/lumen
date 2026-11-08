@@ -51,6 +51,8 @@ enum class Console(
     private val words: List<String>,
     /** Official apps of this console; if one is on the TV, its logo is used for the tile. */
     val apps: List<String>,
+    /** The HDMI port it's on when the TV can't tell by itself (the Proximus box is on HDMI 1). */
+    val defaultPort: String? = null,
 ) {
     XBOX(
         "console:xbox", "Xbox", Color(0xFF107C10), Color(0xFF1A8F1D), listOf("xbox"),
@@ -59,6 +61,11 @@ enum class Console(
     PLAYSTATION(
         "console:playstation", "PlayStation", Color(0xFF0046A8), Color(0xFF2259C4), listOf("playstation", "ps5", "ps4", "ps3"),
         apps = listOf("com.scee.psxandroid", "com.playstation.remoteplay", "com.playstation.mobilemessenger"),
+    ),
+    PROXIMUS(
+        "console:proximus", "Proximus", Color(0xFF5C2D91), Color(0xFF7A3FB8), listOf("proximus", "pickx", "v7"),
+        apps = emptyList(),
+        defaultPort = "HDMI 1",
     ),
     ;
 
@@ -122,6 +129,13 @@ object Consoles {
         }
         ports.firstOrNull { console.matches(it.label) }?.let { port ->
             return ConsoleSpot(port.id, port.label, null, automatic = true)
+        }
+        // 4. the port it's always on (Proximus: HDMI 1, or the TV's first port if HDMI 1 got another name).
+        console.defaultPort?.let { want ->
+            val port = ports.firstOrNull { it.label.replace(" ", "").equals(want.replace(" ", ""), ignoreCase = true) } ?: ports.firstOrNull()
+            if (port != null) {
+                return ConsoleSpot(port.devices.firstOrNull()?.first ?: port.id, port.label, port.devices.firstOrNull()?.second, automatic = false)
+            }
         }
         return null
     }
