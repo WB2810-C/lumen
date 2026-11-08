@@ -215,8 +215,9 @@ fun DynamicIsland(matches: List<LiveMatch>, goal: Goal?, visible: Boolean, music
         enter = fadeIn(tween(300)) + scaleIn(initialScale = 0.6f),
         exit = fadeOut(tween(200)) + scaleOut(targetScale = 0.6f),
     ) {
-        // No match on: the song that's playing (a live match always comes first).
-        if (matches.isEmpty()) {
+        // Music comes first: while a song plays, the island shows it instead of the score.
+        // A goal still pops up for a few seconds, then the song comes back.
+        if (music != null && !showGoal || matches.isEmpty()) {
             music?.let { m ->
                 Box(
                     Modifier
