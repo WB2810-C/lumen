@@ -18,3 +18,6 @@ at one fixed weight):
 The Xbox and PlayStation logos in assets/logos come from Dashboard Icons
 (https://github.com/homarr-labs/dashboard-icons, Apache License 2.0; see dashboard-icons-LICENSE.txt).
 The logos themselves are trademarks of Microsoft and Sony Interactive Entertainment.
+
+The Proximus logo in assets/logos comes from the TV Logos collection (https://github.com/tv-logo/tv-logos).
+It is a trademark of Proximus NV and is used here only to label the Proximus TV box's tile.
