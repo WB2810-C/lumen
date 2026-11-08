@@ -1,0 +1,60 @@
+Starting a Gradle Daemon (subsequent builds will be faster)
+> Task :app:preBuild UP-TO-DATE
+> Task :app:preReleaseBuild UP-TO-DATE
+> Task :app:mergeReleaseJniLibFolders
+> Task :app:mergeReleaseNativeLibs
+> Task :app:buildKotlinToolingMetadata
+> Task :app:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :app:generateReleaseBuildConfig
+> Task :app:checkReleaseDuplicateClasses
+
+> Task :app:stripReleaseDebugSymbols
+Unable to strip the following libraries, packaging them as they are: libandroidx.graphics.path.so.
+
+> Task :app:checkReleaseAarMetadata
+> Task :app:generateReleaseResValues
+> Task :app:extractReleaseNativeSymbolTables
+> Task :app:mapReleaseSourceSetPaths
+> Task :app:mergeReleaseNativeDebugMetadata NO-SOURCE
+> Task :app:generateReleaseResources
+> Task :app:packageReleaseResources
+> Task :app:mergeReleaseResources
+> Task :app:createReleaseCompatibleScreenManifests
+> Task :app:extractDeepLinksRelease
+> Task :app:parseReleaseLocalResources
+> Task :app:processReleaseMainManifest
+> Task :app:processReleaseManifest
+> Task :app:processReleaseManifestForPackage
+> Task :app:javaPreCompileRelease
+> Task :app:desugarReleaseFileDependencies
+> Task :app:mergeReleaseStartupProfile
+> Task :app:mergeReleaseArtProfile
+> Task :app:mergeReleaseShaders
+> Task :app:compileReleaseShaders NO-SOURCE
+> Task :app:generateReleaseAssets UP-TO-DATE
+> Task :app:mergeReleaseAssets
+> Task :app:processReleaseResources
+> Task :app:compressReleaseAssets
+> Task :app:extractReleaseVersionControlInfo
+> Task :app:collectReleaseDependencies
+> Task :app:optimizeReleaseResources
+> Task :app:sdkReleaseDependencyData
+> Task :app:validateSigningRelease
+> Task :app:writeReleaseAppMetadata
+> Task :app:writeReleaseSigningConfigVersions
+> Task :app:mergeExtDexRelease
+> Task :app:compileReleaseKotlin
+> Task :app:compileReleaseJavaWithJavac
+> Task :app:dexBuilderRelease
+> Task :app:mergeReleaseGlobalSynthetics
+> Task :app:processReleaseJavaRes
+> Task :app:mergeReleaseJavaResource
+> Task :app:mergeDexRelease
+> Task :app:compileReleaseArtProfile
+> Task :app:packageRelease
+> Task :app:createReleaseApkListingFileRedirect
+> Task :app:assembleRelease
+gradle/actions: Writing build results to /home/runner/work/_temp/.gradle-actions/build-results/__run_2-1794148004665.json
+
+BUILD SUCCESSFUL in 1m 3s
+45 actionable tasks: 45 executed
