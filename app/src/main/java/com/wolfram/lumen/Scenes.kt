@@ -17,6 +17,7 @@ import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.focusable
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -39,6 +40,7 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -368,6 +370,12 @@ data class SceneCard(
     val match: LiveMatch? = null,
     val progress: Float? = null,
     val live: Boolean = false,
+    /** A square picture (an album cover). */
+    val square: Boolean = false,
+    /** A little calendar page instead of a picture: weekday and day number. */
+    val calendarDay: Pair<String, String>? = null,
+    /** Shows a small ▶ before the line under the title. */
+    val playHint: Boolean = false,
 )
 
 @Composable
@@ -392,7 +400,7 @@ fun SceneHome(
     Box(Modifier.fillMaxSize()) {
         // The date just above the clock: "Good evening, Wolfram · Saturday 7 November  ☁ 8° Leuven".
         DateLine(scene, weather)
-        Box(Modifier.fillMaxWidth().padding(top = 14.dp), contentAlignment = Alignment.TopCenter) { island() }
+        Box(Modifier.fillMaxWidth().padding(top = 10.dp), contentAlignment = Alignment.TopCenter) { island() }
 
         // Your news, your teams and your music, on glass.
         Row(
@@ -401,7 +409,9 @@ fun SceneHome(
                 .fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(11.dp),
         ) {
-            cards.take(3).forEach { card -> SceneCardView(card, glass, onClick = { onCard(card) }, modifier = Modifier.weight(1f)) }
+            // Four cards when your calendar has something coming up, three otherwise.
+            val compact = cards.size >= 4
+            cards.take(4).forEach { card -> SceneCardView(card, glass, compact, onClick = { onCard(card) }, modifier = Modifier.weight(1f)) }
         }
 
         SceneDock(
@@ -454,7 +464,7 @@ private fun DateLine(scene: Scene, weather: WeatherNow?) {
 }
 
 @Composable
-private fun SceneCardView(card: SceneCard, glass: ImageBitmap?, onClick: () -> Unit, modifier: Modifier = Modifier) {
+private fun SceneCardView(card: SceneCard, glass: ImageBitmap?, compact: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
     var focused by remember { mutableStateOf(false) }
     val scale by animateFloatAsState(if (focused) 1.05f else 1f, tween(200), label = "card")
     val shape = RoundedCornerShape(15.dp)
@@ -475,26 +485,44 @@ private fun SceneCardView(card: SceneCard, glass: ImageBitmap?, onClick: () -> U
             .padding(8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        // The picture on the left (the news photo, both teams' crests, the album cover); none if there isn't one.
+        // The picture on the left (the news photo, both teams' crests, the album cover, a calendar page);
+        // none if there isn't one. With four cards the pictures get a little narrower.
         val match = card.match
-        if (match != null || card.bitmap != null || card.image != null) {
+        val day = card.calendarDay
+        if (match != null || card.bitmap != null || card.image != null || card.square || day != null) {
+            val width = when {
+                card.square || day != null -> 47.5.dp
+                match != null && compact -> 54.dp
+                compact -> 64.dp
+                else -> 84.dp
+            }
             Box(
                 Modifier
-                    .size(width = 84.dp, height = 47.5.dp)
+                    .size(width = width, height = 47.5.dp)
                     .clip(RoundedCornerShape(8.dp))
-                    .background(Color.White.copy(alpha = 0.08f)),
+                    .background(if (day != null) Color.White else Color.White.copy(alpha = 0.08f)),
                 contentAlignment = Alignment.Center,
             ) {
                 when {
+                    day != null -> Column(Modifier.fillMaxSize().padding(top = 4.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(day.first.uppercase(), color = Color(0xFFFF3B30), fontSize = 7.5.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.4.sp, maxLines = 1, lineHeight = 9.sp)
+                        Text(day.second, color = Color(0xFF111111), fontSize = 22.sp, lineHeight = 26.sp)
+                    }
                     match != null -> Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-                        Crest(match.home, 23.dp)
-                        Crest(match.away, 23.dp)
+                        Crest(match.home, if (compact) 20.dp else 23.dp)
+                        Crest(match.away, if (compact) 20.dp else 23.dp)
                     }
                     card.bitmap != null -> Image(card.bitmap, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
                     card.image != null -> {
                         val photo by rememberRemoteImage(card.image, maxSide = 400)
-                        photo?.let { Image(it, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize()) }
+                        val p = photo
+                        if (p != null) {
+                            Image(p, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+                        } else if (card.square) {
+                            MusicGlyph()
+                        }
                     }
+                    card.square -> MusicGlyph()
                 }
             }
             Spacer(Modifier.width(10.dp))
@@ -516,11 +544,24 @@ private fun SceneCardView(card: SceneCard, glass: ImageBitmap?, onClick: () -> U
             Text(
                 card.title, color = Color.White, fontSize = 13.sp, lineHeight = 16.sp, fontWeight = FontWeight.SemiBold,
                 // Everything has to fit the 72 dp card: two lines, or one when there's a line under it.
-                maxLines = if (card.subtitle.isNotBlank() && card.progress == null) 1 else 2, overflow = TextOverflow.Ellipsis,
+                maxLines = if (card.subtitle.isNotBlank()) 1 else 2, overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.padding(top = 2.dp),
             )
-            if (card.subtitle.isNotBlank() && card.progress == null) {
-                Text(card.subtitle, color = Color.White.copy(alpha = 0.78f), fontSize = 10.5.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            if (card.subtitle.isNotBlank()) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (card.playHint) {
+                        Canvas(Modifier.size(8.dp)) {
+                            drawPath(
+                                androidx.compose.ui.graphics.Path().apply {
+                                    moveTo(size.width * 0.15f, 0f); lineTo(size.width, size.height / 2f); lineTo(size.width * 0.15f, size.height); close()
+                                },
+                                Color.White.copy(alpha = 0.78f),
+                            )
+                        }
+                        Spacer(Modifier.width(4.dp))
+                    }
+                    Text(card.subtitle, color = Color.White.copy(alpha = 0.78f), fontSize = 10.5.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
             }
             card.progress?.let { p ->
                 Box(
@@ -535,6 +576,116 @@ private fun SceneCardView(card: SceneCard, glass: ImageBitmap?, onClick: () -> U
                 }
             }
         }
+    }
+}
+
+/** A music note, while an album cover loads. */
+@Composable
+private fun MusicGlyph() {
+    Box(Modifier.fillMaxSize().background(Brush.linearGradient(listOf(Color(0xFF3A3346), Color(0xFF1C1824)))), contentAlignment = Alignment.Center) {
+        Text("♪", color = Color.White.copy(alpha = 0.85f), fontSize = 20.sp)
+    }
+}
+
+/* ---------- Your agenda (Apple Calendar) ---------- */
+
+/** The next days from your Apple calendar, on glass. Back closes it. */
+@Composable
+fun AgendaPanel(events: List<CalEvent>, glass: ImageBitmap?, onClose: () -> Unit) {
+    androidx.activity.compose.BackHandler { onClose() }
+    val first = remember { FocusRequester() }
+    LaunchedEffect(Unit) {
+        delay(60)
+        runCatching { first.requestFocus() }
+    }
+    val context = LocalContext.current
+    val now = System.currentTimeMillis()
+    val zone = java.time.ZoneId.systemDefault()
+    val today = java.time.LocalDate.now(zone)
+    val days = remember(events) {
+        events.filter { it.end > now }.groupBy { java.time.Instant.ofEpochMilli(it.start).atZone(zone).toLocalDate().let { d -> if (d.isBefore(today)) today else d } }
+            .toSortedMap().entries.toList()
+    }
+    Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.45f)), contentAlignment = Alignment.Center) {
+        Column(
+            Modifier
+                .width(540.dp)
+                .heightIn(max = 470.dp)
+                .sceneGlass(glass, RoundedCornerShape(22.dp))
+                .background(Color(20, 14, 24).copy(alpha = 0.35f), RoundedCornerShape(22.dp))
+                .padding(horizontal = 24.dp, vertical = 20.dp),
+        ) {
+            Text(stringResource(R.string.agenda), color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.SemiBold)
+            Text(stringResource(R.string.agenda_hint), color = Color.White.copy(alpha = 0.6f), fontSize = 11.sp, modifier = Modifier.padding(bottom = 4.dp))
+            if (days.isEmpty()) {
+                Text(stringResource(R.string.agenda_empty), color = Color.White, fontSize = 14.sp, modifier = Modifier.padding(top = 14.dp).focusRequester(first).focusable())
+            }
+            androidx.compose.foundation.lazy.LazyColumn(verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                var firstRow = true
+                days.forEach { (date, list) ->
+                    item(key = "d$date") {
+                        Text(
+                            agendaDayTitle(context, date, today).uppercase(),
+                            color = Color.White.copy(alpha = 0.55f), fontSize = 10.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 0.7.sp,
+                            modifier = Modifier.padding(top = 10.dp, bottom = 1.dp),
+                        )
+                    }
+                    list.forEach { e ->
+                        val isFirst = firstRow
+                        firstRow = false
+                        item(key = "e${e.start}${e.title}${e.calendar}") {
+                            AgendaRow(e, if (isFirst) Modifier.focusRequester(first) else Modifier)
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun AgendaRow(e: CalEvent, modifier: Modifier) {
+    val context = LocalContext.current
+    var focused by remember { mutableStateOf(false) }
+    val ink = if (focused) Color(0xFF111111) else Color.White
+    Row(
+        modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(11.dp))
+            .background(if (focused) Color.White else Color.White.copy(alpha = 0.07f))
+            .onFocusChanged {
+                focused = it.isFocused
+                if (it.isFocused) Sounds.play(Sound.FOCUS)
+            }
+            .focusable()
+            .padding(horizontal = 10.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(agendaTime(context, e), color = ink, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, modifier = Modifier.width(84.dp))
+        Box(Modifier.size(7.dp).clip(CircleShape).background(e.color))
+        Spacer(Modifier.width(12.dp))
+        Text(e.title, color = ink, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+        if (e.location.isNotBlank()) {
+            Text(e.location, color = ink.copy(alpha = 0.6f), fontSize = 10.5.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(start = 10.dp).widthIn(max = 150.dp))
+        }
+    }
+}
+
+/** "16:00–17:30", "08:30" or "All day". */
+fun agendaTime(context: android.content.Context, e: CalEvent): String {
+    if (e.allDay) return context.getString(R.string.all_day)
+    val f = android.text.format.DateFormat.getTimeFormat(context)
+    val start = f.format(java.util.Date(e.start))
+    return if (e.end - e.start in 1..12 * 3600_000L) start + "–" + f.format(java.util.Date(e.end)) else start
+}
+
+/** "Today · Sunday 8 November", "Tomorrow · …" or "Tuesday 10 November". */
+fun agendaDayTitle(context: android.content.Context, date: java.time.LocalDate, today: java.time.LocalDate): String {
+    val name = date.format(java.time.format.DateTimeFormatter.ofPattern("EEEE d MMMM", java.util.Locale.getDefault()))
+    return when (date) {
+        today -> context.getString(R.string.day_today) + " · " + name
+        today.plusDays(1) -> context.getString(R.string.day_tomorrow) + " · " + name
+        else -> name.replaceFirstChar { it.titlecase(java.util.Locale.getDefault()) }
     }
 }
 

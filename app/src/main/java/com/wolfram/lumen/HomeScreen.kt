@@ -181,6 +181,64 @@ fun LumenApp(
         nowPlaying.start()
     }
 
+    // Your Spotify playlist "Oasis" and your Apple calendar (both connected from the phone remote).
+    var accountsTick by remember { mutableIntStateOf(0) }
+    val spotifyOn = remember(accountsTick) { Spotify.isConnected(context) }
+    var oasis by remember { mutableStateOf<SpotifyPlaylist?>(null) }
+    var oasisProblem by remember { mutableStateOf<String?>(null) }
+    var suggestion by remember { mutableStateOf<SpotifyTrack?>(null) }
+    var suggestionTick by remember { mutableIntStateOf(0) }
+    LaunchedEffect(accountsTick, resumeTick) {
+        if (!Spotify.isConnected(context)) {
+            oasis = null
+            oasisProblem = null
+            return@LaunchedEffect
+        }
+        while (true) {
+            runCatching { Spotify.playlist(context) }
+                .onSuccess {
+                    if (it != null && it.tracks.isNotEmpty()) {
+                        oasis = it
+                        oasisProblem = null
+                    } else if (oasis == null) {
+                        oasisProblem = context.getString(R.string.oasis_missing, Spotify.PLAYLIST_NAME)
+                    }
+                }
+                .onFailure {
+                    android.util.Log.w(LOG_TAG, "spotify: ${it.message}")
+                    if (oasis == null) oasisProblem = it.message
+                }
+            delay(60 * 60_000L)
+        }
+    }
+    // A different song from the playlist every half hour (and after you've played one).
+    LaunchedEffect(oasis, suggestionTick) {
+        val songs = oasis?.tracks.orEmpty()
+        if (songs.isEmpty()) {
+            suggestion = null
+            return@LaunchedEffect
+        }
+        while (true) {
+            val last = suggestion?.id
+            suggestion = songs.filter { it.id != last }.randomOrNull() ?: songs.random()
+            delay(30 * 60_000L)
+        }
+    }
+    var agenda by remember { mutableStateOf(emptyList<CalEvent>()) }
+    var agendaOpen by remember { mutableStateOf(false) }
+    LaunchedEffect(accountsTick, resumeTick) {
+        if (!AppleCalendar.isConnected(context)) {
+            agenda = emptyList()
+            return@LaunchedEffect
+        }
+        while (true) {
+            runCatching { AppleCalendar.upcoming(context) }
+                .onSuccess { agenda = it }
+                .onFailure { android.util.Log.w(LOG_TAG, "calendar: ${it.message}") }
+            delay(15 * 60_000L)
+        }
+    }
+
     // Live scores of your teams (and their next matches); a goal opens the Dynamic Island for a few seconds.
     var matches by remember { mutableStateOf(emptyList<LiveMatch>()) }
     var schedule by remember { mutableStateOf(Schedule()) }
@@ -530,6 +588,10 @@ fun LumenApp(
             is RemoteCommand.YouTube -> Launcher.youTube(activity, cmd.query)
             is RemoteCommand.Theme -> BACKGROUNDS.firstOrNull { it.id == cmd.id }?.let(chooseTheme)
             is RemoteCommand.LogoChanged -> logoTick++
+            is RemoteCommand.AccountsChanged -> {
+                accountsTick++
+                Toast.makeText(context, cmd.message, Toast.LENGTH_LONG).show()
+            }
             is RemoteCommand.ShowFile -> {
                 files = FileStore.list(context)
                 phoneOpen = false
@@ -550,7 +612,7 @@ fun LumenApp(
     }
     // Keep the phone's view of the TV up to date.
     val current = nowPlaying.current
-    LaunchedEffect(apps, inputs, favourites, themeId, current?.title, current?.isPlaying) {
+    LaunchedEffect(apps, inputs, favourites, themeId, current?.title, current?.isPlaying, accountsTick, oasis, oasisProblem) {
         fun list(tiles: List<Tile>) = JSONArray(tiles.map { JSONObject().put("key", it.key).put("label", it.label) })
         RemoteBridge.stateJson = JSONObject()
             .put("apps", list(apps))
@@ -558,6 +620,9 @@ fun LumenApp(
             .put("inputs", list(inputs))
             .put("themes", JSONArray(BACKGROUNDS.map { JSONObject().put("id", it.id).put("name", context.getString(it.name)) }))
             .put("theme", themeId)
+            .put("spotify", Spotify.isConnected(context))
+            .put("spotifyPlaylist", oasis?.let { "${it.name} · ${it.tracks.size}" } ?: oasisProblem.orEmpty())
+            .put("calendar", AppleCalendar.isConnected(context))
             .put(
                 "nowPlaying",
                 current?.let { JSONObject().put("title", it.title).put("artist", it.artist).put("app", it.appName).put("playing", it.isPlaying) }
@@ -567,7 +632,7 @@ fun LumenApp(
     }
 
     // The island only shows on the home screen itself.
-    val islandVisible = tab == Tab.HOME && !assistantOpen && !phoneOpen && !moreOpen && viewer == null && chooser == null && !ambient && !takeover.isBusy && intro.value >= 1f
+    val islandVisible = tab == Tab.HOME && !assistantOpen && !phoneOpen && !moreOpen && !agendaOpen && viewer == null && chooser == null && !ambient && !takeover.isBusy && intro.value >= 1f
     val latestIslandVisible by rememberUpdatedState(islandVisible)
     LaunchedEffect(goal) {
         if (goal != null) {
@@ -592,7 +657,6 @@ fun LumenApp(
     val newsSource = stringResource(R.string.news_source)
     val scoresLive = stringResource(R.string.scores_live)
     val scoresNext = stringResource(R.string.scores_next)
-    val historyTitle = stringResource(R.string.history_title)
     val playing = nowPlaying.current
     val cards = buildList {
         news.items.firstOrNull()?.let {
@@ -625,8 +689,37 @@ fun LumenApp(
                 add(SceneCard("score", scoresNext, "${f.home} – ${f.away}", day.replaceFirstChar { it.titlecase(java.util.Locale.getDefault()) }, match = crests))
             }
         }
-        if (playing != null) {
+        // Your next appointment, with the one after it underneath.
+        val nowMs = System.currentTimeMillis()
+        val coming = agenda.filter { it.end > nowMs }
+        coming.firstOrNull()?.let { e ->
+            val zone = java.time.ZoneId.systemDefault()
+            val today = java.time.LocalDate.now(zone)
+            fun dayOf(ms: Long) = java.time.Instant.ofEpochMilli(ms).atZone(zone).toLocalDate().let { if (it.isBefore(today)) today else it }
+            fun dayWord(d: java.time.LocalDate) = when (d) {
+                today -> context.getString(R.string.day_today)
+                today.plusDays(1) -> context.getString(R.string.day_tomorrow)
+                else -> d.format(java.time.format.DateTimeFormatter.ofPattern("EEEE", java.util.Locale.getDefault()))
+            }
+            fun timeOf(x: CalEvent) = if (x.allDay) context.getString(R.string.all_day) else android.text.format.DateFormat.getTimeFormat(context).format(java.util.Date(x.start))
+            val d = dayOf(e.start)
+            val next = coming.getOrNull(1)?.let { n ->
+                val nd = dayOf(n.start)
+                (if (nd == d) "" else dayWord(nd).replaceFirstChar { it.titlecase(java.util.Locale.getDefault()) } + " ") + timeOf(n) + " · " + n.title
+            }.orEmpty()
             add(
+                SceneCard(
+                    "agenda",
+                    context.getString(R.string.agenda) + " · " + dayWord(d),
+                    timeOf(e) + " " + e.title,
+                    next,
+                    calendarDay = d.format(java.time.format.DateTimeFormatter.ofPattern("EEEE", java.util.Locale.getDefault())) to d.dayOfMonth.toString(),
+                ),
+            )
+        }
+        val song = suggestion
+        when {
+            playing != null -> add(
                 SceneCard(
                     "music",
                     context.getString(R.string.now_playing, playing.appName),
@@ -634,10 +727,22 @@ fun LumenApp(
                     playing.artist,
                     bitmap = playing.art,
                     progress = if (playing.durationMs > 0) playing.positionNow().toFloat() / playing.durationMs else null,
+                    square = true,
                 ),
             )
-        } else {
-            history?.let { h -> add(SceneCard("history", "$historyTitle · ${h.year}", h.text, "")) }
+            song != null -> add(
+                SceneCard(
+                    "oasis",
+                    context.getString(R.string.oasis_label, oasis?.name ?: Spotify.PLAYLIST_NAME),
+                    song.name,
+                    context.getString(R.string.oasis_play),
+                    image = song.image,
+                    square = true,
+                    playHint = true,
+                ),
+            )
+            !spotifyOn -> add(SceneCard("spotify", "Spotify", context.getString(R.string.spotify_connect_title), context.getString(R.string.spotify_connect_sub), square = true))
+            oasisProblem != null -> add(SceneCard("spotify", "Spotify", context.getString(R.string.spotify_problem), oasisProblem.orEmpty(), square = true))
         }
     }
 
@@ -661,6 +766,15 @@ fun LumenApp(
                                 tab = Tab.NEWS
                             }
                             "music" -> nowPlaying.playPause()
+                            "agenda" -> agendaOpen = true
+                            "spotify" -> phoneOpen = true
+                            "oasis" -> suggestion?.let { s ->
+                                Toast.makeText(context, context.getString(R.string.oasis_starting, s.name), Toast.LENGTH_SHORT).show()
+                                scope.launch {
+                                    val problem = Spotify.play(context, s, oasis)
+                                    if (problem != null) Toast.makeText(context, problem, Toast.LENGTH_LONG).show() else suggestionTick++
+                                }
+                            }
                             else -> Unit
                         }
                     },
@@ -694,7 +808,7 @@ fun LumenApp(
                         Sounds.play(Sound.SELECT)
                         movingKey = null
                     },
-                    island = { DynamicIsland(matches, goal, islandVisible) },
+                    island = { DynamicIsland(matches, goal, islandVisible, music = nowPlaying.current?.takeIf { it.isPlaying }) },
                 )
             } else {
                 // The other pages sit on the same scene, darkened. Back returns to the home screen.
@@ -736,6 +850,9 @@ fun LumenApp(
                         Tab.HOME -> Unit
                     }
                 }
+            }
+            if (agendaOpen) {
+                AgendaPanel(agenda, loadedScene?.glassImage, onClose = { agendaOpen = false })
             }
             if (moreOpen) {
                 MorePanel(

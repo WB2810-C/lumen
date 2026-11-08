@@ -103,6 +103,39 @@
     <input type="file" id="logoFile" accept="image/*" hidden>
   </section>
 
+  <section class="card" id="spotifyCard">
+    <div class="label">Spotify</div>
+    <div id="spOn" style="display:none">
+      <div class="sub" style="margin-top:0" id="spText">Connected.</div>
+      <button class="chip" style="margin-top:10px" id="spOff">Disconnect</button>
+    </div>
+    <div id="spSetup">
+      <div class="sub" style="margin:0 0 10px">Paste the Client ID of your app from developer.spotify.com, then log in. The TV picks songs from your playlist “Oasis”.</div>
+      <form class="row" id="spForm">
+        <input id="spId" placeholder="Client ID" autocomplete="off" autocapitalize="off" spellcheck="false">
+        <button class="go">Log in</button>
+      </form>
+      <div class="sub" id="spMsg"></div>
+    </div>
+  </section>
+
+  <section class="card" id="calCard">
+    <div class="label">Apple Calendar</div>
+    <div id="calOn" style="display:none">
+      <div class="sub" style="margin-top:0" id="calText">Connected.</div>
+      <button class="chip" style="margin-top:10px" id="calOff">Disconnect</button>
+    </div>
+    <form id="calForm" style="display:flex;flex-direction:column;gap:10px">
+      <div class="sub" style="margin:0">Your Apple ID and an app-specific password from account.apple.com (Sign-In and Security → App-Specific Passwords). Not your normal password.</div>
+      <input id="calUser" type="email" placeholder="Apple ID (email)" autocomplete="username" autocapitalize="off">
+      <div class="row">
+        <input id="calPass" type="password" placeholder="xxxx-xxxx-xxxx-xxxx" autocomplete="off" autocapitalize="off">
+        <button class="go">Connect</button>
+      </div>
+      <div class="sub" id="calMsg" style="margin:0"></div>
+    </form>
+  </section>
+
   <section class="card">
     <div class="label">YouTube</div>
     <form class="row" id="ytForm">
@@ -185,6 +218,33 @@
     });
   }
 
+  // Spotify: the TV gives us Spotify's login page; Spotify comes back to the TV when you've said yes.
+  try { $('spId').value = localStorage.getItem('spotifyClientId') || ''; } catch {}
+  $('spForm').addEventListener('submit', async e => {
+    e.preventDefault();
+    const clientId = $('spId').value.trim(); if (!clientId) return;
+    try { localStorage.setItem('spotifyClientId', clientId); } catch {}
+    $('spMsg').textContent = 'Opening Spotify…';
+    try {
+      const r = await api('/api/spotify/login', { clientId });
+      if (r.url) location.href = r.url; else $('spMsg').textContent = r.error || 'Something went wrong.';
+    } catch { $('spMsg').textContent = 'The TV didn’t answer.'; }
+  });
+  $('spOff').addEventListener('click', async () => { await api('/api/spotify/logout', {}); refresh(); });
+  // Apple Calendar.
+  $('calForm').addEventListener('submit', async e => {
+    e.preventDefault();
+    const user = $('calUser').value.trim(), password = $('calPass').value.trim();
+    if (!user || !password) return;
+    $('calMsg').textContent = 'Checking with Apple…';
+    try {
+      const r = await api('/api/calendar', { user, password });
+      if (r.ok) { $('calPass').value = ''; $('calMsg').textContent = ''; toast('Calendar connected: ' + (r.calendars || []).join(', ')); refresh(); }
+      else $('calMsg').textContent = r.error || 'Couldn’t connect.';
+    } catch { $('calMsg').textContent = 'The TV didn’t answer.'; }
+  });
+  $('calOff').addEventListener('click', async () => { await api('/api/calendar/logout', {}); refresh(); });
+
   document.querySelectorAll('[data-media]').forEach(b =>
     b.addEventListener('click', () => api('/api/media', { action: b.dataset.media })));
 
@@ -212,6 +272,11 @@
         $('themes').appendChild(b);
       });
     }
+    $('spOn').style.display = state.spotify ? 'block' : 'none';
+    $('spSetup').style.display = state.spotify ? 'none' : 'block';
+    $('spText').textContent = 'Connected' + (state.spotifyPlaylist ? ' · ' + state.spotifyPlaylist : '') + '.';
+    $('calOn').style.display = state.calendar ? 'block' : 'none';
+    $('calForm').style.display = state.calendar ? 'none' : 'flex';
     const np = state.nowPlaying;
     $('np').style.display = np ? 'flex' : 'none';
     if (np) { $('npTitle').textContent = np.title; $('npSub').textContent = [np.artist, np.app].filter(Boolean).join(' · '); }

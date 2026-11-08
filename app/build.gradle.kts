@@ -25,8 +25,8 @@ android {
         applicationId = "com.wolfram.lumen"
         minSdk = 26          // Android TV 8.0 and newer
         targetSdk = 35
-        versionCode = 13
-        versionName = "5.5"
+        versionCode = 14
+        versionName = "5.6"
         buildConfigField("String", "CLAUDE_API_KEY", "\"$claudeApiKey\"")
         buildConfigField("String", "OLLAMA_HOST", "\"$ollamaHost\"")
     }
@@ -88,4 +88,7 @@ dependencies {
 
     // Draws the QR code for the phone remote.
     implementation("com.google.zxing:core:3.5.3")
+
+    // Talks to Apple's calendar server (CalDAV needs PROPFIND and REPORT requests).
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
 }

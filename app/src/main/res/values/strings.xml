@@ -140,4 +140,17 @@
     <string name="console_logo_tip">Add its logo from your phone: open the phone remote and tap Console logos.</string>
     <string name="clock_fonts">Clock</string>
     <string name="clock_chosen">%1$s clock on</string>
+    <string name="oasis_missing">No playlist called “%1$s” on your Spotify</string>
+    <string name="oasis_label">From your playlist %1$s</string>
+    <string name="oasis_play">Press OK to play</string>
+    <string name="oasis_starting">Playing %1$s…</string>
+    <string name="spotify_connect_title">Connect Spotify</string>
+    <string name="spotify_connect_sub">With the remote on your phone</string>
+    <string name="spotify_problem">Spotify isn\'t working right now</string>
+    <string name="agenda">Agenda</string>
+    <string name="agenda_hint">Your Apple calendar · the next 7 days</string>
+    <string name="agenda_empty">Nothing planned in the next 7 days.</string>
+    <string name="day_today">today</string>
+    <string name="day_tomorrow">tomorrow</string>
+    <string name="all_day">All day</string>
 </resources>

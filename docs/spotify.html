@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<title>PlaizierOS · Spotify</title>
+<style>
+  body { margin:0; min-height:100vh; display:flex; align-items:center; justify-content:center; background:#E6E8EC; color:#12151C;
+         font-family:-apple-system, BlinkMacSystemFont, "SF Pro Text", Inter, sans-serif; }
+  div { text-align:center; padding:24px; max-width:420px; }
+  a { color:#12151C; font-weight:600; }
+  p { color:rgba(18,21,28,.62); }
+</style>
+</head>
+<body>
+<div>
+  <h2 id="title">Back to your TV…</h2>
+  <p id="text">PlaizierOS on your TV finishes the Spotify login. Keep your phone on the same Wi-Fi as the TV.</p>
+  <p id="link"></p>
+</div>
+<script>
+  // Spotify only returns to https pages, so it comes here first. This page only passes the answer on
+  // to PlaizierOS on your TV (its address is in "state"); nothing is stored or sent anywhere else.
+  (function () {
+    var q = new URLSearchParams(location.search);
+    var state = q.get('state') || '';
+    var back = '';
+    try {
+      var json = atob(state.replace(/-/g, '+').replace(/_/g, '/') + '==='.slice((state.length + 3) % 4));
+      back = JSON.parse(json).r || '';
+    } catch (e) {}
+    if (!/^http:\/\/(10|172\.(1[6-9]|2\d|3[01])|192\.168)\.[\d.]+:\d+\/spotify-done\?k=[0-9a-f]+$/.test(back)) {
+      document.getElementById('title').textContent = 'This link isn’t from PlaizierOS';
+      document.getElementById('text').textContent = 'Start the Spotify login again from the remote on your phone.';
+      return;
+    }
+    var params = ['code', 'state', 'error'].filter(function (k) { return q.get(k); })
+      .map(function (k) { return k + '=' + encodeURIComponent(q.get(k)); }).join('&');
+    var target = back + '&' + params;
+    document.getElementById('link').innerHTML = '<a id="go">Tap here if nothing happens</a>';
+    document.getElementById('go').href = target;
+    location.replace(target);
+  })();
+</script>
+</body>
+</html>

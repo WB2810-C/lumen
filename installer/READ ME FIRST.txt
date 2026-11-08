@@ -20,3 +20,17 @@ Update later: run the installer again with the new PlaizierOS.apk. Your theme an
 Undo: Back-to-Google-TV.bat
 Tried "Draw at 1920x1080" and it feels slower? Back-to-720p.bat undoes just that.
 Something not working? The installer saves plaizieros-report.txt (or run PlaizierOS-report.bat): send it to Claude.
+
+SPOTIFY (a song from your playlist "Oasis" on the home screen) – once
+  1. On github.com/WB2810-C/lumen: Settings > Pages > Source "Deploy from a branch",
+     branch "main", folder "/docs" > Save. (This is the page Spotify sends you back to.)
+  2. On developer.spotify.com/dashboard (log in with your Spotify Premium account): Create app.
+     Name: PlaizierOS. Redirect URI: https://wb2810-c.github.io/lumen/spotify.html
+     Tick "Web API" > Save. Open the app and copy the Client ID.
+  3. On your phone, open the PlaizierOS remote (More > Phone remote, scan the QR code),
+     paste the Client ID under Spotify, tap Log in and agree.
+  Spotify has to be installed on the TV. The playlist must be yours (made by you) and called "Oasis".
+
+APPLE CALENDAR – once
+  1. On account.apple.com: Sign-In and Security > App-Specific Passwords > + > name it PlaizierOS.
+  2. In the PlaizierOS remote on your phone, under Apple Calendar: your Apple ID and that password.

@@ -17,6 +17,7 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -199,7 +200,7 @@ suspend fun fetchLiveMatches(): List<LiveMatch> = fetchSchedule().live
  * When someone scores it opens up big for a few seconds, then shrinks back.
  */
 @Composable
-fun DynamicIsland(matches: List<LiveMatch>, goal: Goal?, visible: Boolean) {
+fun DynamicIsland(matches: List<LiveMatch>, goal: Goal?, visible: Boolean, music: NowPlaying? = null) {
     var index by remember { mutableIntStateOf(0) }
     LaunchedEffect(matches.size) {
         while (matches.size > 1) {
@@ -210,10 +211,22 @@ fun DynamicIsland(matches: List<LiveMatch>, goal: Goal?, visible: Boolean) {
     // The home screen clears the goal again after a few seconds.
     val showGoal = goal != null
     AnimatedVisibility(
-        visible = visible && matches.isNotEmpty(),
+        visible = visible && (matches.isNotEmpty() || music != null),
         enter = fadeIn(tween(300)) + scaleIn(initialScale = 0.6f),
         exit = fadeOut(tween(200)) + scaleOut(targetScale = 0.6f),
     ) {
+        // No match on: the song that's playing (a live match always comes first).
+        if (matches.isEmpty()) {
+            music?.let { m ->
+                Box(
+                    Modifier
+                        .shadow(16.dp, RoundedCornerShape(50), ambientColor = Color.Black, spotColor = Color.Black)
+                        .clip(RoundedCornerShape(50))
+                        .background(Color.Black),
+                ) { MusicIsland(m) }
+            }
+            return@AnimatedVisibility
+        }
         val match = matches.getOrNull(index.coerceIn(0, (matches.size - 1).coerceAtLeast(0))) ?: return@AnimatedVisibility
         AnimatedContent(
             targetState = if (showGoal) goal else null,
@@ -269,6 +282,51 @@ private fun CompactIsland(match: LiveMatch) {
             fontSize = 11.sp,
             fontWeight = FontWeight.SemiBold,
         )
+    }
+}
+
+/** "▣ Wonderwall  Oasis ▮▮▮" — the song that's playing. The little bars stand still (nothing animates forever). */
+@Composable
+private fun MusicIsland(m: NowPlaying) {
+    Row(
+        modifier = Modifier
+            .height(32.dp)
+            .padding(start = 6.dp, end = 13.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(
+            Modifier
+                .size(20.dp)
+                .clip(RoundedCornerShape(5.dp))
+                .background(Color(0xFF3A3346)),
+            contentAlignment = Alignment.Center,
+        ) {
+            val art = m.art
+            if (art != null) {
+                Image(art, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.size(20.dp))
+            } else {
+                Text("♪", color = Color.White, fontSize = 11.sp)
+            }
+        }
+        Spacer(Modifier.width(8.dp))
+        Text(
+            m.title, color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
+            maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+            modifier = Modifier.widthIn(max = 240.dp),
+        )
+        if (m.artist.isNotBlank()) {
+            Spacer(Modifier.width(7.dp))
+            Text(
+                m.artist, color = Color.White.copy(alpha = 0.62f), fontSize = 12.sp, maxLines = 1,
+                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, modifier = Modifier.widthIn(max = 160.dp),
+            )
+        }
+        Spacer(Modifier.width(9.dp))
+        Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(2.dp), modifier = Modifier.height(12.dp)) {
+            listOf(6, 11, 8).forEach { h ->
+                Box(Modifier.size(width = 2.5.dp, height = h.dp).clip(RoundedCornerShape(1.dp)).background(Color(0xFF1ED760)))
+            }
+        }
     }
 }
 

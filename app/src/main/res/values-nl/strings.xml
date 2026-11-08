@@ -139,4 +139,17 @@
     <string name="console_logo_tip">Voeg het logo toe vanaf je telefoon: open de telefoon-afstandsbediening en tik op Console logos.</string>
     <string name="clock_fonts">Klok</string>
     <string name="clock_chosen">Klok %1$s aan</string>
+    <string name="oasis_missing">Geen playlist “%1$s” op je Spotify</string>
+    <string name="oasis_label">Uit je playlist %1$s</string>
+    <string name="oasis_play">Druk OK om te spelen</string>
+    <string name="oasis_starting">%1$s start…</string>
+    <string name="spotify_connect_title">Koppel Spotify</string>
+    <string name="spotify_connect_sub">Met de afstandsbediening op je telefoon</string>
+    <string name="spotify_problem">Spotify lukt nu niet</string>
+    <string name="agenda">Agenda</string>
+    <string name="agenda_hint">Je Apple-agenda · de komende 7 dagen</string>
+    <string name="agenda_empty">Niets gepland de komende 7 dagen.</string>
+    <string name="day_today">vandaag</string>
+    <string name="day_tomorrow">morgen</string>
+    <string name="all_day">Hele dag</string>
 </resources>

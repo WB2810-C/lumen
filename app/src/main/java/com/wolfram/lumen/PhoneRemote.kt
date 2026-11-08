@@ -50,6 +50,7 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeoutOrNull
+import org.json.JSONArray
 import org.json.JSONObject
 import java.io.BufferedInputStream
 import java.io.OutputStream
@@ -71,6 +72,8 @@ sealed class RemoteCommand {
     data class Media(val action: String) : RemoteCommand()
     data class ShowFile(val path: String) : RemoteCommand()
     data class LogoChanged(val console: String) : RemoteCommand()
+    /** Spotify or the Apple calendar was connected or disconnected; [message] is shown on the TV. */
+    data class AccountsChanged(val message: String) : RemoteCommand()
 }
 
 /** The link between the little web server and the home screen. */
@@ -231,8 +234,61 @@ object PhoneRemoteServer {
             method == "POST" && path == "/api/youtube" -> command(out, RemoteCommand.YouTube(json.optString("q").take(300)))
             method == "POST" && path == "/api/theme" -> command(out, RemoteCommand.Theme(json.optString("id")))
             method == "POST" && path == "/api/media" -> command(out, RemoteCommand.Media(json.optString("action")))
+            // Spotify: the phone logs in on Spotify's own page, which comes back here through the little
+            // page in the repository (Spotify only returns to https addresses).
+            method == "POST" && path == "/api/spotify/login" -> {
+                val context = appContext ?: return respond(out, 400, "application/json", """{"error":"not ready"}""")
+                val clientId = json.optString("clientId").trim()
+                if (!Regex("^[0-9a-fA-F]{32}$").matches(clientId)) {
+                    return respond(out, 400, "application/json", """{"error":"That doesn't look like a Client ID (32 letters and numbers)."}""")
+                }
+                val ip = localIpAddress(context) ?: return respond(out, 400, "application/json", """{"error":"The TV has no Wi-Fi address."}""")
+                val back = "http://$ip:${LumenConfig.REMOTE_PORT}/spotify-done?k=$token"
+                respond(out, 200, "application/json", JSONObject().put("url", Spotify.loginUrl(context, clientId, back)).toString())
+            }
+            method == "GET" && path == "/spotify-done" -> {
+                val context = appContext ?: return respond(out, 400, "text/plain", "not ready")
+                val problem = when {
+                    query["error"] != null -> "Spotify: ${query["error"]}"
+                    query["code"].isNullOrBlank() -> "Spotify didn't send a code."
+                    else -> Spotify.finishLogin(context, query["code"].orEmpty(), query["state"].orEmpty())
+                }
+                if (problem == null) RemoteBridge.commands.trySend(RemoteCommand.AccountsChanged("Spotify connected"))
+                respond(out, 200, "text/html; charset=utf-8", donePage(if (problem == null) "Spotify is connected" else problem, problem == null))
+            }
+            method == "POST" && path == "/api/spotify/logout" -> {
+                appContext?.let { Spotify.disconnect(it) }
+                command(out, RemoteCommand.AccountsChanged("Spotify disconnected"))
+            }
+            // Apple Calendar: Apple ID + app-specific password, checked right away.
+            method == "POST" && path == "/api/calendar" -> {
+                val context = appContext ?: return respond(out, 400, "application/json", """{"error":"not ready"}""")
+                client.soTimeout = 60_000
+                val result = AppleCalendar.connect(context, json.optString("user"), json.optString("password"))
+                result.onSuccess { names ->
+                    RemoteBridge.commands.trySend(RemoteCommand.AccountsChanged("Apple Calendar connected"))
+                    respond(out, 200, "application/json", JSONObject().put("ok", true).put("calendars", JSONArray(names)).toString())
+                }.onFailure {
+                    respond(out, 400, "application/json", JSONObject().put("error", it.message ?: "Couldn't connect").toString())
+                }
+            }
+            method == "POST" && path == "/api/calendar/logout" -> {
+                appContext?.let { AppleCalendar.disconnect(it) }
+                command(out, RemoteCommand.AccountsChanged("Apple Calendar disconnected"))
+            }
             else -> respond(out, 404, "application/json", """{"error":"not found"}""")
         }
+    }
+
+    /** The page the phone sees after logging in to Spotify. */
+    private fun donePage(text: String, ok: Boolean): String {
+        val safe = text.replace("&", "&amp;").replace("<", "&lt;")
+        val mark = if (ok) "✓" else "!"
+        return "<!doctype html><meta name='viewport' content='width=device-width,initial-scale=1'>" +
+            "<body style='margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;font-family:-apple-system,sans-serif;background:#E6E8EC;color:#12151C'>" +
+            "<div style='text-align:center;padding:24px'><div style='font-size:56px'>$mark</div><h2>$safe</h2>" +
+            "<p style='color:rgba(18,21,28,.6)'>" + (if (ok) "You can close this page and look at your TV." else "Go back to the remote and try again.") + "</p>" +
+            "<p><a href='/?k=$token' style='color:#12151C;font-weight:600'>Back to the remote</a></p></div></body>"
     }
 
     private fun command(out: OutputStream, cmd: RemoteCommand) {
