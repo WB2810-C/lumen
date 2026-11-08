@@ -25,8 +25,8 @@ android {
         applicationId = "com.wolfram.lumen"
         minSdk = 26          // Android TV 8.0 and newer
         targetSdk = 35
-        versionCode = 17
-        versionName = "5.7.1"
+        versionCode = 18
+        versionName = "5.7.2"
         buildConfigField("String", "CLAUDE_API_KEY", "\"$claudeApiKey\"")
         buildConfigField("String", "OLLAMA_HOST", "\"$ollamaHost\"")
     }

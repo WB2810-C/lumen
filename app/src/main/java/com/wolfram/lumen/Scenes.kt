@@ -713,7 +713,8 @@ private fun SceneDock(
     Column(modifier, horizontalAlignment = Alignment.CenterHorizontally) {
         Box(
             Modifier
-                .widthIn(max = 900.dp)
+                // Wide enough for 8 favourites and the 5 buttons without anything sliding off the edge.
+                .widthIn(max = 924.dp)
                 .sceneGlass(glass, RoundedCornerShape(20.dp))
                 .onPreviewKeyEvent { event ->
                     if (movingKey == null) return@onPreviewKeyEvent false
@@ -734,7 +735,8 @@ private fun SceneDock(
                 },
         ) {
             LazyRow(
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                // A little closer together when the dock is full.
+                horizontalArrangement = Arrangement.spacedBy(if (all.size > 12) 8.dp else 10.dp),
                 // Room around the tiles, so the selected one (a little bigger) never touches the glass edge.
                 contentPadding = PaddingValues(horizontal = 18.dp, vertical = 12.dp),
                 verticalAlignment = Alignment.CenterVertically,
