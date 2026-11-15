@@ -268,7 +268,21 @@ fun ScreenInfoLine(modifier: Modifier = Modifier) {
         @Suppress("DEPRECATION")
         val mode = activity?.windowManager?.defaultDisplay?.mode
         val picture = mode?.let { "${it.physicalWidth}×${it.physicalHeight}" } ?: "?"
-        context.getString(R.string.screen_info, drawn, picture)
+        // Which HDR types the TV shows (films, series and games switch to HDR by themselves).
+        @Suppress("DEPRECATION")
+        val hdr = runCatching {
+            activity?.windowManager?.defaultDisplay?.hdrCapabilities?.supportedHdrTypes?.map {
+                when (it) {
+                    android.view.Display.HdrCapabilities.HDR_TYPE_DOLBY_VISION -> "Dolby Vision"
+                    android.view.Display.HdrCapabilities.HDR_TYPE_HDR10 -> "HDR10"
+                    android.view.Display.HdrCapabilities.HDR_TYPE_HLG -> "HLG"
+                    android.view.Display.HdrCapabilities.HDR_TYPE_HDR10_PLUS -> "HDR10+"
+                    else -> null
+                }
+            }?.filterNotNull()?.distinct()
+        }.getOrNull().orEmpty()
+        val hdrText = if (hdr.isEmpty()) context.getString(R.string.screen_no_hdr) else context.getString(R.string.screen_hdr, hdr.joinToString(" · "))
+        context.getString(R.string.screen_info, drawn, picture) + " · " + hdrText
     }
     Text(text, color = theme.content.copy(alpha = 0.6f), fontSize = 10.sp, modifier = modifier)
 }

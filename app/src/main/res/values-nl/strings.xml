@@ -152,4 +152,6 @@
     <string name="day_today">vandaag</string>
     <string name="day_tomorrow">morgen</string>
     <string name="all_day">Hele dag</string>
+    <string name="screen_hdr">HDR: %1$s</string>
+    <string name="screen_no_hdr">geen HDR</string>
 </resources>

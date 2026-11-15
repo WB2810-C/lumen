@@ -153,4 +153,6 @@
     <string name="day_today">today</string>
     <string name="day_tomorrow">tomorrow</string>
     <string name="all_day">All day</string>
+    <string name="screen_hdr">HDR: %1$s</string>
+    <string name="screen_no_hdr">no HDR</string>
 </resources>

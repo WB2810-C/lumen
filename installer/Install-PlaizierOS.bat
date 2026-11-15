@@ -117,6 +117,8 @@ echo   Making PlaizierOS as fast as this TV allows [up to a minute or two, pleas
 %ADB% -s %TARGET% shell cmd package compile -m speed -f %PKG% >nul 2>&1
 echo   Setting the TV picture to 1080p...
 %ADB% -s %TARGET% shell cmd display set-user-preferred-display-mode 1920 1080 60 >nul 2>&1
+echo   Switching on HDR for films, series and games [every HDR type the TV can show]...
+%ADB% -s %TARGET% shell settings put global are_user_disabled_hdr_formats_allowed 1 >nul 2>&1
 echo.
 echo   Your TV lets apps draw at 1280x720 and stretches that to its 1920x1080 screen.
 echo   PlaizierOS can ask it to draw everything at 1920x1080 instead. On some TVs that is
@@ -243,6 +245,10 @@ set "R=plaizieros-report.txt"
 %ADB% -s %TARGET% shell getprop ro.surface_flinger.max_graphics_height >> "%R%" 2>&1
 %ADB% -s %TARGET% shell cmd display get-user-preferred-display-mode >> "%R%" 2>&1
 %ADB% -s %TARGET% shell "dumpsys display | grep -iE 'mActiveMode|mDefaultMode|supportedModes|mUserPreferredMode|mBaseDisplayInfo' | head -20" >> "%R%" 2>&1
+>> "%R%" echo ==== HDR
+%ADB% -s %TARGET% shell settings get global are_user_disabled_hdr_formats_allowed >> "%R%" 2>&1
+%ADB% -s %TARGET% shell settings get global user_disabled_hdr_formats >> "%R%" 2>&1
+%ADB% -s %TARGET% shell "dumpsys display | grep -iE 'hdr' | head -12" >> "%R%" 2>&1
 >> "%R%" echo ==== Internet
 %ADB% -s %TARGET% shell date >> "%R%" 2>&1
 %ADB% -s %TARGET% shell settings get global private_dns_mode >> "%R%" 2>&1
