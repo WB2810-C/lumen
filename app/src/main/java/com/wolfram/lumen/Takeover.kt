@@ -60,26 +60,12 @@ class TakeoverState {
 
     val isBusy: Boolean get() = tile != null
 
+    /**
+     * Opens the app straight away, with nothing drawn over the screen in between
+     * (no enlarged logo: the app itself appears as fast as the TV can start it).
+     */
     suspend fun play(tile: Tile, from: Rect, open: () -> Boolean) {
-        if (this.tile != null) return
-        this.tile = tile
-        this.from = from
-        launched = false
-        progress.snapTo(0f)
-        // Speed: the app starts straight away; its logo grows over the screen while it loads,
-        // instead of making you wait for the animation first.
-        if (!open()) {
-            this.tile = null
-            return
-        }
-        launched = true
-        progress.animateTo(1f, tween(durationMillis = 220, easing = TakeoverEasing))
-        // If the app never came up, don't leave its colour over the home screen.
-        delay(8_000)
-        if (this.tile === tile) {
-            this.tile = null
-            launched = false
-        }
+        open()
     }
 
     /** Back on the home screen: it's simply there, at once. */
