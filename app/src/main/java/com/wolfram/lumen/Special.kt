@@ -220,14 +220,17 @@ fun greetingText(hour: Int): String {
 /** Current time, updated exactly on the minute. */
 @Composable
 fun rememberNow(): Long {
-    var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
+    var now by remember { mutableLongStateOf(System.currentTimeMillis() / 60_000L * 60_000L) }
+    // Checks the time every second, but only the minute is kept: what's on screen is redone
+    // once a minute instead of once a second (and it's right at once after standby).
     LaunchedEffect(Unit) {
         while (true) {
-            now = System.currentTimeMillis()
-            delay(1000L - now % 1000L)
+            val t = System.currentTimeMillis()
+            now = t / 60_000L * 60_000L
+            delay(1000L - t % 1000L)
         }
     }
-    return now / 60_000L * 60_000L
+    return now
 }
 
 /**

@@ -8,6 +8,7 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.AnimationVector1D
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -632,7 +633,9 @@ fun LumenApp(
     }
 
     // The island only shows on the home screen itself.
-    val islandVisible = tab == Tab.HOME && !assistantOpen && !phoneOpen && !moreOpen && !agendaOpen && viewer == null && chooser == null && !ambient && !takeover.isBusy && intro.value >= 1f
+    // Only whether the welcome animation is over matters here (not each of its frames).
+    val introDone by remember { androidx.compose.runtime.derivedStateOf { intro.value >= 1f } }
+    val islandVisible = tab == Tab.HOME && !assistantOpen && !phoneOpen && !moreOpen && !agendaOpen && viewer == null && chooser == null && !ambient && !takeover.isBusy && introDone
     val latestIslandVisible by rememberUpdatedState(islandVisible)
     LaunchedEffect(goal) {
         if (goal != null) {
@@ -749,7 +752,8 @@ fun LumenApp(
     CompositionLocalProvider(LocalLumenTheme provides theme) {
         Box(Modifier.fillMaxSize()) {
             val loadedScene = sceneState.value
-            SceneStage(loadedScene, showClock = tab == Tab.HOME, clockFont = ClockFont.byId(clockFontId))
+            // One ready-made picture; on the other pages the same picture, darker and without the clock.
+            SceneStage(loadedScene, showClock = tab == Tab.HOME, clockFont = ClockFont.byId(clockFontId), dimmed = tab != Tab.HOME)
             if (tab == Tab.HOME) {
                 SceneHome(
                     loaded = loadedScene,
@@ -815,7 +819,6 @@ fun LumenApp(
                 Box(
                     Modifier
                         .fillMaxSize()
-                        .background(Color.Black.copy(alpha = 0.62f))
                         .padding(start = 40.dp, end = 30.dp, top = 22.dp),
                 ) {
                     when (tab) {
@@ -912,7 +915,7 @@ fun LumenApp(
                 val playing = nowPlaying.current
                 if (playing != null && playing.isPlaying) AmbientNowPlaying(playing) else AmbientScreen(tint)
             }
-            WelcomeOverlay(progress = intro.value, glow = glow)
+            IntroLayer(intro, glow)
         }
     }
 }
@@ -972,4 +975,10 @@ private fun TileGrid(
             )
         }
     }
+}
+
+/** The welcome animation in its own little scope, so its frames never redo the whole home screen. */
+@Composable
+private fun IntroLayer(intro: Animatable<Float, AnimationVector1D>, glow: Color) {
+    WelcomeOverlay(progress = intro.value, glow = glow)
 }

@@ -33,6 +33,8 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         Perf.init(applicationContext)
+        // Speed: PlaizierOS paints the whole screen itself, so the window needn't paint a background under it.
+        window.setBackgroundDrawable(null)
         requestSharpestPicture()
         Sounds.init(applicationContext)
         PhoneRemoteServer.start(applicationContext)

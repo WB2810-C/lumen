@@ -13,7 +13,6 @@ import android.graphics.Shader
 import android.graphics.Typeface
 import android.os.SystemClock
 import android.util.Log
-import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
@@ -83,6 +82,7 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.nativeCanvas
+import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
@@ -95,6 +95,7 @@ import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.findRootCoordinates
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.layout.positionInParent
 import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalContext
@@ -108,6 +109,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
 import java.util.Calendar
@@ -216,109 +219,245 @@ fun rememberSceneRotation(lastInputAt: () -> Long, choice: String): State<Loaded
     }
 }
 
-/** The photo with the glass clock and the cut-out scenery in front of it. */
-@Composable
-fun SceneStage(loaded: LoadedScene?, showClock: Boolean, clockFont: ClockFont = ClockFont.ANTONIO) {
-    Crossfade(targetState = loaded, animationSpec = tween(1200), label = "scene") { s ->
-        if (s == null) {
-            Box(Modifier.fillMaxSize().background(Color(0xFF0B0B10)))
-            return@Crossfade
-        }
-        val dim = if (s.scene.photoBrightness < 1f) ColorFilter.colorMatrix(androidx.compose.ui.graphics.ColorMatrix().apply {
-            val b = s.scene.photoBrightness
-            setToScale(b, b, b, 1f)
-        }) else null
-        Box(Modifier.fillMaxSize()) {
-            Image(s.photo, contentDescription = null, contentScale = ContentScale.Crop, colorFilter = dim, modifier = Modifier.fillMaxSize())
-            if (showClock) GlassClock(s, clockFont)
-            s.front?.let { Image(it, contentDescription = null, contentScale = ContentScale.Crop, colorFilter = dim, modifier = Modifier.fillMaxSize()) }
-            if (s.scene.shade.isNotEmpty()) {
-                Box(Modifier.fillMaxSize().background(Brush.verticalGradient(*s.scene.shade.toTypedArray())))
-            }
-            // A little darker at the bottom, for the cards and the dock.
-            Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0.6f to Color.Transparent, 1f to Color.Black.copy(alpha = 0.5f))))
-        }
-    }
-}
-
-
-/**
- * The big clock, filled with a frosted copy of the scene, with a fine light rim and a sheen,
- * exactly like couch-tv's. Drawn once a minute; nothing moves in between.
+/*
+ * Speed: the whole background (photo, glass clock, the scenery in front of it, the shade) is painted
+ * ONCE into a single picture, away from the screen, and redone only when the minute changes.
+ * While you move around, the TV then draws one flat picture instead of three full-screen layers and
+ * a 400-pixel-high clock in four coats, sixty times a second. That is what made 1080p stutter.
  */
+
+/** A finished background picture, and which background it shows. */
+private class Baked(val image: ImageBitmap, val key: String)
+
+/** One bake at a time (each needs a screen-sized canvas for a moment). */
+private val bakeLock = kotlinx.coroutines.sync.Mutex()
+
+/** The background: one ready-made picture. On the other pages it's shown darker and without the clock. */
 @Composable
-private fun GlassClock(s: LoadedScene, font: ClockFont) {
+fun SceneStage(loaded: LoadedScene?, showClock: Boolean, clockFont: ClockFont = ClockFont.ANTONIO, dimmed: Boolean = false) {
     val context = LocalContext.current
     val now = rememberNow()
     val time = remember(now) { android.text.format.DateFormat.getTimeFormat(context).format(Date(now)) }
-    val face = remember(font) { ClockFonts.typeface(context, font) }
-    // Every font is drawn with digits as tall as Antonio's, so the clock never moves or grows into the text.
-    val fontScale = remember(font) { ClockFonts.scale(context, font) }
-    val spacing = font.spacing
-    val paints = remember(s, font) {
-        val fill = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            typeface = face
-            letterSpacing = spacing
-            colorFilter = ColorMatrixColorFilter(
-                ColorMatrix().apply {
-                    setSaturation(s.scene.fillSaturation)
-                    val b = s.scene.fillBrightness
-                    postConcat(ColorMatrix().apply { setScale(b, b, b, 1f) })
-                },
+    val density = androidx.compose.ui.platform.LocalDensity.current.density
+    var size by remember { mutableStateOf(IntSize.Zero) }
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+
+    // Two pictures per background: with the clock (redone each minute) and without (made once, when first needed).
+    var withClock by remember { mutableStateOf<Baked?>(null) }
+    var plain by remember { mutableStateOf<Baked?>(null) }
+    var shown by remember { mutableStateOf<Baked?>(null) }
+    var leaving by remember { mutableStateOf<Baked?>(null) }
+    val fade = remember { androidx.compose.animation.core.Animatable(1f) }
+
+    /** Frees a picture's memory once nothing shows it any more. */
+    fun retire(old: Baked?) {
+        if (old == null) return
+        scope.launch {
+            delay(2_000)
+            if (old !== shown && old !== leaving && old !== withClock && old !== plain) {
+                runCatching { old.image.asAndroidBitmap().recycle() }
+            }
+        }
+    }
+
+    LaunchedEffect(loaded, time, clockFont, size) {
+        val s = loaded ?: return@LaunchedEffect
+        if (size.width <= 0 || size.height <= 0) return@LaunchedEffect
+        val made = bakeStage(context, s, time, clockFont, size, density) ?: return@LaunchedEffect
+        val old = withClock
+        withClock = Baked(made, s.key)
+        retire(old)
+    }
+    LaunchedEffect(loaded, size, showClock) {
+        val s = loaded ?: return@LaunchedEffect
+        if (showClock || size.width <= 0 || size.height <= 0) return@LaunchedEffect
+        if (plain?.key == s.key) return@LaunchedEffect
+        val made = bakeStage(context, s, null, clockFont, size, density) ?: return@LaunchedEffect
+        val old = plain
+        plain = Baked(made, s.key)
+        retire(old)
+    }
+
+    // Which picture is on screen. Another background fades in softly; a new minute just swaps.
+    val wanted = if (showClock) withClock else (plain?.takeIf { it.key == loaded?.key } ?: withClock)
+    LaunchedEffect(wanted) {
+        val next = wanted ?: return@LaunchedEffect
+        val old = shown
+        if (old != null && old !== next && old.key != next.key) {
+            leaving = old
+            shown = next
+            fade.snapTo(0f)
+        } else {
+            shown = next
+        }
+        if (fade.value < 1f || leaving != null) {
+            fade.animateTo(1f, tween(700))
+            leaving = null
+        }
+    }
+
+    // The other pages sit on the same picture, darkened (in the same single draw, no extra layer).
+    val dark = remember {
+        ColorFilter.colorMatrix(androidx.compose.ui.graphics.ColorMatrix().apply { setToScale(0.38f, 0.38f, 0.38f, 1f) })
+    }
+    Box(
+        Modifier
+            .fillMaxSize()
+            .onSizeChanged { size = it }
+            .drawBehind {
+                val full = IntSize(this.size.width.roundToInt(), this.size.height.roundToInt())
+                val filter = if (dimmed) dark else null
+                val under = leaving
+                val top = shown
+                val a = fade.value
+                if (top == null || (a < 1f && under == null)) drawRect(Color(0xFF0B0B10))
+                if (under != null && a < 1f) drawImage(under.image, dstSize = full, colorFilter = filter)
+                if (top != null) drawImage(top.image, dstSize = full, alpha = a, colorFilter = filter)
+            },
+    )
+}
+
+/**
+ * Paints a whole background at the screen's own size: photo, clock ([time], or none), the scenery
+ * in front, the shade. Returns a picture that lives in the TV's graphics memory, ready to show.
+ */
+private suspend fun bakeStage(
+    context: Context,
+    s: LoadedScene,
+    time: String?,
+    font: ClockFont,
+    size: IntSize,
+    density: Float,
+): ImageBitmap? = withContext(Dispatchers.Default) {
+    bakeLock.withLock {
+    try {
+        val w = size.width
+        val h = size.height
+        val canvasBitmap = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
+        val canvas = android.graphics.Canvas(canvasBitmap)
+        val picture = Paint(Paint.FILTER_BITMAP_FLAG or Paint.DITHER_FLAG).apply {
+            val b = s.scene.photoBrightness
+            if (b < 1f) colorFilter = ColorMatrixColorFilter(ColorMatrix().apply { setScale(b, b, b, 1f) })
+        }
+        // Fills the screen, cropping what sticks out (like ContentScale.Crop).
+        fun cover(bitmap: Bitmap) {
+            val scale = maxOf(w / bitmap.width.toFloat(), h / bitmap.height.toFloat())
+            val sw = (w / scale).roundToInt().coerceAtMost(bitmap.width)
+            val sh = (h / scale).roundToInt().coerceAtMost(bitmap.height)
+            val sx = (bitmap.width - sw) / 2
+            val sy = (bitmap.height - sh) / 2
+            canvas.drawBitmap(bitmap, android.graphics.Rect(sx, sy, sx + sw, sy + sh), android.graphics.Rect(0, 0, w, h), picture)
+        }
+        cover(s.photo.asAndroidBitmap())
+        if (time != null) drawGlassClock(context, canvas, s, time, font, w.toFloat(), h.toFloat(), density)
+        s.front?.let { cover(it.asAndroidBitmap()) }
+        val shade = Paint()
+        if (s.scene.shade.isNotEmpty()) {
+            shade.shader = LinearGradient(
+                0f, 0f, 0f, h.toFloat(),
+                s.scene.shade.map { it.second.toArgb() }.toIntArray(), s.scene.shade.map { it.first }.toFloatArray(), Shader.TileMode.CLAMP,
             )
-            alpha = (s.scene.fillAlpha * 255).roundToInt()
+            canvas.drawRect(0f, 0f, w.toFloat(), h.toFloat(), shade)
         }
-        val rimFill = Paint(Paint.ANTI_ALIAS_FLAG).apply { typeface = face; letterSpacing = spacing; color = s.scene.rimFill.toArgb() }
-        val rimStroke = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            typeface = face; letterSpacing = spacing; style = Paint.Style.STROKE; color = s.scene.rimStroke.toArgb()
-        }
-        val sheen = Paint(Paint.ANTI_ALIAS_FLAG).apply { typeface = face; letterSpacing = spacing }
-        listOf(fill, rimFill, rimStroke, sheen)
-    }
-    Canvas(Modifier.fillMaxSize()) {
-        val (fill, rimFill, rimStroke, sheen) = paints
-        var textSize = s.scene.clockSize.dp.toPx() * fontScale
-        fill.textSize = textSize
-        // Wide fonts stay a little smaller, so the clock is never wider than 620 dp.
-        val widest = 620.dp.toPx()
-        fill.measureText(time).let { if (it > widest) textSize *= widest / it }
-        val left = s.scene.clockLeft
-        val align = if (left == null) Paint.Align.CENTER else Paint.Align.LEFT
-        val x = left?.dp?.toPx() ?: (size.width / 2f)
-        for (p in paints) {
-            p.textSize = textSize
-            p.textAlign = align
-        }
-        // The frosted copy of the scene, lined up with the screen.
-        fill.shader = BitmapShader(s.glass, Shader.TileMode.CLAMP, Shader.TileMode.CLAMP).apply {
-            setLocalMatrix(Matrix().apply { setScale(size.width / s.glass.width, size.height / s.glass.height) })
-        }
-        rimStroke.strokeWidth = 0.72.dp.toPx()
-        // Put the top of the digits exactly where couch-tv has it, whatever the font's own spacing:
-        // measure the real digits and work out the baseline from there.
-        val bounds = android.graphics.Rect()
-        fill.getTextBounds(time, 0, time.length, bounds)
-        val top = (s.scene.clockTop + s.scene.clockSize * 0.055f).dp.toPx()
-        val baseline = top - bounds.top
-        val width = fill.measureText(time)
-        val x0 = if (left == null) x - width / 2f else x
-        // couch-tv's sheen: linear-gradient(160deg, white 55% → clear at 38% → clear at 70% → white 22%).
-        sheen.shader = LinearGradient(
-            x0 + width * 0.33f, top, x0 + width * 0.67f, baseline,
-            intArrayOf(
-                Color.White.copy(alpha = 0.55f).toArgb(), Color.Transparent.toArgb(),
-                Color.Transparent.toArgb(), Color.White.copy(alpha = 0.22f).toArgb(),
-            ),
-            floatArrayOf(0f, 0.38f, 0.7f, 1f),
-            Shader.TileMode.CLAMP,
+        // A little darker at the bottom, for the cards and the dock.
+        shade.shader = LinearGradient(
+            0f, h * 0.6f, 0f, h.toFloat(),
+            intArrayOf(Color.Transparent.toArgb(), Color.Black.copy(alpha = 0.5f).toArgb()), null, Shader.TileMode.CLAMP,
         )
-        drawContext.canvas.nativeCanvas.apply {
-            drawText(time, x, baseline, fill)
-            drawText(time, x, baseline, rimFill)
-            drawText(time, x, baseline, rimStroke)
-            if (s.scene.sheen) drawText(time, x, baseline, sheen)
+        canvas.drawRect(0f, h * 0.6f, w.toFloat(), h.toFloat(), shade)
+        // Hand it to the graphics chip once; after that, showing it costs next to nothing.
+        val onChip = runCatching { canvasBitmap.copy(Bitmap.Config.HARDWARE, false) }.getOrNull()
+        if (onChip != null) {
+            canvasBitmap.recycle()
+            onChip.asImageBitmap()
+        } else {
+            canvasBitmap.asImageBitmap()
         }
+    } catch (e: Throwable) {
+        if (e is kotlinx.coroutines.CancellationException) throw e
+        Log.w(LOG_TAG, "background couldn't be painted", e)
+        null
     }
+    }
+}
+
+/**
+ * The big clock, filled with a frosted copy of the scene, with a fine light rim and a sheen,
+ * exactly like couch-tv's. Painted into the background picture once a minute.
+ */
+private fun drawGlassClock(
+    context: Context,
+    canvas: android.graphics.Canvas,
+    s: LoadedScene,
+    time: String,
+    font: ClockFont,
+    width: Float,
+    height: Float,
+    density: Float,
+) {
+    fun dp(v: Float) = v * density
+    val face = ClockFonts.typeface(context, font)
+    // Every font is drawn with digits as tall as Antonio's, so the clock never moves or grows into the text.
+    val fontScale = ClockFonts.scale(context, font)
+    val spacing = font.spacing
+    val fill = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG).apply {
+        typeface = face
+        letterSpacing = spacing
+        colorFilter = ColorMatrixColorFilter(
+            ColorMatrix().apply {
+                setSaturation(s.scene.fillSaturation)
+                val b = s.scene.fillBrightness
+                postConcat(ColorMatrix().apply { setScale(b, b, b, 1f) })
+            },
+        )
+        alpha = (s.scene.fillAlpha * 255).roundToInt()
+    }
+    val rimFill = Paint(Paint.ANTI_ALIAS_FLAG).apply { typeface = face; letterSpacing = spacing; color = s.scene.rimFill.toArgb() }
+    val rimStroke = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        typeface = face; letterSpacing = spacing; style = Paint.Style.STROKE; color = s.scene.rimStroke.toArgb()
+    }
+    val sheen = Paint(Paint.ANTI_ALIAS_FLAG).apply { typeface = face; letterSpacing = spacing }
+    val paints = listOf(fill, rimFill, rimStroke, sheen)
+
+    var textSize = dp(s.scene.clockSize) * fontScale
+    fill.textSize = textSize
+    // Wide fonts stay a little smaller, so the clock is never wider than 620 dp.
+    val widest = dp(620f)
+    fill.measureText(time).let { if (it > widest) textSize *= widest / it }
+    val left = s.scene.clockLeft
+    val align = if (left == null) Paint.Align.CENTER else Paint.Align.LEFT
+    val x = left?.let { dp(it) } ?: (width / 2f)
+    for (p in paints) {
+        p.textSize = textSize
+        p.textAlign = align
+    }
+    // The frosted copy of the scene, lined up with the screen.
+    fill.shader = BitmapShader(s.glass, Shader.TileMode.CLAMP, Shader.TileMode.CLAMP).apply {
+        setLocalMatrix(Matrix().apply { setScale(width / s.glass.width, height / s.glass.height) })
+    }
+    rimStroke.strokeWidth = dp(0.72f)
+    // Put the top of the digits exactly where couch-tv has it, whatever the font's own spacing:
+    // measure the real digits and work out the baseline from there.
+    val bounds = android.graphics.Rect()
+    fill.getTextBounds(time, 0, time.length, bounds)
+    val top = dp(s.scene.clockTop + s.scene.clockSize * 0.055f)
+    val baseline = top - bounds.top
+    val textWidth = fill.measureText(time)
+    val x0 = if (left == null) x - textWidth / 2f else x
+    // couch-tv's sheen: linear-gradient(160deg, white 55% → clear at 38% → clear at 70% → white 22%).
+    sheen.shader = LinearGradient(
+        x0 + textWidth * 0.33f, top, x0 + textWidth * 0.67f, baseline,
+        intArrayOf(
+            Color.White.copy(alpha = 0.55f).toArgb(), Color.Transparent.toArgb(),
+            Color.Transparent.toArgb(), Color.White.copy(alpha = 0.22f).toArgb(),
+        ),
+        floatArrayOf(0f, 0.38f, 0.7f, 1f),
+        Shader.TileMode.CLAMP,
+    )
+    canvas.drawText(time, x, baseline, fill)
+    canvas.drawText(time, x, baseline, rimFill)
+    canvas.drawText(time, x, baseline, rimStroke)
+    if (s.scene.sheen) canvas.drawText(time, x, baseline, sheen)
 }
 
 /* ---------- Frosted glass: the scene's blurred copy, cut out behind each card ---------- */

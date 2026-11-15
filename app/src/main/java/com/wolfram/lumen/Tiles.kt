@@ -74,23 +74,8 @@ fun TileCard(
         label = "tileScale",
     )
     val shape = RoundedCornerShape(12.dp)
-    // Shadow under the selected tile: the app's own colour, the theme's colour, or soft grey on light themes.
-    val shadowColor = when {
-        theme.isLight -> Ink.copy(alpha = 0.5f)
-        theme.followsApp -> tile.glow
-        else -> theme.main
-    }
-    // Light glint colour: white on dark themes, a brighter white on light themes.
-    val glint = if (theme.isLight) Color.White.copy(alpha = 0.9f) else Color.White.copy(alpha = 0.35f)
+    // Speed: the selected tile only grows a little and gets a ring. No moving shadow, no light sweep.
 
-    // A glint of light sweeps across the tile each time you land on it.
-    val sweep = remember { Animatable(1f) }
-    LaunchedEffect(focused) {
-        if (focused) {
-            sweep.snapTo(0f)
-            sweep.animateTo(1f, tween(durationMillis = 750, easing = FastOutSlowInEasing))
-        }
-    }
 
     Box(
         modifier = modifier
@@ -99,12 +84,6 @@ fun TileCard(
                 scaleX = scale
                 scaleY = scale
             }
-            .shadow(
-                elevation = if (focused) (if (Perf.lite) 6.dp else 12.dp) else 0.dp,
-                shape = shape,
-                ambientColor = shadowColor,
-                spotColor = shadowColor,
-            )
             .onGloballyPositioned { coordinates[0] = it }
             .drawWithContent {
                 drawContent()
@@ -127,21 +106,6 @@ fun TileCard(
                 color = if (focused) theme.ring else theme.line,
                 shape = shape,
             )
-            .drawWithContent {
-                drawContent()
-                val v = sweep.value
-                if (focused && v < 1f) {
-                    val w = size.width
-                    val x = -w * 0.6f + w * 2.2f * v
-                    drawRect(
-                        brush = Brush.linearGradient(
-                            colors = listOf(Color.Transparent, glint, Color.Transparent),
-                            start = Offset(x, 0f),
-                            end = Offset(x + w * 0.45f, size.height),
-                        ),
-                    )
-                }
-            }
             .onFocusChanged {
                 focused = it.isFocused
                 if (it.isFocused) {

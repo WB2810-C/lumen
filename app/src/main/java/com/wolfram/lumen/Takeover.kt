@@ -1,5 +1,11 @@
 package com.wolfram.lumen
 
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.foundation.Canvas
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.tween
@@ -60,98 +66,78 @@ class TakeoverState {
         this.from = from
         launched = false
         progress.snapTo(0f)
-        progress.animateTo(1f, tween(durationMillis = 560, easing = TakeoverEasing))
-        delay(120) // let the full-screen logo sit for a beat
-        if (open()) {
-            launched = true
-        } else {
-            progress.animateTo(0f, tween(durationMillis = 320, easing = TakeoverEasing))
+        // Speed: the app starts straight away; its logo grows over the screen while it loads,
+        // instead of making you wait for the animation first.
+        if (!open()) {
             this.tile = null
+            return
+        }
+        launched = true
+        progress.animateTo(1f, tween(durationMillis = 220, easing = TakeoverEasing))
+        // If the app never came up, don't leave its colour over the home screen.
+        delay(8_000)
+        if (this.tile === tile) {
+            this.tile = null
+            launched = false
         }
     }
 
+    /** Back on the home screen: it's simply there, at once. */
     suspend fun returnHome() {
         if (tile == null || !launched) return
-        progress.animateTo(0f, tween(durationMillis = 460, easing = TakeoverEasing))
         tile = null
         launched = false
+        progress.snapTo(0f)
     }
 }
 
+/** The app's colour and logo growing from its tile to the whole screen. Only drawn, never laid out again. */
 @Composable
 fun TakeoverOverlay(state: TakeoverState) {
     val tile = state.tile ?: return
-    val p = state.progress.value
-
-    BoxWithConstraints(Modifier.fillMaxSize()) {
-        val density = LocalDensity.current
-        val screenW = constraints.maxWidth.toFloat()
-        val screenH = constraints.maxHeight.toFloat()
-        val start = state.from.takeIf { it.width > 1f && it.height > 1f }
-            ?: Rect(screenW / 2f - 160f, screenH / 2f - 90f, screenW / 2f + 160f, screenH / 2f + 90f)
-
-        val left = mix(start.left, 0f, p)
-        val top = mix(start.top, 0f, p)
-        val width = mix(start.width, screenW, p)
-        val height = mix(start.height, screenH, p)
-        val corner = mix(12f, 0f, p)
-
-        Box(
-            modifier = Modifier
-                .offset { IntOffset(left.roundToInt(), top.roundToInt()) }
-                .size(with(density) { width.toDp() }, with(density) { height.toDp() })
-                .clip(RoundedCornerShape(corner.dp))
-                .background(tile.takeoverColor),
-            contentAlignment = Alignment.Center,
-        ) {
-            TakeoverLogo(tile = tile, start = start, screenW = screenW, screenH = screenH, p = p)
+    val art = tile.banner ?: tile.icon
+    val isBanner = tile.banner != null
+    Canvas(Modifier.fillMaxSize()) {
+        val p = state.progress.value
+        val from = state.from.takeIf { it.width > 1f && it.height > 1f }
+            ?: Rect(size.width / 2f - 160f, size.height / 2f - 90f, size.width / 2f + 160f, size.height / 2f + 90f)
+        val left = mix(from.left, 0f, p)
+        val top = mix(from.top, 0f, p)
+        val width = mix(from.width, size.width, p)
+        val height = mix(from.height, size.height, p)
+        drawRoundRect(
+            color = tile.takeoverColor,
+            topLeft = Offset(left, top),
+            size = Size(width, height),
+            cornerRadius = CornerRadius(mix(12.dp.toPx(), 0f, p)),
+        )
+        if (art != null) {
+            // A banner starts exactly the size of the tile and grows to ~45% of the screen width; an icon stays smaller.
+            val h: Float
+            val w: Float
+            if (isBanner) {
+                w = mix(from.width, size.width * 0.45f, p)
+                h = w * art.height / art.width
+            } else {
+                h = mix(from.height * 0.6f, size.height * 0.24f, p)
+                w = h * art.width / art.height
+            }
+            drawImage(
+                art,
+                dstOffset = IntOffset((left + width / 2f - w / 2f).roundToInt(), (top + height / 2f - h / 2f).roundToInt()),
+                dstSize = IntSize(w.roundToInt().coerceAtLeast(1), h.roundToInt().coerceAtLeast(1)),
+            )
         }
     }
-}
-
-@Composable
-private fun TakeoverLogo(tile: Tile, start: Rect, screenW: Float, screenH: Float, p: Float) {
-    val density = LocalDensity.current
-    val banner = tile.banner
-    if (banner != null) {
-        // Starts exactly the size of the tile, grows to ~45% of the screen width.
-        val w = mix(start.width, screenW * 0.45f, p)
-        val h = w * banner.height.toFloat() / banner.width.toFloat()
-        Image(
-            bitmap = banner,
-            contentDescription = tile.label,
-            contentScale = ContentScale.Fit,
-            modifier = Modifier.size(with(density) { w.toDp() }, with(density) { h.toDp() }),
-        )
-    } else {
-        val side = mix(start.height * 0.42f, screenH * 0.24f, p)
-        val labelAlpha = ((p - 0.55f) / 0.45f).coerceIn(0f, 1f)
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(16.dp),
-        ) {
-            val icon = tile.icon
-            if (icon != null) {
-                Image(
-                    bitmap = icon,
-                    contentDescription = null,
-                    modifier = Modifier.size(with(density) { side.toDp() }),
-                )
-            } else {
-                HdmiGlyph(
-                    modifier = Modifier.size(
-                        width = with(density) { (side * 1.6f).toDp() },
-                        height = with(density) { side.toDp() },
-                    ),
-                    color = Color.White,
-                )
-            }
+    // Without a logo (an HDMI input): its name, fading in once the colour fills the screen.
+    if (art == null) {
+        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             Text(
                 text = tile.label,
                 color = Color.White,
                 fontSize = 28.sp,
                 fontWeight = FontWeight.Medium,
-                modifier = Modifier.alpha(labelAlpha),
+                modifier = Modifier.graphicsLayer { alpha = ((state.progress.value - 0.45f) / 0.55f).coerceIn(0f, 1f) },
             )
         }
     }

@@ -25,8 +25,8 @@ android {
         applicationId = "com.wolfram.lumen"
         minSdk = 26          // Android TV 8.0 and newer
         targetSdk = 35
-        versionCode = 18
-        versionName = "5.7.2"
+        versionCode = 19
+        versionName = "5.8"
         buildConfigField("String", "CLAUDE_API_KEY", "\"$claudeApiKey\"")
         buildConfigField("String", "OLLAMA_HOST", "\"$ollamaHost\"")
     }
@@ -46,7 +46,10 @@ android {
             signingConfig = signingConfigs.getByName("lumen")
         }
         release {
-            isMinifyEnabled = false
+            // Speed: R8 removes what isn't used and tightens the rest, which makes the app start and scroll faster.
+            isMinifyEnabled = true
+            isShrinkResources = false
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             signingConfig = signingConfigs.getByName("lumen")
         }
     }
