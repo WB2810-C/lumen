@@ -67,9 +67,18 @@ class MainActivity : ComponentActivity() {
                 )
             }
         }
+        // Smoothness that adjusts itself: watches every frame, turns extras off when the TV falls behind.
+        Smoothness.attach(window)
+    }
+
+    override fun onStop() {
+        // When PlaizierOS was last on screen (for SPECTRE's "welcome back").
+        getSharedPreferences("spectre", MODE_PRIVATE).edit().putLong("last_seen", System.currentTimeMillis()).apply()
+        super.onStop()
     }
 
     override fun onDestroy() {
+        Smoothness.detach(window)
         if (isFinishing) {
             PhoneRemoteServer.stop()
             Sounds.release()

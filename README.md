@@ -1,4 +1,25 @@
-# PlaizierOS 21.0.4 — a home screen for your Peaq Google TV
+# PlaizierOS 21.1 — a home screen for your Peaq Google TV
+
+## New in 21.1
+
+- **Volume by voice:** "louder", "a bit quieter", "mute", "zet het geluid aan".
+- **Play it for me:** "search Netflix for comedy", or ask SPECTRE for "something funny on Netflix".
+- **Countdowns:** add a big date on the phone remote (or ask SPECTRE); the nearest one sits under the
+  greeting, and on the day itself it's in the Island. Settings → Countdowns lists them.
+- **SPECTRE memory you can see:** "remember that my bus leaves at 7:42"; Settings → SPECTRE memory shows
+  everything and OK removes a line. SPECTRE uses it when it answers.
+- **Focus mode:** "homework for 45 minutes": a calm dark screen with a big timer; Back stops it.
+- **Goodnight:** "goodnight" pauses the music and makes the screen dark; "goodnight in 20 minutes"
+  switches the TV off after 20 minutes (through the home lock).
+- **The living sky:** the scene's light follows the real sunrise and sunset; rain and fog show as they are.
+- **Island messages:** "Rain in about 15 minutes", the northern lights (only in strong storms, at night),
+  "Welcome back, sir" after school, and the Island glows in the colour of the album that's playing.
+- **Send to TV:** paste a YouTube, Spotify or Netflix link on the phone remote, or make the one-time
+  iPhone Shortcut shown there to send links and photos from the share button.
+- **Phone keyboard and touchpad:** type into any text field on the TV (Wi-Fi passwords, searches) and
+  swipe to move (moving needs Android 13+ on the TV).
+- **Smoother by itself:** when frames run late, the glint on the tiles switches off until it's smooth.
+- **Faster start:** a startup profile is compiled in, also for updates without the laptop.
 
 ## New in 21.0
 

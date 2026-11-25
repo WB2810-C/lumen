@@ -1,0 +1,4 @@
+# PlaizierOS: the code that runs on every start and every screen, compiled ahead of time
+# (Android installs this profile when the app is installed or updated, also without a laptop).
+HSPLcom/wolfram/lumen/**->**(**)**
+Lcom/wolfram/lumen/**;

@@ -317,6 +317,27 @@ fun lumenTools(): JSONArray = JSONArray().apply {
         JSONObject().put("query", stringProp("What to search for.")), listOf("query")))
     put(tool("start_screensaver", "Show the big clock screensaver (ambient mode)."))
     put(tool("get_headlines", "Get the latest VRT NWS news headlines with short summaries (Belgian news, in Dutch)."))
+    put(tool("set_volume", "Change the TV's volume.",
+        JSONObject()
+            .put("action", stringProp("What to do.", listOf("up", "down", "mute", "unmute")))
+            .put("steps", JSONObject().put("type", "integer").put("description", "How many steps up or down (1 to 10, usually 2).")),
+        listOf("action")))
+    put(tool("search_netflix", "Open Netflix on a search, e.g. a genre, a title or an actor. Write the search yourself when the user describes a mood (\"something funny\" → \"comedy\").",
+        JSONObject().put("query", stringProp("What to search for on Netflix.")), listOf("query")))
+    put(tool("remember", "Remember something the user asks you to remember. It is kept on the TV and shown in Settings → SPECTRE memory.",
+        JSONObject().put("fact", stringProp("What to remember, as a short sentence about the user.")), listOf("fact")))
+    put(tool("forget", "Forget something you were asked to remember.",
+        JSONObject().put("fact", stringProp("A few words from the thing to forget.")), listOf("fact")))
+    put(tool("add_countdown", "Add a countdown to a big date; the home screen counts down to it.",
+        JSONObject().put("title", stringProp("A short name, e.g. \"Oasis Amsterdam\".")).put("date", stringProp("The date as YYYY-MM-DD.")),
+        listOf("title", "date")))
+    put(tool("start_focus", "Start focus mode: a calm dark screen with a big timer, for homework or studying.",
+        JSONObject()
+            .put("minutes", JSONObject().put("type", "integer").put("description", "How long, in minutes (5 to 180).")),
+        listOf("minutes")))
+    put(tool("stop_focus", "Stop focus mode."))
+    put(tool("goodnight", "Goodnight: pause the music, make the screen dark and quiet, and optionally switch the TV off after some minutes.",
+        JSONObject().put("sleep_minutes", JSONObject().put("type", "integer").put("description", "Minutes until the TV switches off; 0 for no timer."))))
     if (LumenConfig.ASSISTANT_WEB_SEARCH) {
         put(
             JSONObject()
@@ -340,6 +361,7 @@ fun assistantSystemPrompt(
     inputs: List<Tile>,
     theme: LumenTheme,
     webSearch: Boolean = true,
+    extra: String = "",
     themeName: (LumenTheme) -> String,
 ): String {
     val current = if (webSearch) {
@@ -355,7 +377,8 @@ fun assistantSystemPrompt(
         (usually Dutch or English) in one to three short sentences. No markdown, no lists unless asked.
 
         You can control the TV with tools: open apps, switch HDMI inputs, change the colour theme,
-        show pages, search YouTube, read the VRT NWS headlines and start the screensaver. When asked to do one of these, use the
+        show pages, search YouTube and Netflix, change the volume, remember things, add countdowns,
+        start focus mode, say goodnight, read the VRT NWS headlines and start the screensaver. When asked to do one of these, use the
         tool, then confirm in a few words. $current
 
         Installed apps: ${apps.joinToString { it.label }.ifBlank { "unknown" }}
@@ -363,7 +386,7 @@ fun assistantSystemPrompt(
         Themes: ${BACKGROUNDS.joinToString { "${it.id} (${themeName(it)})" }}
         Current theme: ${theme.id}
         Local time: $now. Location: ${LumenConfig.CITY}, ${LumenConfig.COUNTRY}.
-    """.trimIndent()
+    """.trimIndent() + if (extra.isNotBlank()) "\n\n" + extra.trim() else ""
 }
 
 /** A friendly message for when something goes wrong. */

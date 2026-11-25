@@ -79,7 +79,7 @@ fun shouldRest(idleMs: Long, bareHome: Boolean): Boolean = bareHome && idleMs >=
 
 /** "Good evening, Wolfram", and under it the date and the weather. */
 @Composable
-fun GreetingBlock(weather: WeatherNow?, modifier: Modifier = Modifier) {
+fun GreetingBlock(weather: WeatherNow?, countdown: String? = null, modifier: Modifier = Modifier) {
     val now = rememberNow()
     val hour = remember(now) { Calendar.getInstance().apply { timeInMillis = now }.get(Calendar.HOUR_OF_DAY) }
     val date = remember(now) {
@@ -103,6 +103,11 @@ fun GreetingBlock(weather: WeatherNow?, modifier: Modifier = Modifier) {
                 Spacer(Modifier.width(5.dp))
                 Text("${weather.temperature}° ${LumenConfig.CITY}", style = small, maxLines = 1)
             }
+        }
+        // Your nearest countdown, quietly under the date ("Oasis in 214 days").
+        if (countdown != null) {
+            Spacer(Modifier.height(5.dp))
+            Text(countdown, style = TextStyle(color = quiet, fontSize = 12.sp, fontWeight = FontWeight.Medium, shadow = shadow), maxLines = 1)
         }
     }
 }

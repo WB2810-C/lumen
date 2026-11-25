@@ -68,6 +68,11 @@ data class WeatherNow(
     val intensity: Float,
     /** Chance of rain today in %, if known. */
     val rainChance: Int? = null,
+    /** Today's sunrise and sunset (epoch ms), for the living sky. */
+    val sunrise: Long? = null,
+    val sunset: Long? = null,
+    /** Minutes until rain starts (within about an hour), or null when it stays dry. */
+    val rainSoonMinutes: Int? = null,
 )
 
 /** WMO weather codes → our sky. */
@@ -94,7 +99,8 @@ suspend fun fetchWeather(): WeatherNow {
     val url = "https://api.open-meteo.com/v1/forecast" +
         "?latitude=${LumenConfig.LATITUDE}&longitude=${LumenConfig.LONGITUDE}" +
         "&current=temperature_2m,weather_code,is_day" +
-        "&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max&forecast_days=1&timezone=auto"
+        "&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max,sunrise,sunset" +
+        "&minutely_15=precipitation&forecast_minutely_15=6&forecast_days=1&timezone=auto"
     val json = JSONObject(Net.get(url))
     val current = json.getJSONObject("current")
     val daily = json.getJSONObject("daily")
@@ -107,6 +113,21 @@ suspend fun fetchWeather(): WeatherNow {
         isDay = current.optInt("is_day", 1) == 1,
         intensity = intensityFor(code),
         rainChance = daily.optJSONArray("precipitation_probability_max")?.optInt(0, -1)?.takeIf { it >= 0 },
+        sunrise = localIsoToMillis(daily.optJSONArray("sunrise")?.optString(0)),
+        sunset = localIsoToMillis(daily.optJSONArray("sunset")?.optString(0)),
+        rainSoonMinutes = json.optJSONObject("minutely_15")?.let { q ->
+            val times = q.optJSONArray("time")
+            val rain = q.optJSONArray("precipitation")
+            if (times == null || rain == null || skyFor(code) in setOf(Sky.RAIN, Sky.DRIZZLE, Sky.THUNDER)) {
+                null
+            } else {
+                rainSoon(
+                    List(times.length()) { times.optString(it) },
+                    List(rain.length()) { rain.optDouble(it, 0.0) },
+                    current.optString("time"),
+                )
+            }
+        },
     )
 }
 
@@ -124,13 +145,19 @@ private class Drop(var x: Float, var y: Float, val speed: Float, val length: Flo
  * and twinkling stars on clear nights.
  */
 @Composable
-fun WeatherSky(weather: WeatherNow?, modifier: Modifier = Modifier) {
-    if (weather == null || !LumenConfig.WEATHER_EFFECTS) return
+fun WeatherSky(
+    weather: WeatherNow?,
+    modifier: Modifier = Modifier,
+    calm: Boolean = false,
+    force: Boolean = false,
+    noStars: Boolean = false,
+) {
+    if (weather == null || !LumenConfig.WEATHER_EFFECTS && !force) return
     val theme = LocalLumenTheme.current
     val sky = weather.sky
     val falling = sky == Sky.RAIN || sky == Sky.DRIZZLE || sky == Sky.THUNDER || sky == Sky.SNOW
-    val stars = !weather.isDay && (sky == Sky.CLEAR || sky == Sky.PARTLY)
-    val animated = LumenConfig.LIVING_BACKGROUND && (falling || stars || sky == Sky.FOG || sky == Sky.THUNDER)
+    val stars = !noStars && !weather.isDay && (sky == Sky.CLEAR || sky == Sky.PARTLY)
+    val animated = !calm && LumenConfig.LIVING_BACKGROUND && (falling || stars || sky == Sky.FOG || sky == Sky.THUNDER)
 
     var time by remember { mutableFloatStateOf(0f) }
     var flash by remember { mutableFloatStateOf(0f) }

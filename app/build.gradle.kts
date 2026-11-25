@@ -25,8 +25,8 @@ android {
         applicationId = "com.wolfram.lumen"
         minSdk = 26          // Android TV 8.0 and newer
         targetSdk = 35
-        versionCode = 26
-        versionName = "21.0.4"
+        versionCode = 27
+        versionName = "21.1"
         buildConfigField("String", "OLLAMA_HOST", "\"$ollamaHost\"")
     }
 
@@ -93,6 +93,8 @@ dependencies {
 
     // Talks to Apple's calendar server (CalDAV needs PROPFIND and REPORT requests).
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
+    // Installs the baseline profile (src/main/baseline-prof.txt): faster from the very first start.
+    implementation("androidx.profileinstaller:profileinstaller:1.4.1")
 
     // Unit tests for the pure logic (run by GitHub before every build).
     testImplementation("junit:junit:4.13.2")

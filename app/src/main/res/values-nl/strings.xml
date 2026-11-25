@@ -155,7 +155,7 @@
     <string name="screen_hdr">HDR: %1$s</string>
     <string name="screen_no_hdr">geen HDR</string>
     <string name="home_guard_label">PlaizierOS-thuisslot</string>
-    <string name="home_guard_description">Houdt PlaizierOS als startscherm: vangt de Home-knop op en brengt PlaizierOS terug als het Google TV-startscherm verschijnt. Leest geen scherminhoud.</string>
+    <string name="home_guard_description">Houdt PlaizierOS als startscherm: vangt de Home-knop op en brengt PlaizierOS terug als het Google TV-startscherm verschijnt. Voor het telefoontoetsenbord kijkt het alleen naar het tekstveld waarin je typt.</string>
     <string name="check_title">PlaizierOS-controle</string>
     <string name="check_open">PlaizierOS-controle</string>
     <string name="check_home">PlaizierOS is het startscherm</string>
@@ -168,4 +168,23 @@
     <string name="check_last_key">Laatste knop op de afstandsbediening: %1$s</string>
     <string name="check_picture">Scherpste beeld: %1$s, getekend op %2$s</string>
     <string name="check_fix_picture">Deze tv kan %1$s tonen. Start Install-PlaizierOS.bat opnieuw: die kiest zelf het hoogste beeld.</string>
+    <string name="action_remembered">Onthouden</string>
+    <string name="action_forgotten">Vergeten</string>
+    <string name="action_countdown">Aftellen: %1$s</string>
+    <string name="action_focus">Focus %1$d min</string>
+    <string name="action_sleep">Uit over %1$d min</string>
+    <string name="action_goodnight">Slaapwel</string>
+    <string name="focus_label">Focus</string>
+    <string name="memory_title">SPECTRE-geheugen</string>
+    <string name="memory_hint">Wat je SPECTRE vroeg te onthouden. Voeg meer toe met “onthoud dat…”, of op de telefoonafstandsbediening.</string>
+    <string name="memory_empty">Nog niets. Zeg “SPECTRE, onthoud dat mijn bus om 7:42 vertrekt”.</string>
+    <string name="countdowns_title">Aftellen</string>
+    <string name="countdowns_hint">De dichtstbijzijnde staat onder de begroeting op het startscherm. Voeg ze toe op de telefoonafstandsbediening of vraag het SPECTRE.</string>
+    <string name="countdowns_empty">Nog niets om af te tellen. Voeg iets toe op de telefoonafstandsbediening, zoals het Oasis-concert in Amsterdam.</string>
+    <string name="note_rain_soon">Regen over ongeveer %1$d minuten</string>
+    <string name="note_aurora">Vannacht misschien noorderlicht · kijk naar het noorden</string>
+    <string name="note_welcome">Welkom terug. %1$s</string>
+    <string name="note_welcome_weather">Het is %1$d° en %2$s.</string>
+    <string name="note_focus_done">Focus klaar. Tijd voor een pauze</string>
+    <string name="send_no_app">Niets op deze tv kan die link openen.</string>
 </resources>

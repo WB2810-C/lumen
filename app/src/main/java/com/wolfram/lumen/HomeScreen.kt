@@ -48,6 +48,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -160,6 +161,28 @@ fun LumenApp(
     // "More" in the dock: phone remote, search, colours, Wi-Fi, TV settings.
     var moreOpen by remember { mutableStateOf(false) }
     var checkOpen by remember { mutableStateOf(false) }
+    // SPECTRE's memory and your countdowns (Settings lists), focus mode, goodnight, Island messages.
+    var memoryOpen by remember { mutableStateOf(false) }
+    var countdownsOpen by remember { mutableStateOf(false) }
+    var dataTick by remember { mutableIntStateOf(0) }
+    var focusUntil by remember { mutableLongStateOf(0L) }
+    var focusLabel by remember { mutableStateOf("") }
+    var sleepAt by remember { mutableLongStateOf(0L) }
+    var note by remember { mutableStateOf<IslandNote?>(null) }
+    var noteUntil by remember { mutableLongStateOf(0L) }
+    val showNote: (IslandNote, Long) -> Unit = { n, ms ->
+        note = n
+        noteUntil = System.currentTimeMillis() + ms
+    }
+    LaunchedEffect(note, noteUntil) {
+        if (note != null) {
+            delay((noteUntil - System.currentTimeMillis()).coerceAtLeast(0L))
+            note = null
+        }
+    }
+    val memory = remember(dataTick) { SpectreMemory.all(context) }
+    val countdowns = remember(dataTick) { Countdowns.all(context) }
+    val dutchUi = java.util.Locale.getDefault().language == "nl"
     // The couch-tv scenes behind everything; they take turns while you're not using the remote.
     // The background you picked on the Themes page (while browsing there, the one you are on).
     val sceneState = rememberSceneRotation(lastInputAt, previewTheme?.id ?: themeId)
@@ -550,12 +573,88 @@ fun LumenApp(
                 onAmbientChange(true)
                 ToolOutcome("The screensaver is on.", chip = context.getString(R.string.action_screensaver))
             }
+            "set_volume" -> {
+                val action = input.optString("action")
+                val result = Volume.change(context, action, input.optInt("steps", 2))
+                if (result == null) {
+                    ToolOutcome("This TV doesn't let apps change the volume.", isError = true)
+                } else {
+                    ToolOutcome("Volume $action, now $result.", chip = "Volume $result")
+                }
+            }
+            "search_netflix" -> {
+                val query = input.optString("query")
+                assistantOpen = false
+                delay(300)
+                if (Launcher.searchNetflix(activity, query)) {
+                    ToolOutcome("Netflix is searching for \"$query\".", chip = "Netflix: $query")
+                } else {
+                    ToolOutcome("Netflix is not installed on this TV.", isError = true)
+                }
+            }
+            "remember" -> {
+                val item = SpectreMemory.add(context, input.optString("fact"))
+                dataTick++
+                if (item == null) ToolOutcome("There was nothing to remember.", isError = true)
+                else ToolOutcome("Remembered: ${item.text}", chip = context.getString(R.string.action_remembered))
+            }
+            "forget" -> {
+                val gone = SpectreMemory.forgetMatching(context, input.optString("fact"))
+                dataTick++
+                if (gone == null) ToolOutcome("Nothing like that was remembered.", isError = true)
+                else ToolOutcome("Forgot: ${gone.text}", chip = context.getString(R.string.action_forgotten))
+            }
+            "list_memory" -> ToolOutcome(SpectreMemory.all(context).joinToString("\n") { "- ${it.text}" }.ifBlank { "Nothing remembered yet." })
+            "add_countdown" -> {
+                val added = Countdowns.add(context, input.optString("title"), input.optString("date"))
+                dataTick++
+                if (added == null) ToolOutcome("Use a title and a date like 2027-06-19.", isError = true)
+                else ToolOutcome("Countdown added: ${added.title} on ${added.date}.", chip = context.getString(R.string.action_countdown, added.title))
+            }
+            "list_countdowns" -> {
+                val today = java.time.LocalDate.now()
+                val list = Countdowns.all(context).mapNotNull { c ->
+                    daysUntil(c.date, today)?.takeIf { it >= 0 }?.let { "${c.title}: ${c.date}, in $it days" }
+                }
+                ToolOutcome(list.joinToString("\n").ifBlank { "No countdowns yet." })
+            }
+            "start_focus" -> {
+                val minutes = input.optInt("minutes", 45).coerceIn(5, 180)
+                focusLabel = input.optString("label").ifBlank { context.getString(R.string.focus_label) }
+                assistantOpen = false
+                onRestingChange(false)
+                focusUntil = System.currentTimeMillis() + minutes * 60_000L
+                ToolOutcome("Focus mode is on for $minutes minutes.", chip = context.getString(R.string.action_focus, minutes))
+            }
+            "stop_focus" -> {
+                focusUntil = 0L
+                ToolOutcome("Focus mode is off.")
+            }
+            "goodnight" -> {
+                val minutes = input.optInt("sleep_minutes", 0).coerceIn(0, 240)
+                if (nowPlaying.current?.isPlaying == true) nowPlaying.playPause()
+                assistantOpen = false
+                focusUntil = 0L
+                delay(400)
+                onAmbientChange(true)
+                sleepAt = if (minutes > 0) System.currentTimeMillis() + minutes * 60_000L else 0L
+                ToolOutcome(
+                    if (minutes > 0) "Goodnight. The TV switches off in $minutes minutes." else "Goodnight. The screen is dark and quiet.",
+                    chip = if (minutes > 0) context.getString(R.string.action_sleep, minutes) else context.getString(R.string.action_goodnight),
+                )
+            }
             else -> ToolOutcome("Unknown tool $name", isError = true)
         }
     }
     val latestRunTool by rememberUpdatedState(runTool)
     val latestPrompt by rememberUpdatedState<(Boolean) -> String> { webSearch ->
-        assistantSystemPrompt(apps, inputs, themeById(themeId), webSearch) { context.getString(it.name) }
+        val today = java.time.LocalDate.now()
+        val extra = buildString {
+            if (memory.isNotEmpty()) append("Things ${LumenConfig.OWNER_NAME.ifBlank { "the owner" }} asked you to remember:\n" + memory.joinToString("\n") { "- ${it.text}" } + "\n")
+            val upcoming = countdowns.mapNotNull { c -> daysUntil(c.date, today)?.takeIf { it >= 0 }?.let { "- ${c.title}: ${c.date} (in $it days)" } }
+            if (upcoming.isNotEmpty()) append("Countdowns on the home screen:\n" + upcoming.joinToString("\n"))
+        }
+        assistantSystemPrompt(apps, inputs, themeById(themeId), webSearch, extra) { context.getString(it.name) }
     }
     // First Lumen tries to handle it by itself (free, instant). Only other questions go to an AI.
     val liveInfo = LiveInfo(weather, news, matches, history, inputs, nowPlaying.current != null)
@@ -648,6 +747,17 @@ fun LumenApp(
                 Sounds.play(Sound.SELECT)
                 viewer = files.indexOfFirst { it.absolutePath == cmd.path }.coerceAtLeast(0)
             }
+            is RemoteCommand.Send -> {
+                phoneOpen = false
+                onAmbientChange(false)
+                if (!Launcher.openLink(activity, cmd.url)) {
+                    Toast.makeText(context, context.getString(R.string.send_no_app), Toast.LENGTH_LONG).show()
+                }
+            }
+            is RemoteCommand.DataChanged -> {
+                dataTick++
+                if (cmd.message.isNotBlank()) Toast.makeText(context, cmd.message, Toast.LENGTH_SHORT).show()
+            }
             is RemoteCommand.Media -> when (cmd.action) {
                 "toggle" -> nowPlaying.playPause()
                 "next" -> nowPlaying.next()
@@ -660,7 +770,8 @@ fun LumenApp(
     }
     // Keep the phone's view of the TV up to date.
     val current = nowPlaying.current
-    LaunchedEffect(apps, inputs, favourites, themeId, current?.title, current?.isPlaying, accountsTick, oasis, oasisProblem) {
+    LaunchedEffect(apps, inputs, favourites, themeId, current?.title, current?.isPlaying, accountsTick, oasis, oasisProblem, dataTick) {
+        val today = java.time.LocalDate.now()
         fun list(tiles: List<Tile>) = JSONArray(tiles.map { JSONObject().put("key", it.key).put("label", it.label) })
         RemoteBridge.stateJson = JSONObject()
             .put("apps", list(apps))
@@ -677,6 +788,11 @@ fun LumenApp(
             .put("jarvisGroq", JarvisKeys.has(context, Brain.GROQ))
             .put("jarvisBrain", JarvisKeys.brain(context).id)
             .put(
+                "countdowns",
+                JSONArray(countdowns.map { JSONObject().put("id", it.id).put("title", it.title).put("date", it.date).put("days", daysUntil(it.date, today) ?: -1) }),
+            )
+            .put("memory", JSONArray(memory.map { JSONObject().put("id", it.id).put("text", it.text) }))
+            .put(
                 "nowPlaying",
                 current?.let { JSONObject().put("title", it.title).put("artist", it.artist).put("app", it.appName).put("playing", it.isPlaying) }
                     ?: JSONObject.NULL,
@@ -687,13 +803,53 @@ fun LumenApp(
     // The island only shows on the home screen itself.
     // Only whether the welcome animation is over matters here (not each of its frames).
     val introDone by remember { androidx.compose.runtime.derivedStateOf { intro.value >= 1f } }
-    val islandVisible = tab == Tab.HOME && !assistantOpen && !phoneOpen && !moreOpen && !checkOpen && !agendaOpen && viewer == null && chooser == null && !ambient && !takeover.isBusy && introDone
+    val islandVisible = tab == Tab.HOME && !assistantOpen && !phoneOpen && !moreOpen && !checkOpen && !memoryOpen && !countdownsOpen &&
+        focusUntil == 0L && !agendaOpen && viewer == null && chooser == null && !ambient && !takeover.isBusy && introDone
     val latestIslandVisible by rememberUpdatedState(islandVisible)
     LaunchedEffect(goal) {
         if (goal != null) {
             if (latestIslandVisible) Sounds.play(Sound.GOAL)
             delay(8_000)
             goal = null
+        }
+    }
+
+    // The goodnight sleep timer: the TV switches itself off (through the home lock), or at least goes dark.
+    LaunchedEffect(sleepAt) {
+        if (sleepAt > 0L) {
+            delay((sleepAt - System.currentTimeMillis()).coerceAtLeast(0L))
+            sleepAt = 0L
+            if (!HomeGuard.sleepTv()) onAmbientChange(true)
+        }
+    }
+    // Rain soon, the northern lights, and "welcome back": short messages in the Island.
+    val kpLive by rememberLive("kp", 30 * 60_000L, resumeTick) { fetchKp() }
+    val aurora = auroraLikely(kpLive.value, weather?.isDay ?: true)
+    LaunchedEffect(weather?.rainSoonMinutes) {
+        weather?.rainSoonMinutes?.let { minutes ->
+            showNote(IslandNote(context.getString(R.string.note_rain_soon, minutes), Color(0xFF7FB8FF)), 20_000L)
+        }
+    }
+    LaunchedEffect(aurora) {
+        if (aurora) showNote(IslandNote(context.getString(R.string.note_aurora), Color(0xFF3DFFA8)), 30_000L)
+    }
+    LaunchedEffect(resumeTick) {
+        val prefs = context.getSharedPreferences("spectre", android.content.Context.MODE_PRIVATE)
+        val now = System.currentTimeMillis()
+        val last = prefs.getLong("last_seen", 0L)
+        val hour = java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY)
+        val today = java.time.LocalDate.now().toString()
+        if (last > 0L && now - last >= 3 * 3_600_000L && hour in 14..21 && prefs.getString("welcomed", "") != today) {
+            prefs.edit().putString("welcomed", today).apply()
+            delay(2_500)
+            val soon = nextCountdown(Countdowns.all(context), java.time.LocalDate.now())?.takeIf { it.second <= 7 }
+            val w = weather
+            val extra = when {
+                soon != null -> countdownText(soon.first.title, soon.second, dutchUi) + "."
+                w != null -> context.getString(R.string.note_welcome_weather, w.temperature, context.getString(w.sky.label).lowercase())
+                else -> ""
+            }
+            showNote(IslandNote(context.getString(R.string.note_welcome, extra).trim(), SilverNight.Silver), 12_000L)
         }
     }
 
@@ -737,11 +893,23 @@ fun LumenApp(
         }
     }
 
+    // The nearest countdown under the greeting ("Oasis in 214 days"), checked every hour.
+    val hourNow = rememberNow() / 3_600_000L
+    val countdownLine = remember(countdowns, hourNow, dutchUi) {
+        nextCountdown(countdowns, java.time.LocalDate.now())?.let { (c, days) -> countdownText(c.title, days, dutchUi) }
+    }
+
     CompositionLocalProvider(LocalLumenTheme provides theme) {
         Box(Modifier.fillMaxSize()) {
             val loadedScene = sceneState.value
             // One ready-made picture; on the other pages the same picture, darker and without the clock.
             SceneStage(loadedScene, showClock = tab == Tab.HOME, clockFont = ClockFont.byId(clockFontId), dimmed = tab != Tab.HOME)
+            if (tab == Tab.HOME) {
+                // The living sky: the light follows the real sun; rain and fog show as they are outside.
+                val skyNow = rememberNow()
+                SkyLight(skyPhase(skyNow, weather?.sunrise, weather?.sunset, weather?.isDay ?: false), aurora)
+                WeatherSky(weather, calm = true, force = true, noStars = true)
+            }
             if (tab == Tab.HOME) {
                 SceneHome(
                     loaded = loadedScene,
@@ -751,6 +919,7 @@ fun LumenApp(
                     movingKey = movingKey,
                     firstFocus = dockFocus,
                     resting = resting,
+                    countdown = countdownLine,
                     onOpen = { t, r -> if (movingKey == null) openTile(t, r) },
                     onHold = { t ->
                         if (t.kind == TileKind.APP || t.kind == TileKind.CONSOLE) {
@@ -781,7 +950,7 @@ fun LumenApp(
                         Sounds.play(Sound.SELECT)
                         movingKey = null
                     },
-                    island = { DynamicIsland(matches, goal, islandVisible, music = nowPlaying.current?.takeIf { it.isPlaying }) },
+                    island = { DynamicIsland(matches, goal, islandVisible, music = nowPlaying.current?.takeIf { it.isPlaying }, note = note) },
                 )
             } else {
                 // The other pages sit on the same scene, darkened. Back returns to the home screen.
@@ -835,11 +1004,58 @@ fun LumenApp(
                     onNetwork = { moreOpen = false; Launcher.openNetwork(activity) },
                     onThemes = { moreOpen = false; tab = Tab.THEMES },
                     onCheck = { moreOpen = false; checkOpen = true },
+                    onMemory = { moreOpen = false; memoryOpen = true },
+                    onCountdowns = { moreOpen = false; countdownsOpen = true },
                     onClose = { moreOpen = false },
                 )
             }
             if (checkOpen) {
                 HealthPanel(loadedScene?.glassImage, onClose = { checkOpen = false })
+            }
+            if (memoryOpen) {
+                GlassListPanel(
+                    glass = loadedScene?.glassImage,
+                    title = stringResource(R.string.memory_title),
+                    hint = stringResource(R.string.memory_hint),
+                    empty = stringResource(R.string.memory_empty),
+                    entries = memory.map { it.id to (it.text to "") },
+                    onRemove = { id ->
+                        SpectreMemory.remove(context, id)
+                        dataTick++
+                    },
+                    onClose = { memoryOpen = false },
+                )
+            }
+            if (countdownsOpen) {
+                val today = java.time.LocalDate.now()
+                GlassListPanel(
+                    glass = loadedScene?.glassImage,
+                    title = stringResource(R.string.countdowns_title),
+                    hint = stringResource(R.string.countdowns_hint),
+                    empty = stringResource(R.string.countdowns_empty),
+                    entries = countdowns.map { c ->
+                        c.id to (c.title to (daysUntil(c.date, today)?.let { d -> if (d >= 0) countdownText(c.date, d, dutchUi) else c.date } ?: c.date))
+                    },
+                    onRemove = { id ->
+                        Countdowns.remove(context, id)
+                        dataTick++
+                    },
+                    onClose = { countdownsOpen = false },
+                )
+            }
+            if (focusUntil > 0L) {
+                FocusOverlay(
+                    until = focusUntil,
+                    label = focusLabel,
+                    onStop = {
+                        val finished = System.currentTimeMillis() >= focusUntil
+                        focusUntil = 0L
+                        if (finished) {
+                            Sounds.play(Sound.SELECT)
+                            showNote(IslandNote(context.getString(R.string.note_focus_done), SilverNight.Signal), 15_000L)
+                        }
+                    },
+                )
             }
             TakeoverOverlay(takeover)
             AnimatedVisibility(

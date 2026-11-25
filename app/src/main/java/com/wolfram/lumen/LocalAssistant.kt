@@ -86,6 +86,71 @@ class LocalAssistant {
             )
         }
 
+        // Volume: "louder", "a bit quieter", "mute", "zet het geluid aan".
+        parseVolume(t)?.takeIf { words.size <= 6 }?.let { (action, steps) ->
+            val outcome = actions.tool("set_volume", JSONObject().put("action", action).put("steps", steps))
+            if (!outcome.isError) {
+                return LocalReply(
+                    when (action) {
+                        "up" -> say("Harder.", "Louder.")
+                        "down" -> say("Zachter.", "Quieter.")
+                        "mute" -> say("Geluid uit.", "Muted.")
+                        else -> say("Geluid aan.", "Sound on.")
+                    },
+                    listOfNotNull(outcome.chip),
+                )
+            }
+        }
+
+        // Goodnight, with an optional sleep timer: "goodnight", "slaapwel in 20 minuten".
+        parseGoodnight(t)?.takeIf { words.size <= 8 }?.let { minutes ->
+            val outcome = actions.tool("goodnight", JSONObject().put("sleep_minutes", minutes))
+            return LocalReply(
+                if (minutes > 0) say("Slaapwel. De tv gaat over $minutes minuten uit.", "Goodnight. The TV switches off in $minutes minutes.")
+                else say("Slaapwel.", "Goodnight."),
+                listOfNotNull(outcome.chip),
+            )
+        }
+
+        // Focus mode: "homework for 45 minutes", "focus 30", "huiswerk een uur".
+        parseFocusMinutes(t)?.takeIf { words.size <= 9 }?.let { minutes ->
+            val outcome = actions.tool("start_focus", JSONObject().put("minutes", minutes))
+            return LocalReply(say("Focus aan voor $minutes minuten. Succes!", "Focus on for $minutes minutes. Good luck!"), listOfNotNull(outcome.chip))
+        }
+
+        // SPECTRE's memory: "remember that…", "forget…", "what do you remember?".
+        parseRemember(question)?.let { fact ->
+            val outcome = actions.tool("remember", JSONObject().put("fact", fact))
+            return LocalReply(say("Onthouden.", "I'll remember that."), listOfNotNull(outcome.chip))
+        }
+        parseForget(question)?.let { fact ->
+            val outcome = actions.tool("forget", JSONObject().put("fact", fact))
+            return LocalReply(
+                if (outcome.isError) say("Dat had ik niet onthouden.", "I hadn't remembered that.") else say("Vergeten.", "Forgotten."),
+                listOfNotNull(outcome.chip),
+            )
+        }
+        if (phrase("what do you remember", "wat weet je over mij", "wat heb je onthouden", "what do you know about me")) {
+            val outcome = actions.tool("list_memory", JSONObject())
+            return LocalReply(say("Dit heb ik onthouden:\n", "This is what I remember:\n") + outcome.result)
+        }
+
+        // Countdowns: "how many days until Oasis?".
+        if (phrase("how many days", "hoeveel dagen", "countdown", "aftellen")) {
+            val outcome = actions.tool("list_countdowns", JSONObject())
+            return LocalReply(outcome.result)
+        }
+
+        // Netflix search: "search Netflix for Stranger Things", "zoek komedie op Netflix".
+        parseNetflixSearch(t)?.let { query ->
+            val outcome = actions.tool("search_netflix", JSONObject().put("query", query))
+            return LocalReply(
+                if (outcome.isError) say("Netflix staat niet op deze tv.", "Netflix isn't installed on this TV.")
+                else say("Ik zoek \"$query\" op Netflix.", "Searching Netflix for \"$query\"."),
+                listOfNotNull(outcome.chip),
+            )
+        }
+
         // Music and video: pause, play, next, previous (short commands only).
         if (words.size <= 4 && info.somethingPlaying) {
             val action = when {

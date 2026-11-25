@@ -67,7 +67,7 @@
   </header>
 
   <section class="card">
-    <div class="label">Ask PlaizierOS</div>
+    <div class="label">Ask SPECTRE</div>
     <form class="row" id="askForm">
       <input id="ask" placeholder="Ask anything…" autocomplete="off" enterkeyhint="send">
       <button class="go" aria-label="Send"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M4 12l16-8-6 16-2.5-6.5z"/></svg></button>
@@ -91,6 +91,39 @@
     <input type="file" id="file" accept="image/*,video/*,audio/*,application/pdf" multiple hidden>
     <div class="sub" id="pickSub">From your library, the Files app or iCloud Drive.</div>
     <div class="bar" id="bar"><div id="barFill"></div></div>
+  </section>
+
+  <section class="card">
+    <div class="label">Send to TV</div>
+    <form class="row" id="sendForm">
+      <input id="sendUrl" placeholder="Paste a YouTube, Spotify, Netflix or web link" autocomplete="off" enterkeyhint="send">
+      <button class="go">Send</button>
+    </form>
+    <details style="margin-top:10px">
+      <summary class="sub" style="cursor:pointer">Send from the iPhone share button (one-time Shortcut)</summary>
+      <div class="sub" style="margin-top:8px;line-height:1.5">
+        In the Shortcuts app: <b>+</b> → <b>Receive</b> <i>URLs and Images</i> from the <b>Share Sheet</b> → add
+        <b>Get contents of URL</b> with this address, Method <b>POST</b>, Request Body <b>JSON</b>, key <b>url</b> = <i>Shortcut Input</i>:
+        <div id="shortcutUrl" style="font-family:ui-monospace,monospace;word-break:break-all;background:var(--soft);padding:8px;border-radius:10px;margin:6px 0"></div>
+        For photos make a second one: Request Body <b>File</b> = <i>Shortcut Input</i>, to this address:
+        <div id="shortcutPhoto" style="font-family:ui-monospace,monospace;word-break:break-all;background:var(--soft);padding:8px;border-radius:10px;margin:6px 0"></div>
+        Name them "Send to TV" and "Photo to TV". Your phone must be on the same Wi-Fi as the TV.
+      </div>
+    </details>
+  </section>
+
+  <section class="card">
+    <div class="label">Keyboard &amp; touchpad</div>
+    <form class="row" id="typeForm">
+      <input id="typeText" placeholder="Type into the selected field on the TV" autocomplete="off" autocapitalize="off" enterkeyhint="send">
+      <button class="go">Type</button>
+    </form>
+    <div id="pad" style="margin-top:12px;height:170px;border-radius:18px;background:var(--soft);display:flex;align-items:center;justify-content:center;color:var(--mut);font-size:14px;touch-action:none;user-select:none">Swipe to move · tap for OK</div>
+    <div class="chips" style="margin-top:10px">
+      <button class="chip" data-pad="back">Back</button>
+      <button class="chip" data-pad="home">Home</button>
+    </div>
+    <div class="sub" id="padMsg" style="margin:8px 0 0"></div>
   </section>
 
   <section class="card">
@@ -158,6 +191,27 @@
         <button class="go">Connect</button>
       </div>
       <div class="sub" id="calMsg" style="margin:0"></div>
+    </form>
+  </section>
+
+  <section class="card">
+    <div class="label">Countdowns</div>
+    <div id="cdList"></div>
+    <form id="cdForm" style="display:flex;flex-direction:column;gap:8px;margin-top:10px">
+      <input id="cdTitle" placeholder="What? e.g. Oasis Amsterdam" autocomplete="off">
+      <div class="row">
+        <input id="cdDate" type="date">
+        <button class="go">Add</button>
+      </div>
+    </form>
+  </section>
+
+  <section class="card">
+    <div class="label">SPECTRE memory</div>
+    <div id="memList"></div>
+    <form class="row" id="memForm" style="margin-top:10px">
+      <input id="memText" placeholder="Something SPECTRE should remember" autocomplete="off">
+      <button class="go">Add</button>
     </form>
   </section>
 
@@ -288,8 +342,78 @@
   document.querySelectorAll('[data-media]').forEach(b =>
     b.addEventListener('click', () => api('/api/media', { action: b.dataset.media })));
 
-  let lastApps = '', lastThemes = '';
+  // Send to TV.
+  $('shortcutUrl').textContent = location.origin + '/api/send?k=' + key;
+  $('shortcutPhoto').textContent = location.origin + '/api/upload?k=' + key + '&name=photo.jpg';
+  $('sendForm').addEventListener('submit', async e => {
+    e.preventDefault();
+    const url = $('sendUrl').value.trim(); if (!url) return;
+    const r = await api('/api/send', { url }).catch(() => ({ error: 'The TV didn’t answer.' }));
+    if (r.ok) { $('sendUrl').value = ''; toast('Opening on the TV'); } else toast(r.error || 'Couldn’t send that');
+  });
+
+  // Keyboard and touchpad.
+  $('typeForm').addEventListener('submit', async e => {
+    e.preventDefault();
+    const r = await api('/api/type', { text: $('typeText').value }).catch(() => ({ error: 'The TV didn’t answer.' }));
+    $('padMsg').textContent = r.ok ? '' : (r.error || '');
+    if (r.ok) toast('Typed on the TV');
+  });
+  const padKey = async key2 => {
+    const r = await api('/api/dpad', { key: key2 }).catch(() => ({ error: 'The TV didn’t answer.' }));
+    $('padMsg').textContent = r.ok ? '' : (r.error || '');
+  };
+  document.querySelectorAll('[data-pad]').forEach(b => b.addEventListener('click', () => padKey(b.dataset.pad)));
+  (() => {
+    const pad = $('pad'); let sx = 0, sy = 0, moved = false;
+    pad.addEventListener('touchstart', e => { sx = e.touches[0].clientX; sy = e.touches[0].clientY; moved = false; }, { passive: true });
+    pad.addEventListener('touchmove', e => {
+      const dx = e.touches[0].clientX - sx, dy = e.touches[0].clientY - sy;
+      if (Math.max(Math.abs(dx), Math.abs(dy)) < 40) return;
+      padKey(Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'right' : 'left') : (dy > 0 ? 'down' : 'up'));
+      sx = e.touches[0].clientX; sy = e.touches[0].clientY; moved = true;
+    }, { passive: true });
+    pad.addEventListener('touchend', () => { if (!moved) padKey('ok'); });
+  })();
+
+  // Countdowns and SPECTRE memory.
+  function listRows(box, rows, onRemove) {
+    box.innerHTML = '';
+    rows.forEach(r => {
+      const line = document.createElement('div');
+      line.style.cssText = 'display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--line)';
+      const text = document.createElement('div'); text.style.flex = '1';
+      const main = document.createElement('div'); main.textContent = r.main; main.style.fontWeight = '600';
+      text.appendChild(main);
+      if (r.sub) { const sub = document.createElement('div'); sub.className = 'sub'; sub.style.margin = '0'; sub.textContent = r.sub; text.appendChild(sub); }
+      const x = document.createElement('button'); x.className = 'chip'; x.textContent = 'Remove';
+      x.addEventListener('click', () => onRemove(r.id));
+      line.appendChild(text); line.appendChild(x); box.appendChild(line);
+    });
+  }
+  $('cdForm').addEventListener('submit', async e => {
+    e.preventDefault();
+    const r = await api('/api/countdown/add', { title: $('cdTitle').value.trim(), date: $('cdDate').value }).catch(() => ({}));
+    if (r.ok) { $('cdTitle').value = ''; $('cdDate').value = ''; toast('Counting down on the TV'); refresh(); } else toast(r.error || 'Couldn’t add it');
+  });
+  $('memForm').addEventListener('submit', async e => {
+    e.preventDefault();
+    const r = await api('/api/memory/add', { text: $('memText').value.trim() }).catch(() => ({}));
+    if (r.ok) { $('memText').value = ''; toast('SPECTRE will remember'); refresh(); } else toast(r.error || 'Couldn’t add it');
+  });
+
+  let lastApps = '', lastThemes = '', lastLists = '';
   function render(state) {
+    const listsKey = JSON.stringify([state.countdowns, state.memory]);
+    if (listsKey !== lastLists) {
+      lastLists = listsKey;
+      listRows($('cdList'), (state.countdowns || []).map(c => ({
+        id: c.id, main: c.title,
+        sub: c.days === 0 ? 'Today' : c.days === 1 ? 'Tomorrow' : c.days > 1 ? c.date + ' · in ' + c.days + ' days' : c.date + ' · passed'
+      })), async id => { await api('/api/countdown/remove', { id }); refresh(); });
+      listRows($('memList'), (state.memory || []).map(m => ({ id: m.id, main: m.text })),
+        async id => { await api('/api/memory/remove', { id }); refresh(); });
+    }
     const apps = (state.favourites && state.favourites.length ? state.favourites : state.apps || []).concat(state.inputs || []).slice(0, 12);
     const appsKey = JSON.stringify(apps);
     if (appsKey !== lastApps) {

@@ -44,6 +44,7 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -200,7 +201,7 @@ suspend fun fetchLiveMatches(): List<LiveMatch> = fetchSchedule().live
  * When someone scores it opens up big for a few seconds, then shrinks back.
  */
 @Composable
-fun DynamicIsland(matches: List<LiveMatch>, goal: Goal?, visible: Boolean, music: NowPlaying? = null) {
+fun DynamicIsland(matches: List<LiveMatch>, goal: Goal?, visible: Boolean, music: NowPlaying? = null, note: IslandNote? = null) {
     var index by remember { mutableIntStateOf(0) }
     LaunchedEffect(matches.size) {
         while (matches.size > 1) {
@@ -211,19 +212,39 @@ fun DynamicIsland(matches: List<LiveMatch>, goal: Goal?, visible: Boolean, music
     // The home screen clears the goal again after a few seconds.
     val showGoal = goal != null
     AnimatedVisibility(
-        visible = visible && (matches.isNotEmpty() || music != null),
+        visible = visible && (matches.isNotEmpty() || music != null || note != null),
         enter = fadeIn(tween(300)) + scaleIn(initialScale = 0.6f),
         exit = fadeOut(tween(200)) + scaleOut(targetScale = 0.6f),
     ) {
+        // A short message (rain soon, welcome back, northern lights) comes first, unless someone just scored.
+        if (note != null && !showGoal) {
+            Box(
+                Modifier
+                    .shadow(16.dp, RoundedCornerShape(50), ambientColor = Color.Black, spotColor = note.tone)
+                    .clip(RoundedCornerShape(50))
+                    .background(Color.Black),
+            ) { NoteIsland(note) }
+            return@AnimatedVisibility
+        }
         // Music comes first: while a song plays, the island shows it instead of the score.
         // A goal still pops up for a few seconds, then the song comes back.
         if (music != null && !showGoal || matches.isEmpty()) {
             music?.let { m ->
+                // The Island glows in the album's own colour.
+                val tone = remember(m.art) {
+                    m.art?.let { art -> runCatching { vividColor(art.asAndroidBitmap()) }.getOrNull() }
+                }
                 Box(
                     Modifier
-                        .shadow(16.dp, RoundedCornerShape(50), ambientColor = Color.Black, spotColor = Color.Black)
+                        .shadow(16.dp, RoundedCornerShape(50), ambientColor = tone ?: Color.Black, spotColor = tone ?: Color.Black)
                         .clip(RoundedCornerShape(50))
-                        .background(Color.Black),
+                        .background(
+                            if (tone != null) {
+                                androidx.compose.ui.graphics.Brush.horizontalGradient(listOf(tone.copy(alpha = 0.55f), Color.Black, Color.Black))
+                            } else {
+                                androidx.compose.ui.graphics.SolidColor(Color.Black)
+                            },
+                        ),
                 ) { MusicIsland(m) }
             }
             return@AnimatedVisibility

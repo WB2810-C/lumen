@@ -156,7 +156,7 @@
     <string name="screen_hdr">HDR: %1$s</string>
     <string name="screen_no_hdr">no HDR</string>
     <string name="home_guard_label">PlaizierOS home lock</string>
-    <string name="home_guard_description">Keeps PlaizierOS as the home screen: it catches the Home button and brings PlaizierOS back when the Google TV home screen appears. It reads no screen content.</string>
+    <string name="home_guard_description">Keeps PlaizierOS as the home screen: it catches the Home button and brings PlaizierOS back when the Google TV home screen appears. For the phone keyboard it only looks at the text field you type into.</string>
     <string name="check_title">PlaizierOS check</string>
     <string name="check_open">PlaizierOS check</string>
     <string name="check_home">PlaizierOS is the home screen</string>
@@ -169,4 +169,23 @@
     <string name="check_last_key">Last remote button: %1$s</string>
     <string name="check_picture">Sharpest picture: %1$s, drawn at %2$s</string>
     <string name="check_fix_picture">This TV can show %1$s. Run Install-PlaizierOS.bat again: it picks the highest picture by itself.</string>
+    <string name="action_remembered">Remembered</string>
+    <string name="action_forgotten">Forgotten</string>
+    <string name="action_countdown">Countdown: %1$s</string>
+    <string name="action_focus">Focus %1$d min</string>
+    <string name="action_sleep">Off in %1$d min</string>
+    <string name="action_goodnight">Goodnight</string>
+    <string name="focus_label">Focus</string>
+    <string name="memory_title">SPECTRE memory</string>
+    <string name="memory_hint">What you asked SPECTRE to remember. Add more by saying “remember that…”, or on the phone remote.</string>
+    <string name="memory_empty">Nothing yet. Say “SPECTRE, remember that my bus leaves at 7:42”.</string>
+    <string name="countdowns_title">Countdowns</string>
+    <string name="countdowns_hint">The nearest one shows under the greeting on the home screen. Add them on the phone remote or ask SPECTRE.</string>
+    <string name="countdowns_empty">No countdowns yet. Add one on the phone remote, like the Oasis concert in Amsterdam.</string>
+    <string name="note_rain_soon">Rain in about %1$d minutes</string>
+    <string name="note_aurora">Northern lights possible tonight · look north</string>
+    <string name="note_welcome">Welcome back, sir. %1$s</string>
+    <string name="note_welcome_weather">It\'s %1$d° and %2$s.</string>
+    <string name="note_focus_done">Focus done. Time for a break</string>
+    <string name="send_no_app">Nothing on this TV can open that link.</string>
 </resources>

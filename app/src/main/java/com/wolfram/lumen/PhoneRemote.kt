@@ -74,6 +74,10 @@ sealed class RemoteCommand {
     data class LogoChanged(val console: String) : RemoteCommand()
     /** Spotify or the Apple calendar was connected or disconnected; [message] is shown on the TV. */
     data class AccountsChanged(val message: String) : RemoteCommand()
+    /** "Send to TV": a link from the iPhone (YouTube, Spotify, Netflix, a web page). */
+    data class Send(val url: String) : RemoteCommand()
+    /** Countdowns or SPECTRE's memory were changed on the phone. */
+    data class DataChanged(val message: String) : RemoteCommand()
 }
 
 /** The link between the little web server and the home screen. */
@@ -309,6 +313,43 @@ object PhoneRemoteServer {
                 val brain = Brain.byId(json.optString("brain")) ?: return respond(out, 400, "application/json", """{"error":"Pick Groq, Claude or Gemini."}""")
                 JarvisKeys.setBrain(context, brain)
                 command(out, RemoteCommand.AccountsChanged("SPECTRE now thinks with ${brain.label}"))
+            }
+            // "Send to TV" from the iPhone (share sheet Shortcut or the remote page): a link opens on the TV.
+            method == "POST" && path == "/api/send" -> {
+                val url = json.optString("url").ifBlank { json.optString("text") }.trim()
+                val link = Regex("https?://\\S+").find(url)?.value
+                if (link == null) respond(out, 400, "application/json", """{"error":"Send a link (https://…)."}""")
+                else command(out, RemoteCommand.Send(link.take(2000)))
+            }
+            // The phone's keyboard and touchpad, through the PlaizierOS home lock (it types into the focused field).
+            method == "POST" && path == "/api/type" -> {
+                if (HomeGuard.typeText(json.optString("text").take(500))) respond(out, 200, "application/json", """{"ok":true}""")
+                else respond(out, 400, "application/json", """{"error":"Select a text field on the TV first (and keep the home lock on)."}""")
+            }
+            method == "POST" && path == "/api/dpad" -> {
+                if (HomeGuard.dpad(json.optString("key"))) respond(out, 200, "application/json", """{"ok":true}""")
+                else respond(out, 400, "application/json", """{"error":"This TV doesn't let the home lock move around (Android 13 or newer is needed)."}""")
+            }
+            method == "POST" && path == "/api/countdown/add" -> {
+                val context = appContext ?: return respond(out, 400, "application/json", """{"error":"not ready"}""")
+                val added = Countdowns.add(context, json.optString("title"), json.optString("date"))
+                if (added == null) respond(out, 400, "application/json", """{"error":"Give it a name and a date."}""")
+                else command(out, RemoteCommand.DataChanged("Countdown: ${added.title}"))
+            }
+            method == "POST" && path == "/api/countdown/remove" -> {
+                val context = appContext ?: return respond(out, 400, "application/json", """{"error":"not ready"}""")
+                Countdowns.remove(context, json.optLong("id"))
+                command(out, RemoteCommand.DataChanged(""))
+            }
+            method == "POST" && path == "/api/memory/add" -> {
+                val context = appContext ?: return respond(out, 400, "application/json", """{"error":"not ready"}""")
+                if (SpectreMemory.add(context, json.optString("text")) == null) respond(out, 400, "application/json", """{"error":"Type something to remember."}""")
+                else command(out, RemoteCommand.DataChanged("SPECTRE will remember that"))
+            }
+            method == "POST" && path == "/api/memory/remove" -> {
+                val context = appContext ?: return respond(out, 400, "application/json", """{"error":"not ready"}""")
+                SpectreMemory.remove(context, json.optLong("id"))
+                command(out, RemoteCommand.DataChanged(""))
             }
             else -> respond(out, 404, "application/json", """{"error":"not found"}""")
         }

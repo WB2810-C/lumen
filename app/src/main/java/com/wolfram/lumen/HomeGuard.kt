@@ -80,6 +80,63 @@ class HomeGuard : AccessibilityService() {
     private var lastJump = 0L
     private val jumps = ArrayDeque<Long>()
 
+    override fun onServiceConnected() {
+        super.onServiceConnected()
+        instance = this
+    }
+
+    override fun onDestroy() {
+        if (instance === this) instance = null
+        super.onDestroy()
+    }
+
+    companion object {
+        @Volatile
+        private var instance: HomeGuard? = null
+
+        /** Switches the TV off (standby) for the goodnight sleep timer. False when the home lock isn't on. */
+        fun sleepTv(): Boolean {
+            val guard = instance ?: return false
+            return android.os.Build.VERSION.SDK_INT >= 28 && guard.performGlobalAction(GLOBAL_ACTION_LOCK_SCREEN)
+        }
+
+        /** The phone keyboard: puts [text] into the text field that is selected on the TV (in any app). */
+        fun typeText(text: String): Boolean {
+            val guard = instance ?: return false
+            return runCatching {
+                val field = guard.rootInActiveWindow?.findFocus(android.view.accessibility.AccessibilityNodeInfo.FOCUS_INPUT)
+                    ?: return false
+                if (!field.isEditable) return false
+                val args = android.os.Bundle().apply {
+                    putCharSequence(android.view.accessibility.AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, text)
+                }
+                field.performAction(android.view.accessibility.AccessibilityNodeInfo.ACTION_SET_TEXT, args)
+            }.getOrDefault(false)
+        }
+
+        /** The phone touchpad: up, down, left, right, ok (Android 13+), back and home (all TVs). */
+        fun dpad(key: String): Boolean {
+            val guard = instance ?: return false
+            val action = when (key) {
+                "back" -> GLOBAL_ACTION_BACK
+                "home" -> GLOBAL_ACTION_HOME
+                else -> if (android.os.Build.VERSION.SDK_INT >= 33) {
+                    when (key) {
+                        "up" -> GLOBAL_ACTION_DPAD_UP
+                        "down" -> GLOBAL_ACTION_DPAD_DOWN
+                        "left" -> GLOBAL_ACTION_DPAD_LEFT
+                        "right" -> GLOBAL_ACTION_DPAD_RIGHT
+                        "ok" -> GLOBAL_ACTION_DPAD_CENTER
+                        else -> return false
+                    }
+                } else {
+                    return false
+                }
+            }
+            return guard.performGlobalAction(action)
+        }
+    }
+
     override fun onKeyEvent(event: KeyEvent): Boolean {
         if (event.keyCode != KeyEvent.KEYCODE_HOME) return false
         if (event.action == KeyEvent.ACTION_UP) bringHome()

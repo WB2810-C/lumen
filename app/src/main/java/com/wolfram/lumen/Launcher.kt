@@ -59,6 +59,40 @@ object Launcher {
             start(activity, Intent(Intent.ACTION_VIEW, url), fade = true)
     }
 
+    /** "Play it for me" on Netflix: its search with [query] (or just Netflix, if it doesn't take searches). */
+    fun searchNetflix(activity: Activity, query: String): Boolean {
+        val pkg = "com.netflix.ninja"
+        val url = Uri.parse("https://www.netflix.com/search?q=" + Uri.encode(query))
+        return start(activity, Intent(Intent.ACTION_SEARCH).setPackage(pkg).putExtra(SearchManager.QUERY, query), fade = true) ||
+            start(activity, Intent(Intent.ACTION_VIEW, url).setPackage(pkg), fade = true) ||
+            activity.packageManager.getLeanbackLaunchIntentForPackage(pkg)?.let { start(activity, it, fade = true) } == true
+    }
+
+    /**
+     * "Send to TV": opens a link from the iPhone in the right app (YouTube, Spotify, Netflix),
+     * or in whatever app on the TV opens links. False when nothing on the TV can open it.
+     */
+    fun openLink(activity: Activity, link: String): Boolean {
+        val uri = Uri.parse(link)
+        val host = uri.host.orEmpty().lowercase()
+        val app = when {
+            host.endsWith("youtube.com") || host == "youtu.be" -> "com.google.android.youtube.tv"
+            host.endsWith("spotify.com") || host == "spotify.link" -> "com.spotify.tv.android"
+            host.endsWith("netflix.com") -> "com.netflix.ninja"
+            else -> null
+        }
+        // Spotify's TV app takes its own "spotify:track:…" links.
+        val spotify = if (app == "com.spotify.tv.android") {
+            val parts = uri.pathSegments.filter { it.isNotBlank() && !it.startsWith("intl-") }
+            if (parts.size >= 2) Uri.parse("spotify:${parts[0]}:${parts[1]}") else null
+        } else {
+            null
+        }
+        return (spotify != null && start(activity, Intent(Intent.ACTION_VIEW, spotify).setPackage(app), fade = true)) ||
+            (app != null && start(activity, Intent(Intent.ACTION_VIEW, uri).setPackage(app), fade = true)) ||
+            start(activity, Intent(Intent.ACTION_VIEW, uri), fade = true)
+    }
+
     private fun start(activity: Activity, intent: Intent, fade: Boolean): Boolean {
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         // A soft fade so the app appears out of the full-screen logo instead of sliding in.

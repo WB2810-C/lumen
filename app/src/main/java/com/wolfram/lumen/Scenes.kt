@@ -539,6 +539,7 @@ fun SceneHome(
     movingKey: String?,
     firstFocus: FocusRequester,
     resting: Boolean,
+    countdown: String?,
     onOpen: (Tile, Rect) -> Unit,
     onHold: (Tile) -> Unit,
     onMove: (Int) -> Unit,
@@ -552,7 +553,7 @@ fun SceneHome(
     Box(Modifier.fillMaxSize()) {
         Box(Modifier.fillMaxWidth().padding(top = 10.dp), contentAlignment = Alignment.TopCenter) { island() }
         // "Good evening, Wolfram" on the lake, under the glass clock and the mountains.
-        GreetingBlock(weather, Modifier.padding(top = HomeLayout.GreetingTop))
+        GreetingBlock(weather, countdown, Modifier.padding(top = HomeLayout.GreetingTop))
         SceneDock(
             dock = dock,
             tools = tools,
@@ -791,7 +792,8 @@ private fun GlassTile(
     )
     val sweep = remember { androidx.compose.animation.core.Animatable(1f) }
     LaunchedEffect(focused) {
-        if (focused) {
+        // The glint is the first extra to go when the TV can't keep up (see Smoothness).
+        if (focused && !Smoothness.reduced.value) {
             sweep.snapTo(0f)
             sweep.animateTo(1f, tween(700, easing = androidx.compose.animation.core.FastOutSlowInEasing))
         }
@@ -995,6 +997,8 @@ fun MorePanel(
     onNetwork: () -> Unit,
     onThemes: () -> Unit,
     onCheck: () -> Unit,
+    onMemory: () -> Unit,
+    onCountdowns: () -> Unit,
     onClose: () -> Unit,
 ) {
     androidx.activity.compose.BackHandler { onClose() }
@@ -1017,6 +1021,8 @@ fun MorePanel(
             MenuRow(stringResource(R.string.tab_themes), Modifier, onThemes)
             MenuRow(stringResource(R.string.wifi), Modifier, onNetwork)
             MenuRow(stringResource(R.string.settings), Modifier, onSettings)
+            MenuRow(stringResource(R.string.memory_title), Modifier, onMemory)
+            MenuRow(stringResource(R.string.countdowns_title), Modifier, onCountdowns)
             MenuRow(stringResource(R.string.check_open), Modifier, onCheck)
             CompositionLocalWhite { ScreenInfoLine(Modifier.padding(horizontal = 8.dp, vertical = 6.dp)) }
         }
