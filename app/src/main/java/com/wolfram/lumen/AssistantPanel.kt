@@ -114,6 +114,10 @@ class VoiceInput(
 
     /** Bumped on every start/cancel, so late answers from an old try are ignored. */
     private var session = 0
+
+    /** Acting mid-sentence: the latest partial text, and the check that acts on a clear TV command. */
+    private var lastPartial = ""
+    private var early: Runnable? = null
     private var ready = false
     private var finished = true
 
@@ -164,8 +168,22 @@ class VoiceInput(
             }
             override fun onPartialResults(partialResults: Bundle?) {
                 if (mySession != session) return
-                partialResults?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull()
-                    ?.takeIf { it.isNotBlank() }?.let(partialCallback)
+                val text = partialResults?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull()
+                    ?.takeIf { it.isNotBlank() } ?: return
+                partialCallback(text)
+                lastPartial = text
+                early?.let(handler::removeCallbacks)
+                // A clear TV command that stays the same for a moment: act now, don't wait for the end of speech.
+                if (looksLikeTvCommand(text)) {
+                    val check = Runnable {
+                        if (mySession == session && !finished && lastPartial == text) {
+                            runCatching { recognizer?.cancel() }
+                            finish(mySession) { finalCallback(text) }
+                        }
+                    }
+                    early = check
+                    handler.postDelayed(check, EARLY_MS)
+                }
             }
             override fun onEvent(eventType: Int, params: Bundle?) = Unit
         })
@@ -208,6 +226,8 @@ class VoiceInput(
         /** The recognizer inside Lumen didn't start (or doesn't work on this TV). */
         const val ERROR_NOT_STARTED = -100
         private const val START_TIMEOUT_MS = 4_000L
+        /** How long a partial TV command must stay the same before PlaizierOS acts on it. */
+        private const val EARLY_MS = 650L
         private const val MAX_LISTEN_MS = 20_000L
     }
 }

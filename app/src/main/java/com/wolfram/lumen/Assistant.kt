@@ -336,6 +336,7 @@ fun lumenTools(): JSONArray = JSONArray().apply {
             .put("minutes", JSONObject().put("type", "integer").put("description", "How long, in minutes (5 to 180).")),
         listOf("minutes")))
     put(tool("stop_focus", "Stop focus mode."))
+    put(tool("show_recap", "Show the weekly recap: most-played songs, final scores of the user's teams and time per app."))
     put(tool("goodnight", "Goodnight: pause the music, make the screen dark and quiet, and optionally switch the TV off after some minutes.",
         JSONObject().put("sleep_minutes", JSONObject().put("type", "integer").put("description", "Minutes until the TV switches off; 0 for no timer."))))
     if (LumenConfig.ASSISTANT_WEB_SEARCH) {

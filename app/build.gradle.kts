@@ -25,9 +25,11 @@ android {
         applicationId = "com.wolfram.lumen"
         minSdk = 26          // Android TV 8.0 and newer
         targetSdk = 35
-        versionCode = 27
-        versionName = "21.1"
+        versionCode = 28
+        versionName = "21.2"
         buildConfigField("String", "OLLAMA_HOST", "\"$ollamaHost\"")
+        // The GitHub build number, so PlaizierOS knows when a newer build is out (self-updates).
+        buildConfigField("int", "BUILD_NUMBER", System.getenv("GITHUB_RUN_NUMBER") ?: "0")
     }
 
     // One fixed key (app/lumen.jks), so every new build installs over the old one and keeps your settings.

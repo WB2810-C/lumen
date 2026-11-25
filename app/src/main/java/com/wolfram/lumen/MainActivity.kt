@@ -86,8 +86,14 @@ class MainActivity : ComponentActivity() {
         super.onDestroy()
     }
 
+    override fun onPause() {
+        Foreground.visible = false
+        super.onPause()
+    }
+
     override fun onResume() {
         super.onResume()
+        Foreground.visible = true
         requestSharpestPicture()
         wake()
         resumeTick.intValue += 1

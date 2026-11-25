@@ -188,4 +188,13 @@
     <string name="note_welcome_weather">It\'s %1$d° and %2$s.</string>
     <string name="note_focus_done">Focus done. Time for a break</string>
     <string name="send_no_app">Nothing on this TV can open that link.</string>
+    <string name="note_goal">Goal! %1$s</string>
+    <string name="note_bayern_win">Bayern win! %1$s</string>
+    <string name="note_update">PlaizierOS update ready (build %1$d) · Settings</string>
+    <string name="note_recap">Your weekly recap is ready · Settings</string>
+    <string name="recap_title">Weekly recap</string>
+    <string name="update_row">Update PlaizierOS (build %1$d)</string>
+    <string name="update_downloading">Downloading the update…</string>
+    <string name="update_failed">The update didn\'t work. Try again, or use the installer on your laptop.</string>
+    <string name="dream_label">PlaizierOS scene</string>
 </resources>

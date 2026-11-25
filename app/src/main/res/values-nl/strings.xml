@@ -187,4 +187,13 @@
     <string name="note_welcome_weather">Het is %1$d° en %2$s.</string>
     <string name="note_focus_done">Focus klaar. Tijd voor een pauze</string>
     <string name="send_no_app">Niets op deze tv kan die link openen.</string>
+    <string name="note_goal">Goal! %1$s</string>
+    <string name="note_bayern_win">Bayern wint! %1$s</string>
+    <string name="note_update">PlaizierOS-update klaar (build %1$d) · Instellingen</string>
+    <string name="note_recap">Je weekoverzicht staat klaar · Instellingen</string>
+    <string name="recap_title">Weekoverzicht</string>
+    <string name="update_row">PlaizierOS bijwerken (build %1$d)</string>
+    <string name="update_downloading">Update wordt gedownload…</string>
+    <string name="update_failed">De update lukte niet. Probeer opnieuw, of gebruik het installatieprogramma op je laptop.</string>
+    <string name="dream_label">PlaizierOS-scène</string>
 </resources>

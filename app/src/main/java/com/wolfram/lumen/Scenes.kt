@@ -999,6 +999,9 @@ fun MorePanel(
     onCheck: () -> Unit,
     onMemory: () -> Unit,
     onCountdowns: () -> Unit,
+    onRecap: () -> Unit,
+    updateLabel: String?,
+    onUpdate: () -> Unit,
     onClose: () -> Unit,
 ) {
     androidx.activity.compose.BackHandler { onClose() }
@@ -1023,6 +1026,8 @@ fun MorePanel(
             MenuRow(stringResource(R.string.settings), Modifier, onSettings)
             MenuRow(stringResource(R.string.memory_title), Modifier, onMemory)
             MenuRow(stringResource(R.string.countdowns_title), Modifier, onCountdowns)
+            MenuRow(stringResource(R.string.recap_title), Modifier, onRecap)
+            if (updateLabel != null) MenuRow(updateLabel, Modifier, onUpdate)
             MenuRow(stringResource(R.string.check_open), Modifier, onCheck)
             CompositionLocalWhite { ScreenInfoLine(Modifier.padding(horizontal = 8.dp, vertical = 6.dp)) }
         }

@@ -196,6 +196,20 @@ fun parseGoodnight(t: String): Int? {
     return Regex("(\\d{1,3})\\s*(min|minutes|minuten)?").find(s)?.groupValues?.get(1)?.toIntOrNull()?.coerceIn(1, 240) ?: 0
 }
 
+/**
+ * Acting mid-sentence: a short TV command ("open Netflix", "HDMI 2", "louder") is clear before you've
+ * finished talking, so PlaizierOS acts on it at once instead of waiting for the end of speech.
+ */
+fun looksLikeTvCommand(text: String): Boolean {
+    val t = text.lowercase(Locale.ROOT).trim()
+    val words = t.split(Regex("\\s+")).filter { it.isNotBlank() }
+    if (words.isEmpty() || words.size > 4) return false
+    return parseVolume(t) != null ||
+        Regex("^(open|start|launch|zet|ga naar)\\s+\\p{L}{3,}").containsMatchIn(t) ||
+        Regex("(hdmi|input|bron|ingang)\\s*\\d").containsMatchIn(t) ||
+        t in setOf("pause", "pauze", "next", "volgende", "previous", "vorige", "goodnight", "slaapwel", "welterusten")
+}
+
 /** "search Netflix for X", "zoek X op Netflix" → X, or null. */
 fun parseNetflixSearch(t: String): String? {
     val s = t.lowercase(Locale.ROOT)

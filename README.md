@@ -1,4 +1,20 @@
-# PlaizierOS 21.1 — a home screen for your Peaq Google TV
+# PlaizierOS 21.2 — a home screen for your Peaq Google TV
+
+## New in 21.2
+
+- **The scene as screensaver:** when the TV is idle it shows the Silver Night scene with the glass clock
+  behind the mountains instead of Google's ambient mode (the installer sets it; Back-to-Google-TV undoes it).
+- **The Island over other apps:** goals, a Bayern win and a finished focus timer appear over Netflix or a
+  console game for five seconds.
+- **Weekly recap:** your most-played songs, your teams' final scores and your time per app
+  (Settings → Weekly recap, "my week", and a reminder on Sunday evening).
+- **Self-updates:** PlaizierOS looks for a newer build on GitHub every few hours; Settings → Update
+  PlaizierOS installs it (the TV may ask once to confirm). Needs the lumen repository to be public.
+- **The scene celebrates:** fireworks over the lake at midnight on New Year's Eve, a red glint across the
+  lake when Bayern win.
+- **SPECTRE acts mid-sentence:** a clear TV command ("open Netflix", "HDMI 2", "louder") happens as soon as
+  it's clear, without waiting for you to stop talking.
+- **Your phone as microphone:** "Talk to SPECTRE" on the phone remote (or the iPhone keyboard's microphone).
 
 ## New in 21.1
 

@@ -72,6 +72,10 @@
       <input id="ask" placeholder="Ask anything…" autocomplete="off" enterkeyhint="send">
       <button class="go" aria-label="Send"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M4 12l16-8-6 16-2.5-6.5z"/></svg></button>
     </form>
+    <div class="chips" style="margin-top:10px">
+      <button class="chip" id="micBtn">🎙 Talk to SPECTRE</button>
+    </div>
+    <div class="sub" id="micMsg" style="margin:6px 0 0"></div>
     <div class="answer" id="answer"></div>
   </section>
 
@@ -341,6 +345,33 @@
 
   document.querySelectorAll('[data-media]').forEach(b =>
     b.addEventListener('click', () => api('/api/media', { action: b.dataset.media })));
+
+  // The phone as SPECTRE's microphone: hands-free, because the TV's microphone is in the remote.
+  (() => {
+    const Rec = window.SpeechRecognition || window.webkitSpeechRecognition;
+    const btn = $('micBtn');
+    if (!Rec) {
+      btn.addEventListener('click', () => { $('ask').focus(); $('micMsg').textContent = 'Tap the microphone on your iPhone keyboard and speak.'; });
+      return;
+    }
+    let rec = null;
+    btn.addEventListener('click', () => {
+      if (rec) { rec.stop(); return; }
+      rec = new Rec();
+      rec.lang = navigator.language && navigator.language.startsWith('nl') ? 'nl-BE' : (navigator.language || 'en-GB');
+      rec.interimResults = true;
+      rec.onresult = e => {
+        const text = Array.from(e.results).map(r => r[0].transcript).join('');
+        $('ask').value = text;
+        if (e.results[e.results.length - 1].isFinal) { rec.stop(); $('askForm').requestSubmit(); }
+      };
+      rec.onerror = () => { $('micMsg').textContent = 'Tap the field and use the microphone on your iPhone keyboard instead.'; };
+      rec.onend = () => { rec = null; btn.textContent = '🎙 Talk to SPECTRE'; };
+      btn.textContent = '● Listening… tap to stop';
+      $('micMsg').textContent = '';
+      try { rec.start(); } catch (err) { rec = null; $('micMsg').textContent = 'Tap the field and use the microphone on your iPhone keyboard.'; }
+    });
+  })();
 
   // Send to TV.
   $('shortcutUrl').textContent = location.origin + '/api/send?k=' + key;

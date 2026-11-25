@@ -180,6 +180,9 @@ fun LumenApp(
             note = null
         }
     }
+    var recapOpen by remember { mutableStateOf(false) }
+    var victoryTick by remember { mutableIntStateOf(0) }
+    var update by remember { mutableStateOf<Release?>(null) }
     val memory = remember(dataTick) { SpectreMemory.all(context) }
     val countdowns = remember(dataTick) { Countdowns.all(context) }
     val dutchUi = java.util.Locale.getDefault().language == "nl"
@@ -276,11 +279,23 @@ fun LumenApp(
     var goal by remember { mutableStateOf<Goal?>(null) }
     LaunchedEffect(Unit) {
         val lastScores = HashMap<String, Pair<Int, Int>>()
+        val wasLive = HashSet<String>()
         while (true) {
             val loaded = runCatching { fetchSchedule() }.getOrNull()
             if (loaded != null) schedule = loaded
             val found = loaded?.live ?: matches
             found.forEach { m ->
+                // A match that was live has just ended: into the weekly recap, and a glint if Bayern won.
+                if (m.id in wasLive && !m.live) {
+                    wasLive.remove(m.id)
+                    WeekLog.result(context, scoreLine(m))
+                    if (bayernWon(m)) {
+                        victoryTick++
+                        showNote(IslandNote(context.getString(R.string.note_bayern_win, scoreLine(m)), Color(0xFFDC052D)), 20_000L)
+                        FloatingIsland.show(context, context.getString(R.string.note_bayern_win, scoreLine(m)), 0xFFDC052D.toInt())
+                    }
+                }
+                if (m.live) wasLive.add(m.id)
                 val before = lastScores[m.id]
                 if (before != null) {
                     if (m.home.score > before.first) goal = Goal(m, m.home, System.currentTimeMillis())
@@ -626,6 +641,11 @@ fun LumenApp(
                 focusUntil = System.currentTimeMillis() + minutes * 60_000L
                 ToolOutcome("Focus mode is on for $minutes minutes.", chip = context.getString(R.string.action_focus, minutes))
             }
+            "show_recap" -> {
+                assistantOpen = false
+                recapOpen = true
+                ToolOutcome("Showing the weekly recap.")
+            }
             "stop_focus" -> {
                 focusUntil = 0L
                 ToolOutcome("Focus mode is off.")
@@ -770,6 +790,14 @@ fun LumenApp(
     }
     // Keep the phone's view of the TV up to date.
     val current = nowPlaying.current
+    // Every song that plays goes into the weekly recap.
+    LaunchedEffect(current?.title, current?.artist, current?.isPlaying) {
+        val song = current
+        if (song != null && song.isPlaying && song.title.isNotBlank()) {
+            delay(30_000)
+            WeekLog.song(context, song.title, song.artist)
+        }
+    }
     LaunchedEffect(apps, inputs, favourites, themeId, current?.title, current?.isPlaying, accountsTick, oasis, oasisProblem, dataTick) {
         val today = java.time.LocalDate.now()
         fun list(tiles: List<Tile>) = JSONArray(tiles.map { JSONObject().put("key", it.key).put("label", it.label) })
@@ -803,12 +831,14 @@ fun LumenApp(
     // The island only shows on the home screen itself.
     // Only whether the welcome animation is over matters here (not each of its frames).
     val introDone by remember { androidx.compose.runtime.derivedStateOf { intro.value >= 1f } }
-    val islandVisible = tab == Tab.HOME && !assistantOpen && !phoneOpen && !moreOpen && !checkOpen && !memoryOpen && !countdownsOpen &&
+    val islandVisible = tab == Tab.HOME && !assistantOpen && !phoneOpen && !moreOpen && !checkOpen && !memoryOpen && !countdownsOpen && !recapOpen &&
         focusUntil == 0L && !agendaOpen && viewer == null && chooser == null && !ambient && !takeover.isBusy && introDone
     val latestIslandVisible by rememberUpdatedState(islandVisible)
     LaunchedEffect(goal) {
         if (goal != null) {
             if (latestIslandVisible) Sounds.play(Sound.GOAL)
+            // Watching Netflix or playing on the Xbox: the goal floats over it for a few seconds.
+            goal?.let { g -> FloatingIsland.show(context, context.getString(R.string.note_goal, scoreLine(g.match)), 0xFFFF6A5C.toInt()) }
             delay(8_000)
             goal = null
         }
@@ -835,6 +865,22 @@ fun LumenApp(
     }
     LaunchedEffect(resumeTick) {
         val prefs = context.getSharedPreferences("spectre", android.content.Context.MODE_PRIVATE)
+        // Self-updates: look on GitHub at most every 6 hours.
+        if (System.currentTimeMillis() - prefs.getLong("update_checked", 0L) > 6 * 3_600_000L) {
+            prefs.edit().putLong("update_checked", System.currentTimeMillis()).apply()
+            update = Updater.newer()
+            update?.let { showNote(IslandNote(context.getString(R.string.note_update, it.build), SilverNight.Silver), 15_000L) }
+        }
+        // Sunday evening: the weekly recap is ready.
+        val calendar = java.util.Calendar.getInstance()
+        val week = "${calendar.get(java.util.Calendar.YEAR)}-${calendar.get(java.util.Calendar.WEEK_OF_YEAR)}"
+        if (calendar.get(java.util.Calendar.DAY_OF_WEEK) == java.util.Calendar.SUNDAY && calendar.get(java.util.Calendar.HOUR_OF_DAY) >= 18 &&
+            prefs.getString("recap_week", "") != week
+        ) {
+            prefs.edit().putString("recap_week", week).apply()
+            delay(4_000)
+            showNote(IslandNote(context.getString(R.string.note_recap), SilverNight.Silver), 15_000L)
+        }
         val now = System.currentTimeMillis()
         val last = prefs.getLong("last_seen", 0L)
         val hour = java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY)
@@ -893,6 +939,23 @@ fun LumenApp(
         }
     }
 
+    // New Year's Eve: checked every few seconds only on the 31st of December and the 1st of January.
+    var newYear by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        while (true) {
+            val t = java.time.LocalDateTime.now()
+            newYear = isNewYearMoment(t)
+            delay(if ((t.monthValue == 12 && t.dayOfMonth == 31) || (t.monthValue == 1 && t.dayOfMonth == 1)) 5_000L else 3_600_000L)
+        }
+    }
+    val glint = remember { Animatable(1f) }
+    LaunchedEffect(victoryTick) {
+        if (victoryTick > 0) {
+            glint.snapTo(0f)
+            glint.animateTo(1f, tween(1_800))
+        }
+    }
+
     // The nearest countdown under the greeting ("Oasis in 214 days"), checked every hour.
     val hourNow = rememberNow() / 3_600_000L
     val countdownLine = remember(countdowns, hourNow, dutchUi) {
@@ -909,6 +972,9 @@ fun LumenApp(
                 val skyNow = rememberNow()
                 SkyLight(skyPhase(skyNow, weather?.sunrise, weather?.sunset, weather?.isDay ?: false), aurora)
                 WeatherSky(weather, calm = true, force = true, noStars = true)
+                // The scene celebrates: fireworks at New Year, a red glint over the lake when Bayern win.
+                if (newYear) Fireworks()
+                VictoryGlint(glint.value)
             }
             if (tab == Tab.HOME) {
                 SceneHome(
@@ -1006,6 +1072,19 @@ fun LumenApp(
                     onCheck = { moreOpen = false; checkOpen = true },
                     onMemory = { moreOpen = false; memoryOpen = true },
                     onCountdowns = { moreOpen = false; countdownsOpen = true },
+                    onRecap = { moreOpen = false; recapOpen = true },
+                    updateLabel = update?.let { context.getString(R.string.update_row, it.build) },
+                    onUpdate = {
+                        moreOpen = false
+                        update?.let { release ->
+                            Toast.makeText(context, context.getString(R.string.update_downloading), Toast.LENGTH_LONG).show()
+                            scope.launch {
+                                if (!Updater.install(context, release)) {
+                                    Toast.makeText(context, context.getString(R.string.update_failed), Toast.LENGTH_LONG).show()
+                                }
+                            }
+                        }
+                    },
                     onClose = { moreOpen = false },
                 )
             }
@@ -1043,6 +1122,9 @@ fun LumenApp(
                     onClose = { countdownsOpen = false },
                 )
             }
+            if (recapOpen) {
+                RecapPanel(loadedScene?.glassImage, apps.associate { it.key to it.label }, context, onClose = { recapOpen = false })
+            }
             if (focusUntil > 0L) {
                 FocusOverlay(
                     until = focusUntil,
@@ -1052,6 +1134,7 @@ fun LumenApp(
                         focusUntil = 0L
                         if (finished) {
                             Sounds.play(Sound.SELECT)
+                            FloatingIsland.show(context, context.getString(R.string.note_focus_done), 0xFFFF6A5C.toInt())
                             showNote(IslandNote(context.getString(R.string.note_focus_done), SilverNight.Signal), 15_000L)
                         }
                     },

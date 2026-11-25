@@ -113,6 +113,11 @@ echo   Switching on the microphone and Now Playing for PlaizierOS...
 %ADB% -s %TARGET% shell pm grant %PKG% android.permission.RECORD_AUDIO >nul 2>&1
 %ADB% -s %TARGET% shell cmd notification allow_listener %PKG%/%PKG%.MediaListener >nul 2>&1
 %ADB% -s %TARGET% shell appops set %PKG% SYSTEM_ALERT_WINDOW allow >nul 2>&1
+rem Self-updates from GitHub, app time for the weekly recap, and the Silver Night screensaver.
+%ADB% -s %TARGET% shell appops set %PKG% REQUEST_INSTALL_PACKAGES allow >nul 2>&1
+%ADB% -s %TARGET% shell appops set %PKG% GET_USAGE_STATS allow >nul 2>&1
+%ADB% -s %TARGET% shell settings put secure screensaver_components %PKG%/%PKG%.SceneDream >nul 2>&1
+%ADB% -s %TARGET% shell settings put secure screensaver_enabled 1 >nul 2>&1
 echo   Making PlaizierOS as fast as this TV allows [up to a minute or two, please wait]...
 %ADB% -s %TARGET% shell cmd package compile -m speed -f %PKG% >nul 2>&1
 echo   Setting the TV picture to the highest resolution it supports...
@@ -165,6 +170,7 @@ goto :end
 :restore
 echo   Switching off the PlaizierOS home lock...
 call :guardoff
+%ADB% -s %TARGET% shell settings put secure screensaver_components com.google.android.apps.tv.dreamx/.service.Backdrop >nul 2>&1
 echo   Switching the Google TV home screen back on...
 %ADB% -s %TARGET% shell pm enable --user 0 com.google.android.apps.tv.launcherx >nul 2>&1
 %ADB% -s %TARGET% shell pm enable --user 0 com.google.android.tungsten.setupwraith >nul 2>&1

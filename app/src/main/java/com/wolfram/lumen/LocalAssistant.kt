@@ -135,6 +135,12 @@ class LocalAssistant {
             return LocalReply(say("Dit heb ik onthouden:\n", "This is what I remember:\n") + outcome.result)
         }
 
+        // The weekly recap.
+        if (phrase("weekly recap", "my week", "weekoverzicht", "mijn week", "week recap")) {
+            actions.tool("show_recap", JSONObject())
+            return LocalReply(say("Hier is je week.", "Here's your week."))
+        }
+
         // Countdowns: "how many days until Oasis?".
         if (phrase("how many days", "hoeveel dagen", "countdown", "aftellen")) {
             val outcome = actions.tool("list_countdowns", JSONObject())
