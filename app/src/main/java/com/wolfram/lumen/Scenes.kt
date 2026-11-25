@@ -13,10 +13,14 @@ import android.graphics.Shader
 import android.graphics.Typeface
 import android.os.SystemClock
 import android.util.Log
+import androidx.compose.animation.core.AnimationSpec
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.focusable
+import androidx.compose.foundation.gestures.BringIntoViewSpec
+import androidx.compose.foundation.gestures.LocalBringIntoViewSpec
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -47,6 +51,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.State
@@ -99,6 +104,7 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.layout.positionInParent
 import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -703,7 +709,15 @@ fun agendaDayTitle(context: android.content.Context, date: java.time.LocalDate, 
 
 /* ---------- The dock ---------- */
 
-@OptIn(ExperimentalComposeUiApi::class)
+/** Moves the favourites row only when a tile would be off screen (see [favouritesScroll]), with a soft glide. */
+@OptIn(ExperimentalFoundationApi::class)
+private class StillRow(private val marginPx: Float) : BringIntoViewSpec {
+    override val scrollAnimationSpec: AnimationSpec<Float> = tween(durationMillis = 280, easing = FastOutSlowInEasing)
+    override fun calculateScrollDistance(offset: Float, size: Float, containerSize: Float): Float =
+        favouritesScroll(offset, size, containerSize, marginPx)
+}
+
+@OptIn(ExperimentalComposeUiApi::class, ExperimentalFoundationApi::class)
 @Composable
 private fun SceneDock(
     dock: List<Tile>,
@@ -721,7 +735,11 @@ private fun SceneDock(
     var selected by remember { mutableStateOf<String?>(null) }
     var hasFocus by remember { mutableStateOf(false) }
     Column(modifier.onFocusChanged { hasFocus = it.hasFocus }, horizontalAlignment = Alignment.CenterHorizontally) {
-        // Your favourites: lit glass, glowing in each app's own colour.
+        // Your favourites: lit glass, glowing in each app's own colour. The row stays still while you
+        // move along it; it only slides when the next tile would be off screen.
+        val density = LocalDensity.current
+        val stillRow = remember(density) { StillRow(with(density) { 16.dp.toPx() }) }
+        CompositionLocalProvider(LocalBringIntoViewSpec provides stillRow) {
         LazyRow(
             horizontalArrangement = Arrangement.spacedBy(HomeLayout.TileGap),
             // Room around the tiles, so the selected one (a little bigger) is never cut off.
@@ -761,6 +779,7 @@ private fun SceneDock(
                     )
                 }
             }
+        }
         }
         Spacer(Modifier.height(HomeLayout.RowToCircles))
         // PlaizierOS's own circles: all apps, news, files, agenda, Jarvis and settings.

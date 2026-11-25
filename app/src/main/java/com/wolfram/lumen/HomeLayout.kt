@@ -74,6 +74,23 @@ object HomeLayout {
 fun logoPixels(dp: Float, density: Float, scale: Float = HomeLayout.FOCUS_SCALE): Int =
     ceil(dp * density * scale - 0.01f).toInt().coerceAtLeast(1)
 
+/**
+ * How far the favourites row slides to show the selected tile, in pixels (plus = the row slides left).
+ * While the tile is fully on screen, with [margin] to spare for its bigger selected size, the row stays
+ * still and only the highlight moves. Only a tile past an edge brings the row along, just far enough
+ * to show it whole. (Android TV's own rule pins the selected tile at 30% of the row, so the whole row
+ * slid along from the third tile on.)
+ */
+fun favouritesScroll(offset: Float, size: Float, container: Float, margin: Float): Float {
+    val start = offset - margin
+    val end = offset + size + margin
+    return when {
+        start >= 0f && end <= container -> 0f
+        start < 0f || end - start >= container -> start
+        else -> end - container
+    }
+}
+
 /** Whether the home screen should rest now: only when nothing else is open and the remote has been quiet. */
 fun shouldRest(idleMs: Long, bareHome: Boolean): Boolean = bareHome && idleMs >= HomeLayout.REST_AFTER_MS
 

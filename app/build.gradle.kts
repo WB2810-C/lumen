@@ -25,8 +25,8 @@ android {
         applicationId = "com.wolfram.lumen"
         minSdk = 26          // Android TV 8.0 and newer
         targetSdk = 35
-        versionCode = 30
-        versionName = "21.4"
+        versionCode = 31
+        versionName = "21.4.1"
         buildConfigField("String", "OLLAMA_HOST", "\"$ollamaHost\"")
         // The GitHub build number, so PlaizierOS knows when a newer build is out (self-updates).
         buildConfigField("int", "BUILD_NUMBER", System.getenv("GITHUB_RUN_NUMBER") ?: "0")

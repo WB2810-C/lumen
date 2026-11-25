@@ -1,4 +1,8 @@
-# PlaizierOS 21.4 — a home screen for your Peaq Google TV
+# PlaizierOS 21.4.1 — a home screen for your Peaq Google TV
+
+## New in 21.4.1
+
+- Your favourites row stays still while you move along it with ◀ ▶: only the highlight moves. The row only slides when the next tile would be off screen.
 
 ## New in 21.4
 
