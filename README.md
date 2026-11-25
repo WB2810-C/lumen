@@ -1,4 +1,26 @@
-# PlaizierOS — a home screen for your Peaq Google TV
+# PlaizierOS 21.0 — a home screen for your Peaq Google TV
+
+## New in 21.0
+
+- **Silver Night.** The mountain scene in silver and night blue; colour comes only from your apps.
+  The glass clock stands behind the peaks, "Good evening, Wolfram" sits on the lake under it.
+- **Lit glass favourites.** Your apps, Xbox and PlaizierOS sit on frosted glass that glows in each
+  app's own colour. Selected, a tile grows, its rim turns white and a glint of light runs over it.
+  Under them, circles for All apps, News, Files, Agenda, **Jarvis** and Settings.
+- **Resting home.** After 20 seconds without the remote the tiles fade away and only the scene, the clock
+  and the greeting stay. The first button press brings them back (and does nothing else).
+- **Jarvis, on its own brain, without the laptop.** Paste a Claude (or Gemini) API key on the phone
+  remote, in the new **Jarvis** card. The TV keeps it encrypted (Android Keystore); it is never in the
+  app or on GitHub. TV commands stay free and instant. Everyday questions go to Claude Haiku 5.5;
+  questions that need thinking ("why…", "leg uit…", homework, plans) go to Claude Opus 5.5.
+  The fixed part of every request is cached, so repeat questions cost a fraction.
+  Switch Jarvis to Gemini on the same card.
+- **The Jarvis button.** The remote's search / assistant button opens Jarvis (if the TV passes it on:
+  Settings → PlaizierOS check shows the last button it saw).
+- **Stays the home screen.** A second home lock (an accessibility service that only sees the Home
+  button and which app opened) brings PlaizierOS back if Google TV's home screen shows up anyway.
+  The installer switches it on; Back-to-Google-TV switches it off again.
+- **PlaizierOS check** (Settings): is PlaizierOS the home screen, is the lock on, does Jarvis have a key.
 
 PlaizierOS (inside the code still called Lumen) replaces the Google TV home screen with your own, in the **Cinema** layout (like Apple TV,
 but better): tabs at the top, a floating glass dock with your favourites at the bottom, and a big
@@ -121,8 +143,8 @@ Commands like "open Netflix" still work instantly without the AI; only other que
 your laptop. The AI knows the weather, the headlines and the live scores that Lumen has, but it
 can't search the internet.
 
-*(Claude also still works if you ever want it: put `claude.apiKey=…` in `local.properties`
-instead. That one is paid per question, so it's off unless you add a key.)*
+*(Since 21.0 Jarvis doesn't need the laptop: paste a Claude or Gemini API key in the **Jarvis** card
+on the phone remote. The TV keeps it encrypted. Keys never go in `local.properties` or on GitHub.)*
 
 The first time you press the microphone, the TV asks whether Lumen may use the microphone.
 Choose **Allow**. If your remote has no microphone, use the keyboard button to type instead.

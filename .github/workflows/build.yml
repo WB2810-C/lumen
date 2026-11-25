@@ -52,7 +52,7 @@ jobs:
         shell: bash
         run: |
           set -o pipefail
-          gradle assembleRelease --console=plain --stacktrace 2>&1 | tee build-log.txt
+          gradle testReleaseUnitTest assembleRelease --console=plain --stacktrace 2>&1 | tee build-log.txt
 
       - name: Pack the installer
         shell: bash
@@ -76,7 +76,7 @@ jobs:
           gh release create "build-${{ github.run_number }}" \
             out/PlaizierOS-installer.zip out/PlaizierOS-installer/PlaizierOS.apk \
             --target "${{ github.sha }}" \
-            --title "PlaizierOS · build ${{ github.run_number }}" \
+            --title "PlaizierOS 21.0 · build ${{ github.run_number }}" \
             --notes "Download PlaizierOS-installer.zip, unzip it, then double-click Install-PlaizierOS.bat." \
             --latest
 

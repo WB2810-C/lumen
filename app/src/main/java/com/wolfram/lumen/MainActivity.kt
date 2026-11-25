@@ -13,6 +13,9 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 
+/** The remote buttons that open Jarvis (which one a remote sends differs per TV; PlaizierOS check shows it). */
+private val JARVIS_KEYS = setOf(KeyEvent.KEYCODE_SEARCH, KeyEvent.KEYCODE_ASSIST, KeyEvent.KEYCODE_VOICE_ASSIST)
+
 class MainActivity : ComponentActivity() {
 
     /** Goes up every time Lumen comes back on screen (after closing an app, for example). */
@@ -26,6 +29,12 @@ class MainActivity : ComponentActivity() {
 
     /** When the remote was last used. */
     private val lastInputAt = mutableLongStateOf(SystemClock.uptimeMillis())
+
+    /** The home screen is resting: only the scene, the clock and the greeting (the tiles have faded away). */
+    private val resting = mutableStateOf(false)
+
+    /** Goes up every time the Jarvis button (the remote's search / assistant button) is pressed. */
+    private val jarvisTick = mutableIntStateOf(0)
 
     /** The button that woke Lumen from ambient mode shouldn't also open something. */
     private var swallowKeyUp = false
@@ -52,6 +61,9 @@ class MainActivity : ComponentActivity() {
                     ambient = ambient.value,
                     lastInputAt = { lastInputAt.longValue },
                     onAmbientChange = { ambient.value = it },
+                    resting = resting.value,
+                    onRestingChange = { resting.value = it },
+                    jarvisTick = jarvisTick.intValue,
                 )
             }
         }
@@ -80,10 +92,28 @@ class MainActivity : ComponentActivity() {
 
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
         lastInputAt.longValue = SystemClock.uptimeMillis()
+        if (event.action == KeyEvent.ACTION_DOWN) HomeHealth.lastKey = KeyEvent.keyCodeToString(event.keyCode)
+        // The Jarvis button: whatever is on screen, Jarvis opens.
+        if (event.keyCode in JARVIS_KEYS) {
+            if (event.action == KeyEvent.ACTION_DOWN && event.repeatCount == 0) {
+                ambient.value = false
+                resting.value = false
+                jarvisTick.intValue += 1
+            }
+            return true
+        }
         if (ambient.value) {
             // Any button just wakes the home screen up.
             if (event.action == KeyEvent.ACTION_DOWN) {
                 ambient.value = false
+                swallowKeyUp = true
+            }
+            return true
+        }
+        if (resting.value) {
+            // The first press only wakes the tiles up; it doesn't also move or open something.
+            if (event.action == KeyEvent.ACTION_DOWN) {
+                resting.value = false
                 swallowKeyUp = true
             }
             return true
@@ -126,6 +156,7 @@ class MainActivity : ComponentActivity() {
 
     private fun wake() {
         ambient.value = false
+        resting.value = false
         lastInputAt.longValue = SystemClock.uptimeMillis()
     }
 }

@@ -98,6 +98,9 @@ fun LumenApp(
     ambient: Boolean,
     lastInputAt: () -> Long,
     onAmbientChange: (Boolean) -> Unit,
+    resting: Boolean = false,
+    onRestingChange: (Boolean) -> Unit = {},
+    jarvisTick: Int = 0,
 ) {
     val context = LocalContext.current
     val activity = context as Activity
@@ -153,6 +156,7 @@ fun LumenApp(
     var phoneOpen by remember { mutableStateOf(false) }
     // "More" in the dock: phone remote, search, colours, Wi-Fi, TV settings.
     var moreOpen by remember { mutableStateOf(false) }
+    var checkOpen by remember { mutableStateOf(false) }
     // The couch-tv scenes behind everything; they take turns while you're not using the remote.
     // The background you picked on the Themes page (while browsing there, the one you are on).
     val sceneState = rememberSceneRotation(lastInputAt, previewTheme?.id ?: themeId)
@@ -262,10 +266,12 @@ fun LumenApp(
             delay(if (found.any { it.live }) 45_000L else 5 * 60_000L)
         }
     }
-    val assistant = remember {
+    // Jarvis: rebuilt when a key or the brain changes on the phone remote (the keys stay encrypted on the TV).
+    val assistant = remember(accountsTick) {
         AssistantController(
-            apiKey = BuildConfig.CLAUDE_API_KEY,
-            model = LumenConfig.ASSISTANT_MODEL,
+            claudeKey = JarvisKeys.load(context, Brain.CLAUDE).orEmpty(),
+            geminiKey = JarvisKeys.load(context, Brain.GEMINI).orEmpty(),
+            brain = JarvisKeys.brain(context),
             ollamaHost = BuildConfig.OLLAMA_HOST,
             ollamaModel = LumenConfig.OLLAMA_MODEL,
         )
@@ -314,6 +320,7 @@ fun LumenApp(
             viewer = null
             chooser = null
             moreOpen = false
+            checkOpen = false
             movingKey = null
             focusedKey.value = LUMEN_NOW
             keepHomePreview[0] = true
@@ -388,6 +395,7 @@ fun LumenApp(
                     TOOL_FILES -> tab = Tab.FILES
                     TOOL_ASK -> assistantOpen = true
                     TOOL_MORE -> moreOpen = true
+                    TOOL_AGENDA -> agendaOpen = true
                     LUMEN_NOW -> assistantOpen = true
                     LUMEN_NEWS -> {
                         newsStart = 0
@@ -559,7 +567,7 @@ fun LumenApp(
                     question = question,
                     system = { if (assistant.usesClaude) latestPrompt() else freeAssistantPrompt(latestLiveInfo, apps) },
                     runTool = { n, i -> latestRunTool(n, i) },
-                    errorText = { assistantErrorText(context, it, laptop = !assistant.usesClaude) },
+                    errorText = { assistantErrorText(context, it, laptop = assistant.usesLaptop) },
                     onDone = onDone,
                 )
                 else -> {
@@ -624,6 +632,10 @@ fun LumenApp(
             .put("spotify", Spotify.isConnected(context))
             .put("spotifyPlaylist", oasis?.let { "${it.name} · ${it.tracks.size}" } ?: oasisProblem.orEmpty())
             .put("calendar", AppleCalendar.isConnected(context))
+            // Only whether a key is there, never the key itself.
+            .put("jarvisClaude", JarvisKeys.has(context, Brain.CLAUDE))
+            .put("jarvisGemini", JarvisKeys.has(context, Brain.GEMINI))
+            .put("jarvisBrain", JarvisKeys.brain(context).id)
             .put(
                 "nowPlaying",
                 current?.let { JSONObject().put("title", it.title).put("artist", it.artist).put("app", it.appName).put("playing", it.isPlaying) }
@@ -635,7 +647,7 @@ fun LumenApp(
     // The island only shows on the home screen itself.
     // Only whether the welcome animation is over matters here (not each of its frames).
     val introDone by remember { androidx.compose.runtime.derivedStateOf { intro.value >= 1f } }
-    val islandVisible = tab == Tab.HOME && !assistantOpen && !phoneOpen && !moreOpen && !agendaOpen && viewer == null && chooser == null && !ambient && !takeover.isBusy && introDone
+    val islandVisible = tab == Tab.HOME && !assistantOpen && !phoneOpen && !moreOpen && !checkOpen && !agendaOpen && viewer == null && chooser == null && !ambient && !takeover.isBusy && introDone
     val latestIslandVisible by rememberUpdatedState(islandVisible)
     LaunchedEffect(goal) {
         if (goal != null) {
@@ -645,107 +657,43 @@ fun LumenApp(
         }
     }
 
-    // PlaizierOS's own buttons at the end of the dock.
-    val toolLabels = listOf(
-        stringResource(R.string.tab_apps), stringResource(R.string.tab_news), stringResource(R.string.tab_files),
-        stringResource(R.string.assistant_title), stringResource(R.string.more),
-    )
-    val tools = remember(toolLabels) {
-        listOf(TOOL_APPS, TOOL_NEWS, TOOL_FILES, TOOL_ASK, TOOL_MORE).mapIndexed { i, key ->
-            Tile(key = key, label = toolLabels[i], kind = TileKind.LUMEN, banner = null, icon = null, takeoverColor = Color(0xFF2A2A30), glow = theme.main)
+    // PlaizierOS's own circles under your favourites: all apps, news, files, your agenda, Jarvis and settings.
+    val hasAgenda = remember(accountsTick, agenda) { agenda.isNotEmpty() || AppleCalendar.isConnected(context) }
+    val toolPairs = buildList {
+        add(TOOL_APPS to stringResource(R.string.row_all_apps))
+        add(TOOL_NEWS to stringResource(R.string.tab_news))
+        add(TOOL_FILES to stringResource(R.string.tab_files))
+        if (hasAgenda) add(TOOL_AGENDA to stringResource(R.string.agenda))
+        add(TOOL_ASK to stringResource(R.string.assistant_title))
+        add(TOOL_MORE to stringResource(R.string.settings))
+    }
+    val tools = remember(toolPairs) {
+        toolPairs.map { (key, label) ->
+            Tile(key = key, label = label, kind = TileKind.LUMEN, banner = null, icon = null, takeoverColor = SilverNight.Slate, glow = SilverNight.Silver)
         }
     }
 
-    // The glass cards: the top VRT NWS story, your teams, and what's playing (or "On this day").
-    val newsSource = stringResource(R.string.news_source)
-    val scoresLive = stringResource(R.string.scores_live)
-    val scoresNext = stringResource(R.string.scores_next)
-    val playing = nowPlaying.current
-    val cards = buildList {
-        news.items.firstOrNull()?.let {
-            add(SceneCard("news", "$newsSource · ${clockTime(it.published)}", it.title, "", image = it.image)) // the headline gets both lines
+    // Resting: after a while without the remote, only the scene, the clock and the greeting stay.
+    // The first button press wakes the tiles up (MainActivity swallows that press).
+    val bareHome = islandVisible && movingKey == null
+    val latestBareHome by rememberUpdatedState(bareHome)
+    val latestResting by rememberUpdatedState(resting)
+    LaunchedEffect(Unit) {
+        while (true) {
+            delay(1_000)
+            val idle = SystemClock.uptimeMillis() - latestInput()
+            if (!latestResting && shouldRest(idle, latestBareHome)) onRestingChange(true)
         }
-        val live = schedule.live.firstOrNull { it.live } ?: schedule.live.firstOrNull()
-        if (live != null) {
-            add(
-                SceneCard(
-                    "score",
-                    listOf(if (live.live) scoresLive else "", live.league, live.clock).filter { it.isNotBlank() }.joinToString(" · "),
-                    "${live.home.name} ${live.home.score} – ${live.away.score} ${live.away.name}",
-                    "",
-                    match = live,
-                    live = live.live,
-                ),
-            )
-        } else {
-            schedule.upcoming.firstOrNull()?.let { f ->
-                val day = java.text.SimpleDateFormat("EEE d MMM · HH:mm", java.util.Locale.getDefault()).format(java.util.Date(f.startsAt))
-                // Both clubs' crests on the left, like the live match.
-                val crests = LiveMatch(
-                    id = f.id,
-                    home = Side(f.home, "", 0, f.homeLogo, Color(0xFF3A3D46)),
-                    away = Side(f.away, "", 0, f.awayLogo, Color(0xFF3A3D46)),
-                    clock = "",
-                    live = false,
-                    league = f.league,
-                )
-                add(SceneCard("score", scoresNext, "${f.home} – ${f.away}", day.replaceFirstChar { it.titlecase(java.util.Locale.getDefault()) }, match = crests))
-            }
-        }
-        // Your next appointment, with the one after it underneath.
-        val nowMs = System.currentTimeMillis()
-        val coming = agenda.filter { it.end > nowMs }
-        coming.firstOrNull()?.let { e ->
-            val zone = java.time.ZoneId.systemDefault()
-            val today = java.time.LocalDate.now(zone)
-            fun dayOf(ms: Long) = java.time.Instant.ofEpochMilli(ms).atZone(zone).toLocalDate().let { if (it.isBefore(today)) today else it }
-            fun dayWord(d: java.time.LocalDate) = when (d) {
-                today -> context.getString(R.string.day_today)
-                today.plusDays(1) -> context.getString(R.string.day_tomorrow)
-                else -> d.format(java.time.format.DateTimeFormatter.ofPattern("EEEE", java.util.Locale.getDefault()))
-            }
-            fun timeOf(x: CalEvent) = if (x.allDay) context.getString(R.string.all_day) else android.text.format.DateFormat.getTimeFormat(context).format(java.util.Date(x.start))
-            val d = dayOf(e.start)
-            val next = coming.getOrNull(1)?.let { n ->
-                val nd = dayOf(n.start)
-                (if (nd == d) "" else dayWord(nd).replaceFirstChar { it.titlecase(java.util.Locale.getDefault()) } + " ") + timeOf(n) + " · " + n.title
-            }.orEmpty()
-            add(
-                SceneCard(
-                    "agenda",
-                    context.getString(R.string.agenda) + " · " + dayWord(d),
-                    timeOf(e) + " " + e.title,
-                    next,
-                    calendarDay = d.format(java.time.format.DateTimeFormatter.ofPattern("EEEE", java.util.Locale.getDefault())) to d.dayOfMonth.toString(),
-                ),
-            )
-        }
-        val song = suggestion
-        when {
-            playing != null -> add(
-                SceneCard(
-                    "music",
-                    context.getString(R.string.now_playing, playing.appName),
-                    playing.title,
-                    playing.artist,
-                    bitmap = playing.art,
-                    progress = if (playing.durationMs > 0) playing.positionNow().toFloat() / playing.durationMs else null,
-                    square = true,
-                ),
-            )
-            song != null -> add(
-                SceneCard(
-                    "oasis",
-                    context.getString(R.string.oasis_label, oasis?.name ?: Spotify.PLAYLIST_NAME),
-                    song.name,
-                    context.getString(R.string.oasis_play),
-                    image = song.image,
-                    square = true,
-                    playHint = true,
-                ),
-            )
-            !spotifyOn -> add(SceneCard("spotify", "Spotify", context.getString(R.string.spotify_connect_title), context.getString(R.string.spotify_connect_sub), square = true))
-            oasisProblem != null -> add(SceneCard("spotify", "Spotify", context.getString(R.string.spotify_problem), oasisProblem.orEmpty(), square = true))
+    }
+    LaunchedEffect(bareHome) { if (!bareHome && resting) onRestingChange(false) }
+    // The Jarvis button on the remote (or the phone's): straight to Jarvis, from anywhere.
+    LaunchedEffect(jarvisTick) {
+        if (jarvisTick > 0) {
+            onAmbientChange(false)
+            onRestingChange(false)
+            phoneOpen = false
+            moreOpen = false
+            assistantOpen = true
         }
     }
 
@@ -758,30 +706,11 @@ fun LumenApp(
                 SceneHome(
                     loaded = loadedScene,
                     weather = weather,
-                    cards = cards,
                     dock = dock,
                     tools = tools,
                     movingKey = movingKey,
                     firstFocus = dockFocus,
-                    onCard = { card ->
-                        when (card.key) {
-                            "news" -> {
-                                newsStart = 0
-                                tab = Tab.NEWS
-                            }
-                            "music" -> nowPlaying.playPause()
-                            "agenda" -> agendaOpen = true
-                            "spotify" -> phoneOpen = true
-                            "oasis" -> suggestion?.let { s ->
-                                Toast.makeText(context, context.getString(R.string.oasis_starting, s.name), Toast.LENGTH_SHORT).show()
-                                scope.launch {
-                                    val problem = Spotify.play(context, s, oasis)
-                                    if (problem != null) Toast.makeText(context, problem, Toast.LENGTH_LONG).show() else suggestionTick++
-                                }
-                            }
-                            else -> Unit
-                        }
-                    },
+                    resting = resting,
                     onOpen = { t, r -> if (movingKey == null) openTile(t, r) },
                     onHold = { t ->
                         if (t.kind == TileKind.APP || t.kind == TileKind.CONSOLE) {
@@ -865,8 +794,12 @@ fun LumenApp(
                     onSettings = { moreOpen = false; Launcher.openSettings(activity) },
                     onNetwork = { moreOpen = false; Launcher.openNetwork(activity) },
                     onThemes = { moreOpen = false; tab = Tab.THEMES },
+                    onCheck = { moreOpen = false; checkOpen = true },
                     onClose = { moreOpen = false },
                 )
+            }
+            if (checkOpen) {
+                HealthPanel(loadedScene?.glassImage, onClose = { checkOpen = false })
             }
             TakeoverOverlay(takeover)
             AnimatedVisibility(

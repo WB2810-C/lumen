@@ -42,17 +42,20 @@ object LumenConfig {
      */
     const val DEFAULT_THEME = "auto"
 
-    /* ----- Assistant -----
-     * Free by default: Lumen understands commands itself and answers from the weather, news and scores.
-     * For other questions you can switch on a free AI on your laptop (Ollama), or Claude (paid).
-     * Both go in local.properties, see the README.
+    /* ----- Jarvis -----
+     * PlaizierOS does TV commands itself, for free. For everything else Jarvis uses Claude (or Gemini):
+     * paste the API key on the phone remote (Jarvis card); the TV keeps it encrypted.
+     * The free AI on your laptop (Ollama, local.properties) still works when there is no key.
      */
 
     /** The model Ollama runs on your laptop. Gemma 3 speaks Dutch well; use "gemma3:1b" on a slower laptop. */
     const val OLLAMA_MODEL = "gemma3"
 
-    /** The Claude model (only used if you add a Claude API key). */
-    const val ASSISTANT_MODEL = "claude-haiku-5-5"
+    /** The Claude model for quick jobs (Jarvis picks Haiku or Opus per question, see JarvisBrain.kt). */
+    const val ASSISTANT_MODEL = JarvisBrain.HAIKU
+
+    /** The Gemini model, when Gemini is Jarvis's brain (switch it on the phone remote). */
+    const val GEMINI_MODEL = "gemini-3.1-pro-preview"
 
     /** Let the assistant search the web for weather, news, scores… (costs a little extra per search). */
     const val ASSISTANT_WEB_SEARCH = true

@@ -35,7 +35,7 @@
     <string name="theme_stone">Stone</string>
     <string name="theme_silver">Silver</string>
     <string name="theme_cloud">Cloud</string>
-    <string name="assistant_title">PlaizierOS Assistant</string>
+    <string name="assistant_title">Jarvis</string>
     <string name="assistant_subtitle">Ask anything · open apps · change themes</string>
     <string name="assistant_intro">Try “open Netflix”, “HDMI 1”, “theme Ocean”, “search YouTube for…”, “what\'s the weather?” or “the news”.</string>
     <string name="assistant_error_laptop">I can\'t reach the AI on your laptop. Is it switched on, with Ollama running?</string>
@@ -53,9 +53,9 @@
     <string name="assistant_suggest_hdmi">Switch to HDMI 1</string>
     <string name="assistant_suggest_theme">Change the theme to Ocean</string>
     <string name="assistant_suggest_weather">What\'s the weather today?</string>
-    <string name="assistant_setup_title">Switch on the assistant</string>
-    <string name="assistant_setup_body">Add your Claude API key to local.properties and rebuild PlaizierOS. The README explains how — it takes two minutes.</string>
-    <string name="assistant_error_key">Your Claude API key isn\'t working. Check it in local.properties.</string>
+    <string name="assistant_setup_title">Give Jarvis a brain</string>
+    <string name="assistant_setup_body">Open the phone remote (Settings → Phone remote), and paste a Claude or Gemini API key in the Jarvis card. The TV keeps it encrypted. Until then, Jarvis does TV commands like “open Netflix”.</string>
+    <string name="assistant_error_key">Jarvis\'s API key isn\'t working. Paste it again on the phone remote (Jarvis card).</string>
     <string name="assistant_error_credit">Your API credit has run out. Top it up in the Claude Console.</string>
     <string name="assistant_error_busy">Claude is busy right now. Try again in a moment.</string>
     <string name="assistant_error_network">No internet connection. Check the TV\'s Wi-Fi.</string>
@@ -155,4 +155,16 @@
     <string name="all_day">All day</string>
     <string name="screen_hdr">HDR: %1$s</string>
     <string name="screen_no_hdr">no HDR</string>
+    <string name="home_guard_label">PlaizierOS home lock</string>
+    <string name="home_guard_description">Keeps PlaizierOS as the home screen: it catches the Home button and brings PlaizierOS back when the Google TV home screen appears. It reads no screen content.</string>
+    <string name="check_title">PlaizierOS check</string>
+    <string name="check_open">PlaizierOS check</string>
+    <string name="check_home">PlaizierOS is the home screen</string>
+    <string name="check_guard">Home lock is on</string>
+    <string name="check_overlay">Back to PlaizierOS after standby</string>
+    <string name="check_mic">Microphone for Jarvis</string>
+    <string name="check_jarvis">Jarvis has a brain (%1$s)</string>
+    <string name="check_fix_installer">Run Install-PlaizierOS.bat on your laptop again: it switches this on.</string>
+    <string name="check_fix_key">Paste a Claude or Gemini key in the Jarvis card on the phone remote.</string>
+    <string name="check_last_key">Last remote button: %1$s</string>
 </resources>

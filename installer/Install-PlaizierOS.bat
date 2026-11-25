@@ -142,6 +142,8 @@ if errorlevel 2 goto :donenohome
 %ADB% -s %TARGET% shell cmd package set-home-activity --user 0 %PKG%/.MainActivity >nul 2>&1
 %ADB% -s %TARGET% shell pm disable-user --user 0 com.google.android.apps.tv.launcherx >nul 2>&1
 %ADB% -s %TARGET% shell pm disable-user --user 0 com.google.android.tungsten.setupwraith >nul 2>&1
+echo   Switching on the PlaizierOS home lock [it keeps PlaizierOS the home screen]...
+call :guardon
 %ADB% -s %TARGET% shell input keyevent KEYCODE_HOME >nul 2>&1
 echo.
 echo   Done! Press Home on the remote and PlaizierOS opens.
@@ -168,6 +170,8 @@ echo   Saving what the TV reported in plaizieros-crash.txt - send that file to C
 goto :end
 
 :restore
+echo   Switching off the PlaizierOS home lock...
+call :guardoff
 echo   Switching the Google TV home screen back on...
 %ADB% -s %TARGET% shell pm enable --user 0 com.google.android.apps.tv.launcherx >nul 2>&1
 %ADB% -s %TARGET% shell pm enable --user 0 com.google.android.tungsten.setupwraith >nul 2>&1
@@ -210,6 +214,32 @@ echo.
 pause
 exit /b 0
 
+rem The PlaizierOS home lock (an accessibility service): added to whatever the TV already has switched on.
+:guardon
+set "GUARD=%PKG%/%PKG%.HomeGuard"
+set "ACC="
+for /f "delims=" %%A in ('%ADB% -s %TARGET% shell settings get secure enabled_accessibility_services 2^>nul') do set "ACC=%%A"
+if /i "%ACC%"=="null" set "ACC="
+echo %ACC%| find /i "HomeGuard" >nul && goto :guardonok
+if defined ACC set "ACC=%ACC%:%GUARD%"
+if not defined ACC set "ACC=%GUARD%"
+%ADB% -s %TARGET% shell settings put secure enabled_accessibility_services "%ACC%" >nul 2>&1
+:guardonok
+%ADB% -s %TARGET% shell settings put secure accessibility_enabled 1 >nul 2>&1
+exit /b 0
+
+rem Takes only the PlaizierOS home lock off the TV's list, leaving anything else that was on.
+:guardoff
+set "ACC="
+for /f "delims=" %%A in ('%ADB% -s %TARGET% shell settings get secure enabled_accessibility_services 2^>nul') do set "ACC=%%A"
+if /i "%ACC%"=="null" set "ACC="
+if defined ACC set "ACC=%ACC::com.wolfram.lumen/com.wolfram.lumen.HomeGuard=%"
+if defined ACC set "ACC=%ACC:com.wolfram.lumen/com.wolfram.lumen.HomeGuard:=%"
+if defined ACC set "ACC=%ACC:com.wolfram.lumen/com.wolfram.lumen.HomeGuard=%"
+if defined ACC %ADB% -s %TARGET% shell settings put secure enabled_accessibility_services "%ACC%" >nul 2>&1
+if not defined ACC %ADB% -s %TARGET% shell settings delete secure enabled_accessibility_services >nul 2>&1
+exit /b 0
+
 rem Asks the TV to draw at 1920x1080, keeping everything the same size on screen.
 :sethd
 rem 320 is the standard Android TV density for 1920x1080: everything keeps its normal size, just sharper.
@@ -245,6 +275,9 @@ set "R=plaizieros-report.txt"
 %ADB% -s %TARGET% shell getprop ro.surface_flinger.max_graphics_height >> "%R%" 2>&1
 %ADB% -s %TARGET% shell cmd display get-user-preferred-display-mode >> "%R%" 2>&1
 %ADB% -s %TARGET% shell "dumpsys display | grep -iE 'mActiveMode|mDefaultMode|supportedModes|mUserPreferredMode|mBaseDisplayInfo' | head -20" >> "%R%" 2>&1
+>> "%R%" echo ==== Home lock
+%ADB% -s %TARGET% shell settings get secure enabled_accessibility_services >> "%R%" 2>&1
+%ADB% -s %TARGET% shell cmd package resolve-activity -a android.intent.action.MAIN -c android.intent.category.HOME >> "%R%" 2>&1
 >> "%R%" echo ==== HDR
 %ADB% -s %TARGET% shell settings get global are_user_disabled_hdr_formats_allowed >> "%R%" 2>&1
 %ADB% -s %TARGET% shell settings get global user_disabled_hdr_formats >> "%R%" 2>&1

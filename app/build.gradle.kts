@@ -6,12 +6,12 @@ plugins {
     id("org.jetbrains.kotlin.plugin.compose")
 }
 
-// Your Claude API key lives in local.properties (never in the code), as:  claude.apiKey=sk-ant-...
+// Jarvis's API keys never go in the app or on GitHub: you type them on the phone remote and the TV
+// keeps them encrypted (see JarvisKeys.kt).
 val localProperties = Properties().apply {
     val file = rootProject.file("local.properties")
     if (file.exists()) file.inputStream().use { load(it) }
 }
-val claudeApiKey: String = localProperties.getProperty("claude.apiKey", "").trim()
 // Optional free AI on your laptop (Ollama), as:  ollama.host=192.168.1.20
 // (or, for the cloud build, lumen.ollamaHost=192.168.1.20 in gradle.properties: an address on your own Wi-Fi isn't secret)
 val ollamaHost: String = (localProperties.getProperty("ollama.host")
@@ -25,9 +25,8 @@ android {
         applicationId = "com.wolfram.lumen"
         minSdk = 26          // Android TV 8.0 and newer
         targetSdk = 35
-        versionCode = 21
-        versionName = "5.8.2"
-        buildConfigField("String", "CLAUDE_API_KEY", "\"$claudeApiKey\"")
+        versionCode = 22
+        versionName = "21.0"
         buildConfigField("String", "OLLAMA_HOST", "\"$ollamaHost\"")
     }
 
@@ -94,4 +93,8 @@ dependencies {
 
     // Talks to Apple's calendar server (CalDAV needs PROPFIND and REPORT requests).
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
+
+    // Unit tests for the pure logic (run by GitHub before every build).
+    testImplementation("junit:junit:4.13.2")
+    testImplementation("org.json:json:20240303")
 }

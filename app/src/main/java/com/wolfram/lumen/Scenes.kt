@@ -136,6 +136,8 @@ enum class Scene(
     val dateLeft: Float? = null,
     val darkText: Boolean = false,
     val photoBrightness: Float = 1f,
+    /** Silver Night: the photo's colour, turned down (1 = as photographed). */
+    val photoSaturation: Float = 1f,
     val fillBrightness: Float = 1f,
     val fillSaturation: Float = 1f,
     val fillAlpha: Float = 1f,
@@ -146,18 +148,19 @@ enum class Scene(
     /** For the colour backgrounds: which earlier theme's colours to paint. */
     val aurora: String? = null,
 ) {
-    // The nightfall mountains from couch-tv: the peaks stand in front of the clock.
+    // The nightfall mountains from couch-tv, in Silver Night: the peaks stand in front of the glass clock,
+    // the colour is turned almost all the way down, and the rims of the clock are plain silver.
     NIGHT(
         "night", true, clockTop = 75f, clockSize = 200f, dateTop = 48f,
-        photoBrightness = 0.86f, fillBrightness = 1.15f, fillSaturation = 1.2f, fillAlpha = 0.9f,
-        rimFill = Color(255, 200, 215).copy(alpha = 0.06f), rimStroke = Color(255, 215, 225).copy(alpha = 0.5f),
+        photoBrightness = 0.84f, photoSaturation = 0.3f, fillBrightness = 1.2f, fillSaturation = 0.3f, fillAlpha = 0.9f,
+        rimFill = Color.White.copy(alpha = 0.07f), rimStroke = Color.White.copy(alpha = 0.55f),
     ),
     // The soft colour backgrounds from the earlier PlaizierOS versions, with the same glass clock.
     AURORA("aurora", false, clockTop = 75f, clockSize = 200f, dateTop = 48f, aurora = "cinema"),
 }
 
-/** What "Automatic" goes through, one per minute: the mountains and the colour backgrounds. */
-val AUTO_BACKGROUNDS = listOf("night", "cinema", "north", "ocean", "lavender", "sunset")
+/** What "Automatic" shows: since 21.0 that's Silver Night (the colour backgrounds can still be picked in Themes). */
+val AUTO_BACKGROUNDS = listOf("night")
 
 /** A scene's pictures, loaded and ready to draw. */
 @Immutable
@@ -191,7 +194,7 @@ private suspend fun loadScene(context: Context, scene: Scene): LoadedScene? = wi
             photo = decode("scene-${scene.id}.jpg").asImageBitmap(),
             front = if (scene.hasFront) decode("scene-${scene.id}-fg.webp").asImageBitmap() else null,
             // The frosted copy is blurred anyway: half size is plenty and saves memory.
-            glass = decode("scene-${scene.id}-glass.jpg", sample = 2),
+            glass = decode("scene-${scene.id}-glass.jpg", sample = 2).let { if (scene.photoSaturation < 1f) desaturated(it, scene.photoSaturation) else it },
         )
     }.onFailure { Log.w(LOG_TAG, "scene ${scene.id} failed to load", it) }.getOrNull()
 }
@@ -337,7 +340,15 @@ private suspend fun bakeStage(
         val canvas = android.graphics.Canvas(canvasBitmap)
         val picture = Paint(Paint.FILTER_BITMAP_FLAG or Paint.DITHER_FLAG).apply {
             val b = s.scene.photoBrightness
-            if (b < 1f) colorFilter = ColorMatrixColorFilter(ColorMatrix().apply { setScale(b, b, b, 1f) })
+            val sat = s.scene.photoSaturation
+            if (b < 1f || sat < 1f) {
+                colorFilter = ColorMatrixColorFilter(
+                    ColorMatrix().apply {
+                        setSaturation(sat)
+                        postConcat(ColorMatrix().apply { setScale(b, b, b, 1f) })
+                    },
+                )
+            }
         }
         // Fills the screen, cropping what sticks out (like ContentScale.Crop).
         fun cover(bitmap: Bitmap) {
@@ -462,11 +473,14 @@ private fun drawGlassClock(
 
 /* ---------- Frosted glass: the scene's blurred copy, cut out behind each card ---------- */
 
-private val GlassTint = Color(30, 20, 28).copy(alpha = 0.42f)
-private val GlassEdge = Color(255, 210, 220).copy(alpha = 0.16f)
+private val GlassTint = SilverNight.Slate.copy(alpha = 0.46f)
+private val GlassEdge = Color.White.copy(alpha = 0.14f)
 
-/** Frosted glass that shows a blurred piece of the scene right behind it (no expensive live blur). */
-fun Modifier.sceneGlass(glass: ImageBitmap?, shape: Shape): Modifier = composed {
+/** Frosted glass with a fine silver edge (cards, panels). */
+fun Modifier.sceneGlass(glass: ImageBitmap?, shape: Shape): Modifier = this.sceneFrost(glass, shape).border(1.dp, GlassEdge, shape)
+
+/** Frosted glass that shows a blurred piece of the scene right behind it (no expensive live blur), without an edge. */
+fun Modifier.sceneFrost(glass: ImageBitmap?, shape: Shape): Modifier = composed {
     var origin by remember { mutableStateOf(Offset.Zero) }
     var screen by remember { mutableStateOf(IntSize.Zero) }
     this
@@ -492,7 +506,6 @@ fun Modifier.sceneGlass(glass: ImageBitmap?, shape: Shape): Modifier = composed 
             }
             drawRect(GlassTint)
         }
-        .border(1.dp, GlassEdge, shape)
 }
 
 /* ---------- The home screen ---------- */
@@ -521,12 +534,11 @@ data class SceneCard(
 fun SceneHome(
     loaded: LoadedScene?,
     weather: WeatherNow?,
-    cards: List<SceneCard>,
     dock: List<Tile>,
     tools: List<Tile>,
     movingKey: String?,
     firstFocus: FocusRequester,
-    onCard: (SceneCard) -> Unit,
+    resting: Boolean,
     onOpen: (Tile, Rect) -> Unit,
     onHold: (Tile) -> Unit,
     onMove: (Int) -> Unit,
@@ -534,25 +546,13 @@ fun SceneHome(
     onDoneMoving: () -> Unit,
     island: @Composable () -> Unit,
 ) {
-    val scene = loaded?.scene ?: Scene.NIGHT
     val glass = loaded?.glassImage
+    // Resting: the tiles fade away slowly; the first button press brings them straight back.
+    val shown by animateFloatAsState(if (resting) 0f else 1f, tween(if (resting) 900 else 240), label = "rest")
     Box(Modifier.fillMaxSize()) {
-        // The date just above the clock: "Good evening, Wolfram · Saturday 7 November  ☁ 8° Leuven".
-        DateLine(scene, weather)
         Box(Modifier.fillMaxWidth().padding(top = 10.dp), contentAlignment = Alignment.TopCenter) { island() }
-
-        // Your news, your teams and your music, on glass.
-        Row(
-            Modifier
-                .padding(start = 40.dp, end = 40.dp, top = 320.dp)
-                .fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(11.dp),
-        ) {
-            // Four cards when your calendar has something coming up, three otherwise.
-            val compact = cards.size >= 4
-            cards.take(4).forEach { card -> SceneCardView(card, glass, compact, onClick = { onCard(card) }, modifier = Modifier.weight(1f)) }
-        }
-
+        // "Good evening, Wolfram" on the lake, under the glass clock and the mountains.
+        GreetingBlock(weather, Modifier.padding(top = HomeLayout.GreetingTop))
         SceneDock(
             dock = dock,
             tools = tools,
@@ -565,164 +565,10 @@ fun SceneHome(
             onRemove = onRemove,
             onDoneMoving = onDoneMoving,
             modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .padding(bottom = 10.dp),
+                .fillMaxWidth()
+                .padding(top = HomeLayout.RowTop)
+                .graphicsLayer { alpha = shown },
         )
-    }
-}
-
-@Composable
-private fun DateLine(scene: Scene, weather: WeatherNow?) {
-    val now = rememberNow()
-    val calendar = remember(now) { Calendar.getInstance().apply { timeInMillis = now } }
-    val date = remember(now) {
-        SimpleDateFormat("EEEE d MMMM", Locale.getDefault()).format(Date(now)).replaceFirstChar { it.titlecase(Locale.getDefault()) }
-    }
-    val ink = if (scene.darkText) Color(0xFF16201D) else Color.White
-    val style = TextStyle(
-        color = ink,
-        fontSize = 17.sp,
-        fontWeight = FontWeight.Medium,
-        shadow = if (scene.darkText) null else androidx.compose.ui.graphics.Shadow(Color.Black.copy(alpha = 0.25f), Offset(0f, 2f), 18f),
-    )
-    Row(
-        Modifier
-            .fillMaxWidth()
-            .padding(top = scene.dateTop.dp, start = (scene.dateLeft ?: 0f).dp),
-        horizontalArrangement = if (scene.dateLeft == null) Arrangement.Center else Arrangement.Start,
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text("${greetingText(calendar.get(Calendar.HOUR_OF_DAY))} · $date", style = style, maxLines = 1)
-        if (weather != null) {
-            Spacer(Modifier.width(10.dp))
-            WeatherGlyph(weather.sky, weather.isDay, Modifier.size(15.dp), ink.copy(alpha = 0.78f))
-            Spacer(Modifier.width(5.dp))
-            Text("${weather.temperature}° ${LumenConfig.CITY}", style = style.copy(color = ink.copy(alpha = 0.78f), fontWeight = FontWeight.Normal), maxLines = 1)
-        }
-    }
-}
-
-@Composable
-private fun SceneCardView(card: SceneCard, glass: ImageBitmap?, compact: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
-    var focused by remember { mutableStateOf(false) }
-    val scale by animateFloatAsState(if (focused) 1.05f else 1f, tween(200), label = "card")
-    val shape = RoundedCornerShape(15.dp)
-    Row(
-        modifier
-            .graphicsLayer { scaleX = scale; scaleY = scale }
-            .height(72.dp)
-            .sceneGlass(glass, shape)
-            .then(if (focused) Modifier.border(1.5.dp, Color.White, shape) else Modifier)
-            .onFocusChanged {
-                focused = it.isFocused
-                if (it.isFocused) Sounds.play(Sound.FOCUS)
-            }
-            .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {
-                Sounds.play(Sound.SELECT)
-                onClick()
-            }
-            .padding(8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        // The picture on the left (the news photo, both teams' crests, the album cover, a calendar page);
-        // none if there isn't one. With four cards the pictures get a little narrower.
-        val match = card.match
-        val day = card.calendarDay
-        if (match != null || card.bitmap != null || card.image != null || card.square || day != null) {
-            val width = when {
-                card.square || day != null -> 47.5.dp
-                match != null && compact -> 54.dp
-                compact -> 64.dp
-                else -> 84.dp
-            }
-            Box(
-                Modifier
-                    .size(width = width, height = 47.5.dp)
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(if (day != null) Color.White else Color.White.copy(alpha = 0.08f)),
-                contentAlignment = Alignment.Center,
-            ) {
-                when {
-                    day != null -> Column(Modifier.fillMaxSize().padding(top = 4.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(day.first.uppercase(), color = Color(0xFFFF3B30), fontSize = 7.5.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.4.sp, maxLines = 1, lineHeight = 9.sp)
-                        Text(day.second, color = Color(0xFF111111), fontSize = 22.sp, lineHeight = 26.sp)
-                    }
-                    match != null -> Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-                        Crest(match.home, if (compact) 20.dp else 23.dp)
-                        Crest(match.away, if (compact) 20.dp else 23.dp)
-                    }
-                    card.bitmap != null -> Image(card.bitmap, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
-                    card.image != null -> {
-                        val photo by rememberRemoteImage(card.image, maxSide = 400)
-                        val p = photo
-                        if (p != null) {
-                            Image(p, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
-                        } else if (card.square) {
-                            MusicGlyph()
-                        }
-                    }
-                    card.square -> MusicGlyph()
-                }
-            }
-            Spacer(Modifier.width(10.dp))
-        } else {
-            Spacer(Modifier.width(4.dp))
-        }
-        Column(Modifier.weight(1f)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                if (card.live) {
-                    Box(Modifier.size(5.dp).clip(CircleShape).background(Color(0xFFFF3B30)))
-                    Spacer(Modifier.width(5.dp))
-                }
-                Text(
-                    card.label.uppercase(),
-                    color = Color.White.copy(alpha = 0.58f), fontSize = 9.5.sp, fontWeight = FontWeight.Medium,
-                    letterSpacing = 0.6.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
-                )
-            }
-            Text(
-                card.title, color = Color.White, fontSize = 13.sp, lineHeight = 16.sp, fontWeight = FontWeight.SemiBold,
-                // Everything has to fit the 72 dp card: two lines, or one when there's a line under it.
-                maxLines = if (card.subtitle.isNotBlank()) 1 else 2, overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.padding(top = 2.dp),
-            )
-            if (card.subtitle.isNotBlank()) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    if (card.playHint) {
-                        Canvas(Modifier.size(8.dp)) {
-                            drawPath(
-                                androidx.compose.ui.graphics.Path().apply {
-                                    moveTo(size.width * 0.15f, 0f); lineTo(size.width, size.height / 2f); lineTo(size.width * 0.15f, size.height); close()
-                                },
-                                Color.White.copy(alpha = 0.78f),
-                            )
-                        }
-                        Spacer(Modifier.width(4.dp))
-                    }
-                    Text(card.subtitle, color = Color.White.copy(alpha = 0.78f), fontSize = 10.5.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                }
-            }
-            card.progress?.let { p ->
-                Box(
-                    Modifier
-                        .padding(top = 5.dp)
-                        .fillMaxWidth()
-                        .height(2.5.dp)
-                        .clip(RoundedCornerShape(2.dp))
-                        .background(Color.White.copy(alpha = 0.25f)),
-                ) {
-                    Box(Modifier.fillMaxHeight().fillMaxWidth(p.coerceIn(0f, 1f)).background(Color.White))
-                }
-            }
-        }
-    }
-}
-
-/** A music note, while an album cover loads. */
-@Composable
-private fun MusicGlyph() {
-    Box(Modifier.fillMaxSize().background(Brush.linearGradient(listOf(Color(0xFF3A3346), Color(0xFF1C1824)))), contentAlignment = Alignment.Center) {
-        Text("♪", color = Color.White.copy(alpha = 0.85f), fontSize = 20.sp)
     }
 }
 
@@ -751,7 +597,7 @@ fun AgendaPanel(events: List<CalEvent>, glass: ImageBitmap?, onClose: () -> Unit
                 .width(540.dp)
                 .heightIn(max = 470.dp)
                 .sceneGlass(glass, RoundedCornerShape(22.dp))
-                .background(Color(20, 14, 24).copy(alpha = 0.35f), RoundedCornerShape(22.dp))
+                .background(SilverNight.Slate.copy(alpha = 0.35f), RoundedCornerShape(22.dp))
                 .padding(horizontal = 24.dp, vertical = 20.dp),
         ) {
             Text(stringResource(R.string.agenda), color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.SemiBold)
@@ -845,16 +691,18 @@ private fun SceneDock(
     onDoneMoving: () -> Unit,
     modifier: Modifier,
 ) {
-    val all = dock + tools
-    val centers = remember { mutableStateMapOf<String, Float>() }
     var selected by remember { mutableStateOf<String?>(null) }
     var hasFocus by remember { mutableStateOf(false) }
-    Column(modifier, horizontalAlignment = Alignment.CenterHorizontally) {
-        Box(
-            Modifier
-                // Wide enough for 8 favourites and the 5 buttons without anything sliding off the edge.
-                .widthIn(max = 924.dp)
-                .sceneGlass(glass, RoundedCornerShape(20.dp))
+    Column(modifier.onFocusChanged { hasFocus = it.hasFocus }, horizontalAlignment = Alignment.CenterHorizontally) {
+        // Your favourites: lit glass, glowing in each app's own colour.
+        LazyRow(
+            horizontalArrangement = Arrangement.spacedBy(HomeLayout.TileGap),
+            // Room around the tiles, so the selected one (a little bigger) is never cut off.
+            contentPadding = PaddingValues(horizontal = 24.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier
+                .widthIn(max = 950.dp)
+                .focusRestorer()
                 .onPreviewKeyEvent { event ->
                     if (movingKey == null) return@onPreviewKeyEvent false
                     // Moving a favourite: ◀ ▶ move it, ▼ removes it, OK or Back finishes.
@@ -873,73 +721,60 @@ private fun SceneDock(
                     true
                 },
         ) {
-            LazyRow(
-                // A little closer together when the dock is full.
-                horizontalArrangement = Arrangement.spacedBy(if (all.size > 12) 8.dp else 10.dp),
-                // Room around the tiles, so the selected one (a little bigger) never touches the glass edge.
-                contentPadding = PaddingValues(horizontal = 18.dp, vertical = 12.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier
-                    .focusRestorer()
-                    .onFocusChanged { hasFocus = it.hasFocus },
-            ) {
-                itemsIndexed(all, key = { _, t -> t.key }) { index, tile ->
-                    Row(
-                        Modifier
-                            .animateItem()
-                            .onGloballyPositioned { centers[tile.key] = it.positionInRoot().x + it.size.width / 2f },
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        // A thin line between your apps and PlaizierOS's own buttons.
-                        if (index == dock.size && dock.isNotEmpty()) {
-                            Box(Modifier.padding(end = 10.dp).width(1.dp).height(30.dp).background(Color.White.copy(alpha = 0.22f)))
-                        }
-                        DockTile(
-                            tile = tile,
-                            moving = tile.key == movingKey,
-                            modifier = if (index == 0) Modifier.focusRequester(firstFocus) else Modifier,
-                            onFocus = { selected = tile.key },
-                            onOpen = onOpen,
-                            onHold = onHold,
-                        )
-                    }
+            itemsIndexed(dock, key = { _, t -> t.key }) { index, tile ->
+                Box(Modifier.animateItem()) {
+                    GlassTile(
+                        tile = tile,
+                        glass = glass,
+                        moving = tile.key == movingKey,
+                        modifier = if (index == 0) Modifier.focusRequester(firstFocus) else Modifier,
+                        onFocus = { selected = tile.key },
+                        onOpen = onOpen,
+                        onHold = onHold,
+                    )
                 }
             }
         }
-        // The selected tile's name, right under it.
+        Spacer(Modifier.height(HomeLayout.RowToCircles))
+        // PlaizierOS's own circles: all apps, news, files, agenda, Jarvis and settings.
+        Row(horizontalArrangement = Arrangement.spacedBy(HomeLayout.CircleGap), verticalAlignment = Alignment.CenterVertically) {
+            tools.forEachIndexed { index, tile ->
+                GlassCircle(
+                    tile = tile,
+                    glass = glass,
+                    modifier = if (dock.isEmpty() && index == 0) Modifier.focusRequester(firstFocus) else Modifier,
+                    onFocus = { selected = tile.key },
+                    onOpen = onOpen,
+                )
+            }
+        }
+        // The selected tile's name.
         val label = when {
             movingKey != null -> stringResource(R.string.move_hint)
-            hasFocus -> all.firstOrNull { it.key == selected }?.label.orEmpty()
+            hasFocus -> (dock + tools).firstOrNull { it.key == selected }?.label.orEmpty()
             else -> ""
         }
-        val target = centers[movingKey ?: selected ?: ""]
-        val centre by animateFloatAsState(target ?: 0f, tween(260, easing = androidx.compose.animation.core.FastOutSlowInEasing), label = "labelX")
         Text(
             label,
-            color = Color.White,
+            color = SilverNight.Silver,
             fontSize = 10.sp,
             fontWeight = FontWeight.SemiBold,
             maxLines = 1,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = 6.dp)
-                .height(14.dp)
-                .layout { measurable, constraints ->
-                    val placeable = measurable.measure(constraints.copy(minWidth = 0))
-                    layout(constraints.maxWidth, placeable.height) {
-                        val x = ((if (target == null) constraints.maxWidth / 2f else centre) - placeable.width / 2f).roundToInt()
-                        placeable.place(x.coerceIn(0, (constraints.maxWidth - placeable.width).coerceAtLeast(0)), 0)
-                    }
-                },
+            modifier = Modifier.padding(top = 8.dp).height(14.dp),
         )
     }
 }
 
-/** One square tile in the dock: grows and lifts a little with a white ring when selected. */
+/**
+ * One favourite as lit glass: frosted scene, the app's colour glowing up from the bottom edge,
+ * light along the rim, and the app's own logo inside. Selected, it grows, its rim turns white
+ * and a glint of light sweeps across it once.
+ */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun DockTile(
+private fun GlassTile(
     tile: Tile,
+    glass: ImageBitmap?,
     moving: Boolean,
     modifier: Modifier,
     onFocus: () -> Unit,
@@ -947,43 +782,64 @@ private fun DockTile(
     onHold: (Tile) -> Unit,
 ) {
     var focused by remember { mutableStateOf(false) }
-    // Everything about being selected follows this one value, eased in and out over 260 ms,
-    // and is only read while drawing: moving along the dock never recomposes anything.
+    // Everything about being selected follows this one value and is only read while drawing:
+    // moving along the row never recomposes anything.
     val lift by animateFloatAsState(
         if (focused || moving) 1f else 0f,
         tween(260, easing = androidx.compose.animation.core.FastOutSlowInEasing),
         label = "lift",
     )
+    val sweep = remember { androidx.compose.animation.core.Animatable(1f) }
+    LaunchedEffect(focused) {
+        if (focused) {
+            sweep.snapTo(0f)
+            sweep.animateTo(1f, tween(700, easing = androidx.compose.animation.core.FastOutSlowInEasing))
+        }
+    }
     val coordinates = remember { arrayOfNulls<LayoutCoordinates>(1) }
-    val shape = RoundedCornerShape(8.dp)
-    // Apps and consoles use the TV's 16:9 banner shape, so their logos fit exactly as their makers drew them.
-    val wide = tile.kind != TileKind.LUMEN
+    val shape = RoundedCornerShape(HomeLayout.TileRadius)
+    val glow = tile.glow
     Box(
         modifier
-            .size(width = if (wide) 72.dp else 40.5.dp, height = 40.5.dp)
+            .size(width = HomeLayout.TileWidth, height = HomeLayout.TileHeight)
             .graphicsLayer {
-                val s = 1f + 0.10f * lift
+                val s = 1f + 0.08f * lift
                 scaleX = s
                 scaleY = s
                 translationY = -2.dp.toPx() * lift
             }
             .onGloballyPositioned { coordinates[0] = it }
+            .sceneFrost(glass, shape)
             .drawWithContent {
+                // The app's colour, glowing up from under the tile.
+                drawRect(
+                    Brush.radialGradient(
+                        listOf(glow.copy(alpha = 0.42f + 0.33f * lift), Color.Transparent),
+                        center = Offset(size.width / 2f, size.height * 1.08f),
+                        radius = size.width * 0.78f,
+                    ),
+                )
                 drawContent()
-                if (lift > 0.01f) {
-                    drawRoundRect(
-                        color = Color.White.copy(alpha = lift),
-                        cornerRadius = CornerRadius(8.dp.toPx()),
-                        style = Stroke(width = 2.dp.toPx()),
+                // A glint of light, once, when the tile is selected.
+                val p = sweep.value
+                if (p < 1f) {
+                    val x = size.width * (p * 1.7f - 0.35f)
+                    drawRect(
+                        Brush.linearGradient(
+                            listOf(Color.Transparent, Color.White.copy(alpha = 0.24f), Color.Transparent),
+                            start = Offset(x - size.width * 0.22f, 0f),
+                            end = Offset(x + size.width * 0.22f, size.height),
+                        ),
                     )
                 }
-            }
-            .clip(shape)
-            // Tiles that aren't selected are a little darker; the selected one brightens softly.
-            // Drawn inside the rounded clip, so the corners stay round (no square edge around them).
-            .drawWithContent {
-                drawContent()
-                drawRect(Color.Black.copy(alpha = 0.2f * (1f - lift)))
+                // Light along the rim: bright at the top, fading down; all white when selected.
+                drawRoundRect(
+                    brush = Brush.verticalGradient(
+                        listOf(Color.White.copy(alpha = 0.5f + 0.5f * lift), Color.White.copy(alpha = 0.08f + 0.6f * lift)),
+                    ),
+                    cornerRadius = CornerRadius(HomeLayout.TileRadius.toPx()),
+                    style = Stroke(width = (1.5f + 1.5f * lift).dp.toPx()),
+                )
             }
             .onFocusChanged {
                 focused = it.isFocused
@@ -1003,7 +859,82 @@ private fun DockTile(
             ),
         contentAlignment = Alignment.Center,
     ) {
-        DockFace(tile)
+        // The app's own logo, set into the glass. Tiles that aren't selected are a little quieter.
+        Box(
+            Modifier
+                .padding(HomeLayout.TileInset)
+                .fillMaxSize()
+                .clip(RoundedCornerShape(HomeLayout.TileRadius - HomeLayout.TileInset))
+                .drawWithContent {
+                    drawContent()
+                    drawRect(Color.Black.copy(alpha = 0.22f * (1f - lift)))
+                },
+            contentAlignment = Alignment.Center,
+        ) {
+            DockFace(tile)
+        }
+    }
+}
+
+/** One of PlaizierOS's own circles; Jarvis is the silver orb. */
+@Composable
+private fun GlassCircle(
+    tile: Tile,
+    glass: ImageBitmap?,
+    modifier: Modifier,
+    onFocus: () -> Unit,
+    onOpen: (Tile, Rect) -> Unit,
+) {
+    var focused by remember { mutableStateOf(false) }
+    val lift by animateFloatAsState(
+        if (focused) 1f else 0f,
+        tween(220, easing = androidx.compose.animation.core.FastOutSlowInEasing),
+        label = "circle",
+    )
+    val jarvis = tile.key == TOOL_ASK
+    Box(
+        modifier
+            .size(HomeLayout.CircleSize)
+            .graphicsLayer {
+                val s = 1f + 0.12f * lift
+                scaleX = s
+                scaleY = s
+            }
+            .then(
+                if (jarvis) {
+                    Modifier.clip(CircleShape).drawBehind {
+                        drawRect(SilverNight.Slate)
+                        drawCircle(
+                            Brush.radialGradient(
+                                listOf(Color.White, Color(0xFFC9CED6), SilverNight.Steel, SilverNight.Slate),
+                                center = Offset(size.width * 0.38f, size.height * 0.32f),
+                                radius = size.width * 0.78f,
+                            ),
+                        )
+                    }
+                } else {
+                    Modifier.sceneFrost(glass, CircleShape)
+                },
+            )
+            .drawWithContent {
+                drawContent()
+                drawCircle(
+                    Color.White.copy(alpha = 0.28f + 0.72f * lift),
+                    radius = size.minDimension / 2f - 1.dp.toPx(),
+                    style = Stroke(width = (1.2f + 1f * lift).dp.toPx()),
+                )
+            }
+            .onFocusChanged {
+                focused = it.isFocused
+                if (it.isFocused) {
+                    Sounds.play(Sound.FOCUS)
+                    onFocus()
+                }
+            }
+            .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { onOpen(tile, Rect.Zero) },
+        contentAlignment = Alignment.Center,
+    ) {
+        if (!jarvis) ToolGlyph(tile.key, Modifier.size(16.dp), Color.White)
     }
 }
 
@@ -1040,6 +971,7 @@ const val TOOL_NEWS = "tool:news"
 const val TOOL_FILES = "tool:files"
 const val TOOL_ASK = "tool:ask"
 const val TOOL_MORE = "tool:more"
+const val TOOL_AGENDA = "tool:agenda"
 
 @Composable
 private fun ToolGlyph(key: String, modifier: Modifier, color: Color) {
@@ -1048,13 +980,23 @@ private fun ToolGlyph(key: String, modifier: Modifier, color: Color) {
         TOOL_FILES -> FilesGlyph(modifier, color)
         TOOL_ASK -> SparkleGlyph(modifier, color)
         TOOL_MORE -> SettingsGlyph(modifier, color, knob = Color.Transparent)
+        TOOL_AGENDA -> CalendarGlyph(modifier, color)
         else -> AppsGlyph(modifier, color)
     }
 }
 
 /** "More": the phone remote, search, TV settings, colours — and the screen's resolution. */
 @Composable
-fun MorePanel(glass: ImageBitmap?, onPhone: () -> Unit, onSearch: () -> Unit, onSettings: () -> Unit, onNetwork: () -> Unit, onThemes: () -> Unit, onClose: () -> Unit) {
+fun MorePanel(
+    glass: ImageBitmap?,
+    onPhone: () -> Unit,
+    onSearch: () -> Unit,
+    onSettings: () -> Unit,
+    onNetwork: () -> Unit,
+    onThemes: () -> Unit,
+    onCheck: () -> Unit,
+    onClose: () -> Unit,
+) {
     androidx.activity.compose.BackHandler { onClose() }
     val first = remember { FocusRequester() }
     LaunchedEffect(Unit) {
@@ -1075,6 +1017,7 @@ fun MorePanel(glass: ImageBitmap?, onPhone: () -> Unit, onSearch: () -> Unit, on
             MenuRow(stringResource(R.string.tab_themes), Modifier, onThemes)
             MenuRow(stringResource(R.string.wifi), Modifier, onNetwork)
             MenuRow(stringResource(R.string.settings), Modifier, onSettings)
+            MenuRow(stringResource(R.string.check_open), Modifier, onCheck)
             CompositionLocalWhite { ScreenInfoLine(Modifier.padding(horizontal = 8.dp, vertical = 6.dp)) }
         }
     }
@@ -1158,5 +1101,16 @@ private fun frosted(src: Bitmap): Bitmap {
             )
         },
     )
+    return out
+}
+
+/** A copy of [src] with its colour turned down to [saturation] (Silver Night). */
+private fun desaturated(src: Bitmap, saturation: Float): Bitmap {
+    val out = Bitmap.createBitmap(src.width, src.height, Bitmap.Config.ARGB_8888)
+    android.graphics.Canvas(out).drawBitmap(
+        src, 0f, 0f,
+        Paint(Paint.FILTER_BITMAP_FLAG).apply { colorFilter = ColorMatrixColorFilter(ColorMatrix().apply { setSaturation(saturation) }) },
+    )
+    src.recycle()
     return out
 }

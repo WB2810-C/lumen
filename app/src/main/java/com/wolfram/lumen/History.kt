@@ -42,7 +42,8 @@ suspend fun fetchHistoryFact(context: Context): HistoryFact? {
         val text = prefs.getString("history_text", null)
         if (year != null && text != null) return HistoryFact(year, text)
     }
-    val fact = runCatching { if (BuildConfig.CLAUDE_API_KEY.isNotBlank()) factFromClaude() else null }.getOrNull()
+    val claudeKey = JarvisKeys.load(context, Brain.CLAUDE)
+    val fact = runCatching { if (!claudeKey.isNullOrBlank()) factFromClaude(claudeKey) else null }.getOrNull()
         ?: runCatching { factFromWikipedia() }
             .onFailure { android.util.Log.w(LOG_TAG, "history (Wikipedia) failed: ${it.javaClass.name}: ${it.message}") }
             .getOrNull()
@@ -55,10 +56,10 @@ suspend fun fetchHistoryFact(context: Context): HistoryFact? {
     return fact
 }
 
-private suspend fun factFromClaude(): HistoryFact? {
+private suspend fun factFromClaude(apiKey: String): HistoryFact? {
     val date = SimpleDateFormat("d MMMM", Locale.ENGLISH).format(Date())
     val language = if (Locale.getDefault().language == "nl") "Dutch" else "English"
-    val client = ClaudeClient(BuildConfig.CLAUDE_API_KEY, LumenConfig.ASSISTANT_MODEL)
+    val client = ClaudeClient(apiKey)
     val question = """
         Give one interesting, well-documented historical event that happened on $date (any year).
         Make it something a curious person would enjoy: science, sport, culture, exploration or European history.
@@ -68,7 +69,7 @@ private suspend fun factFromClaude(): HistoryFact? {
     """.trimIndent()
     val messages = JSONArray().put(JSONObject().put("role", "user").put("content", question))
     val tools = JSONArray().put(JSONObject().put("type", "web_search_20250305").put("name", "web_search").put("max_uses", 1))
-    val response = client.send("You write short, accurate history facts for a TV screen.", messages, tools)
+    val response = client.send(JarvisBrain.HAIKU, "You write short, accurate history facts for a TV screen.", messages, tools)
     val content = response.getJSONArray("content")
     val text = buildString {
         for (i in 0 until content.length()) {

@@ -34,7 +34,7 @@
     <string name="theme_stone">Steen</string>
     <string name="theme_silver">Zilver</string>
     <string name="theme_cloud">Wolk</string>
-    <string name="assistant_title">PlaizierOS-assistent</string>
+    <string name="assistant_title">Jarvis</string>
     <string name="assistant_subtitle">Vraag alles · open apps · wissel van thema</string>
     <string name="assistant_intro">Probeer “open Netflix”, “HDMI 1”, “thema Oceaan”, “zoek … op YouTube”, “wat voor weer is het?” of “het nieuws”.</string>
     <string name="assistant_error_laptop">Ik kan de AI op je laptop niet bereiken. Staat hij aan en draait Ollama?</string>
@@ -52,9 +52,9 @@
     <string name="assistant_suggest_hdmi">Zet HDMI 1 op</string>
     <string name="assistant_suggest_theme">Zet het thema op Oceaan</string>
     <string name="assistant_suggest_weather">Wat voor weer is het vandaag?</string>
-    <string name="assistant_setup_title">Zet de assistent aan</string>
-    <string name="assistant_setup_body">Zet je Claude API-sleutel in local.properties en bouw PlaizierOS opnieuw. In de README staat hoe — het duurt twee minuten.</string>
-    <string name="assistant_error_key">Je Claude API-sleutel werkt niet. Controleer hem in local.properties.</string>
+    <string name="assistant_setup_title">Geef Jarvis een brein</string>
+    <string name="assistant_setup_body">Open de telefoonafstandsbediening (Instellingen → Telefoon als afstandsbediening) en plak een Claude- of Gemini-API-sleutel in de Jarvis-kaart. De tv bewaart hem versleuteld. Tot dan doet Jarvis tv-opdrachten zoals “open Netflix”.</string>
+    <string name="assistant_error_key">De API-sleutel van Jarvis werkt niet. Plak hem opnieuw op de telefoonafstandsbediening (Jarvis-kaart).</string>
     <string name="assistant_error_credit">Je API-tegoed is op. Vul het aan in de Claude Console.</string>
     <string name="assistant_error_busy">Claude heeft het nu druk. Probeer het zo meteen opnieuw.</string>
     <string name="assistant_error_network">Geen internetverbinding. Controleer de wifi van de tv.</string>
@@ -154,4 +154,16 @@
     <string name="all_day">Hele dag</string>
     <string name="screen_hdr">HDR: %1$s</string>
     <string name="screen_no_hdr">geen HDR</string>
+    <string name="home_guard_label">PlaizierOS-thuisslot</string>
+    <string name="home_guard_description">Houdt PlaizierOS als startscherm: vangt de Home-knop op en brengt PlaizierOS terug als het Google TV-startscherm verschijnt. Leest geen scherminhoud.</string>
+    <string name="check_title">PlaizierOS-controle</string>
+    <string name="check_open">PlaizierOS-controle</string>
+    <string name="check_home">PlaizierOS is het startscherm</string>
+    <string name="check_guard">Thuisslot staat aan</string>
+    <string name="check_overlay">Terug naar PlaizierOS na stand-by</string>
+    <string name="check_mic">Microfoon voor Jarvis</string>
+    <string name="check_jarvis">Jarvis heeft een brein (%1$s)</string>
+    <string name="check_fix_installer">Start Install-PlaizierOS.bat opnieuw op je laptop: dat zet dit aan.</string>
+    <string name="check_fix_key">Plak een Claude- of Gemini-sleutel in de Jarvis-kaart op de telefoonafstandsbediening.</string>
+    <string name="check_last_key">Laatste knop op de afstandsbediening: %1$s</string>
 </resources>

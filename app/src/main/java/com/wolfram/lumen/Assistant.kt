@@ -27,25 +27,17 @@ import java.util.Locale
 class ClaudeException(val code: Int, message: String) : Exception(message)
 
 /** Minimal client for the Claude Messages API (https://platform.claude.com/docs/en/api/messages). */
-class ClaudeClient(private val apiKey: String, private val model: String) {
+class ClaudeClient(private val apiKey: String) {
 
-    suspend fun send(system: String, messages: JSONArray, tools: JSONArray): JSONObject = withContext(Dispatchers.IO) {
-        val body = JSONObject()
-            .put("model", model)
-            .put("max_tokens", 1024)
-            .put("system", system)
-            .put("messages", messages)
-            .put("tools", tools)
-            // Quick answers matter more than deep thinking on a TV.
-            .put("output_config", JSONObject().put("effort", "low"))
-
+    suspend fun send(model: String, system: String, messages: JSONArray, tools: JSONArray): JSONObject = withContext(Dispatchers.IO) {
+        val body = JarvisBrain.claudeBody(model, system, messages, tools)
         val connection = (URL("https://api.anthropic.com/v1/messages").openConnection() as HttpURLConnection).apply {
             requestMethod = "POST"
             connectTimeout = 15_000
-            readTimeout = 60_000
+            readTimeout = 90_000
             doOutput = true
             setRequestProperty("x-api-key", apiKey)
-            setRequestProperty("anthropic-version", "2026-10-21")
+            setRequestProperty("anthropic-version", "2023-06-01")
             setRequestProperty("content-type", "application/json")
         }
         try {
@@ -107,16 +99,33 @@ data class ToolOutcome(val result: String, val chip: String? = null, val isError
 
 private data class Reply(val text: String, val sources: List<String>)
 
-/** Holds the conversation and runs Claude's tool loop. One per home screen. */
+/**
+ * Holds Jarvis's conversation. Claude (Haiku, or Opus for hard questions) runs the full tool loop;
+ * Gemini answers when it is chosen on the phone remote; the laptop (Ollama) is the free fallback.
+ */
 @Stable
-class AssistantController(apiKey: String, model: String, ollamaHost: String = "", ollamaModel: String = "") {
-    private val client = if (apiKey.isBlank()) null else ClaudeClient(apiKey, model)
-    private val ollama = if (client != null || ollamaHost.isBlank()) null else OllamaClient(ollamaHost, ollamaModel)
-    val hasKey: Boolean get() = client != null
+class AssistantController(
+    claudeKey: String,
+    geminiKey: String = "",
+    brain: Brain = Brain.CLAUDE,
+    ollamaHost: String = "",
+    ollamaModel: String = "",
+) {
+    private val client = if (claudeKey.isBlank()) null else ClaudeClient(claudeKey)
+    private val gemini = if (geminiKey.isBlank()) null else GeminiClient(geminiKey, LumenConfig.GEMINI_MODEL)
+    private val ollama = if (client != null || gemini != null || ollamaHost.isBlank()) null else OllamaClient(ollamaHost, ollamaModel)
 
-    /** An AI is switched on (Claude, or the free one on your laptop). Without it, only built-in commands work. */
-    val hasAi: Boolean get() = client != null || ollama != null
-    val usesClaude: Boolean get() = client != null
+    /** Gemini answers when it's the chosen brain, or when it's the only key there is. */
+    private val useGemini = gemini != null && (brain == Brain.GEMINI || client == null)
+    val hasKey: Boolean get() = client != null || gemini != null
+
+    /** An AI is switched on (Claude, Gemini, or the free one on your laptop). Without it, only built-in commands work. */
+    val hasAi: Boolean get() = client != null || gemini != null || ollama != null
+    val usesClaude: Boolean get() = client != null && !useGemini
+    val usesLaptop: Boolean get() = ollama != null
+
+    /** The model that answered last ("Haiku", "Opus", "Gemini"). */
+    var lastBrain by mutableStateOf("")
 
     private var chat = JSONArray()
 
@@ -149,11 +158,18 @@ class AssistantController(apiKey: String, model: String, ollamaHost: String = ""
         job = scope.launch {
             try {
                 val claude = client
-                val reply = if (claude != null) {
-                    converse(claude, q, system(), runTool) { chip ->
+                val g = gemini
+                val reply = if (useGemini && g != null) {
+                    lastBrain = "Gemini"
+                    Reply(g.ask(system(), q), emptyList())
+                } else if (claude != null) {
+                    val model = JarvisBrain.pickModel(q)
+                    lastBrain = if (model == JarvisBrain.OPUS) "Opus" else "Haiku"
+                    converse(claude, model, q, system(), runTool) { chip ->
                         turns[index] = turns[index].copy(actions = turns[index].actions + chip)
                     }
                 } else {
+                    lastBrain = ""
                     Reply(askOllama(q, system()), emptyList())
                 }
                 turns[index] = turns[index].copy(answer = reply.text, sources = reply.sources)
@@ -190,6 +206,7 @@ class AssistantController(apiKey: String, model: String, ollamaHost: String = ""
 
     private suspend fun converse(
         client: ClaudeClient,
+        model: String,
         question: String,
         system: String,
         runTool: suspend (String, JSONObject) -> ToolOutcome,
@@ -203,7 +220,7 @@ class AssistantController(apiKey: String, model: String, ollamaHost: String = ""
         val sources = linkedSetOf<String>()
 
         repeat(6) {
-            val response = client.send(system, history, tools)
+            val response = client.send(model, system, history, tools)
             val content = response.getJSONArray("content")
             // Send Claude's turn back exactly as it came (thinking, searches and all).
             history.put(JSONObject().put("role", "assistant").put("content", content))
@@ -317,7 +334,7 @@ fun assistantSystemPrompt(
     val now = SimpleDateFormat("EEEE d MMMM yyyy, HH:mm", Locale.ENGLISH).format(Date())
     val owner = LumenConfig.OWNER_NAME.ifBlank { "the owner" }
     return """
-        You are the assistant built into PlaizierOS, $owner's own TV home screen (an Android TV launcher).
+        You are Jarvis, the assistant built into PlaizierOS, $owner's own TV home screen (an Android TV launcher).
         Your answers are shown on a TV and read from the sofa: reply in the language the user speaks
         (usually Dutch or English) in one to three short sentences. No markdown, no lists unless asked.
 
@@ -337,6 +354,7 @@ fun assistantSystemPrompt(
 /** A friendly message for when something goes wrong. */
 fun assistantErrorText(context: Context, error: Throwable, laptop: Boolean = false): String = context.getString(
     when {
+        error is ClaudeException && (error.code == 400 && error.message.orEmpty().contains("API key", ignoreCase = true)) -> R.string.assistant_error_key
         error is ClaudeException && (error.code == 401 || error.code == 403) -> R.string.assistant_error_key
         error is ClaudeException && error.message.orEmpty().contains("credit", ignoreCase = true) -> R.string.assistant_error_credit
         error is ClaudeException && (error.code == 429 || error.code >= 500) -> R.string.assistant_error_busy
