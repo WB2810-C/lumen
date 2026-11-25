@@ -197,4 +197,15 @@
     <string name="update_downloading">Downloading the update…</string>
     <string name="update_failed">The update didn\'t work. Try again, or use the installer on your laptop.</string>
     <string name="dream_label">PlaizierOS scene</string>
+    <string name="note_making_quiz">SPECTRE is making your quiz…</string>
+    <string name="study_failed">Couldn\'t make questions from that text.</string>
+    <string name="study_none">Send a summary or a word list from the phone remote first (Study card).</string>
+    <string name="study_title">Study</string>
+    <string name="briefing_title">Briefing</string>
+    <string name="briefing_hint">Your bus, mail that matters, markets, the space station, the Xbox and your runs. Set them up in the Connections card on the phone remote.</string>
+    <string name="briefing_empty">Loading… If nothing shows, add your details in the Connections card on the phone remote.</string>
+    <string name="note_xbox">Xbox: playing %1$s</string>
+    <string name="note_mail">Mail from %1$s: %2$s</string>
+    <string name="note_run">New run: %1$s</string>
+    <string name="note_iss">Space station over you at %1$s · look %2$s</string>
 </resources>

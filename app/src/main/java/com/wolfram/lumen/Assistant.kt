@@ -126,6 +126,29 @@ class AssistantController(
     val usesClaude: Boolean get() = engine == Engine.CLAUDE
     val usesLaptop: Boolean get() = engine == Engine.LAPTOP
 
+    /** One task for the AI without the TV tools (making a quiz from your summary); null without an AI. */
+    suspend fun complete(system: String, task: String): String? {
+        val claude = client
+        val g = gemini
+        val fast = groq
+        return when {
+            engine == Engine.CLAUDE && claude != null -> {
+                val response = claude.send(JarvisBrain.HAIKU, system, JSONArray().put(JSONObject().put("role", "user").put("content", task)), JSONArray())
+                val content = response.optJSONArray("content") ?: return null
+                buildString {
+                    for (i in 0 until content.length()) {
+                        val block = content.optJSONObject(i) ?: continue
+                        if (block.optString("type") == "text") append(block.optString("text"))
+                    }
+                }
+            }
+            engine == Engine.GROQ && fast != null -> fast.once(system, task)
+            engine == Engine.GEMINI && g != null -> g.ask(system, task)
+            engine == Engine.LAPTOP -> askOllama(task, system)
+            else -> null
+        }
+    }
+
     /** The model that answered last ("Haiku", "Opus", "Gemini"). */
     var lastBrain by mutableStateOf("")
 
@@ -336,6 +359,8 @@ fun lumenTools(): JSONArray = JSONArray().apply {
             .put("minutes", JSONObject().put("type", "integer").put("description", "How long, in minutes (5 to 180).")),
         listOf("minutes")))
     put(tool("stop_focus", "Stop focus mode."))
+    put(tool("start_study", "Start study mode with the last summary or word list sent from the phone (a spoken quiz)."))
+    put(tool("briefing", "Get the user's briefing: their bus, mail that matters, markets they follow, the space station and what's on the Xbox."))
     put(tool("show_recap", "Show the weekly recap: most-played songs, final scores of the user's teams and time per app."))
     put(tool("goodnight", "Goodnight: pause the music, make the screen dark and quiet, and optionally switch the TV off after some minutes.",
         JSONObject().put("sleep_minutes", JSONObject().put("type", "integer").put("description", "Minutes until the TV switches off; 0 for no timer."))))

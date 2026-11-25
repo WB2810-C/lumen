@@ -78,6 +78,10 @@ sealed class RemoteCommand {
     data class Send(val url: String) : RemoteCommand()
     /** Countdowns or SPECTRE's memory were changed on the phone. */
     data class DataChanged(val message: String) : RemoteCommand()
+    /** A summary to study (text from the phone, or the PDF text an iPhone Shortcut sends). */
+    data class Study(val title: String, val text: String) : RemoteCommand()
+    /** A vocabulary list ("chien = hond" per line) in [language] ("fr", "en", "de", "es"). */
+    data class Vocab(val title: String, val language: String, val text: String) : RemoteCommand()
 }
 
 /** The link between the little web server and the home screen. */
@@ -220,7 +224,8 @@ object PhoneRemoteServer {
             RemoteBridge.commands.trySend(RemoteCommand.ShowFile(done.absolutePath))
             return respond(out, 200, "application/json", "{\"ok\":true}")
         }
-        val small = contentLength.coerceAtMost(16_384L).toInt()
+        // Summaries for study mode can be long: up to 64 KB of text.
+        val small = contentLength.coerceAtMost(65_536L).toInt()
         val body = if (small > 0) String(input.readNBytesCompat(small), Charsets.UTF_8) else ""
         val json = runCatching { if (body.isBlank()) JSONObject() else JSONObject(body) }.getOrDefault(JSONObject())
         when {
@@ -313,6 +318,46 @@ object PhoneRemoteServer {
                 val brain = Brain.byId(json.optString("brain")) ?: return respond(out, 400, "application/json", """{"error":"Pick Groq, Claude or Gemini."}""")
                 JarvisKeys.setBrain(context, brain)
                 command(out, RemoteCommand.AccountsChanged("SPECTRE now thinks with ${brain.label}"))
+            }
+            // Study mode and vocabulary drills, sent from the phone.
+            method == "POST" && path == "/api/study" -> {
+                val text = json.optString("text").trim()
+                if (text.length < 80) respond(out, 400, "application/json", """{"error":"Send a bit more text (at least a few sentences)."}""")
+                else command(out, RemoteCommand.Study(json.optString("title").ifBlank { "Study" }.take(60), text.take(40_000)))
+            }
+            method == "POST" && path == "/api/vocab" -> {
+                val text = json.optString("text")
+                if (parseVocab(text).size < 2) respond(out, 400, "application/json", """{"error":"Put one word pair per line, like: chien = hond"}""")
+                else command(out, RemoteCommand.Vocab(json.optString("title").ifBlank { "Vocabulary" }.take(60), json.optString("language", "fr"), text.take(20_000)))
+            }
+            // Connections: bus, Gmail, Xbox, ISS, markets, Strava. Secrets are encrypted on the TV.
+            method == "POST" && path == "/api/connections" -> {
+                val context = appContext ?: return respond(out, 400, "application/json", """{"error":"not ready"}""")
+                (Connections.PLAIN + Connections.SECRET).forEach { name -> if (json.has(name)) Connections.set(context, name, json.optString(name)) }
+                command(out, RemoteCommand.DataChanged("Connections saved"))
+            }
+            method == "POST" && path == "/api/strava/login" -> {
+                val context = appContext ?: return respond(out, 400, "application/json", """{"error":"not ready"}""")
+                val id = Connections.get(context, "strava_client_id")
+                if (id.isBlank() || Connections.get(context, "strava_client_secret").isBlank()) {
+                    return respond(out, 400, "application/json", """{"error":"Save your Strava Client ID and Client Secret first."}""")
+                }
+                val ip = localIpAddress(context) ?: return respond(out, 400, "application/json", """{"error":"The TV has no Wi-Fi address."}""")
+                respond(out, 200, "application/json", JSONObject().put("url", StravaRuns.loginUrl(id, "http://$ip:${LumenConfig.REMOTE_PORT}/strava-done?k=$token")).toString())
+            }
+            method == "GET" && path == "/strava-done" -> {
+                val context = appContext ?: return respond(out, 400, "text/plain", "not ready")
+                val problem = when {
+                    query["error"] != null -> "Strava: ${query["error"]}"
+                    query["code"].isNullOrBlank() -> "Strava didn't send a code."
+                    else -> kotlinx.coroutines.runBlocking { StravaRuns.finish(context, query["code"].orEmpty()) }
+                }
+                if (problem == null) RemoteBridge.commands.trySend(RemoteCommand.DataChanged("Strava connected"))
+                respond(out, 200, "text/html; charset=utf-8", donePage(if (problem == null) "Strava is connected" else problem, problem == null))
+            }
+            method == "POST" && path == "/api/strava/logout" -> {
+                appContext?.let { Connections.forgetStrava(it) }
+                command(out, RemoteCommand.DataChanged("Strava disconnected"))
             }
             // "Send to TV" from the iPhone (share sheet Shortcut or the remote page): a link opens on the TV.
             method == "POST" && path == "/api/send" -> {

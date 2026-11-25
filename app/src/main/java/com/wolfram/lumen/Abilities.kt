@@ -298,6 +298,7 @@ fun GlassListPanel(
     entries: List<Pair<Long, Pair<String, String>>>,
     onRemove: (Long) -> Unit,
     onClose: () -> Unit,
+    removable: Boolean = true,
 ) {
     BackHandler { onClose() }
     val first = remember { FocusRequester() }
@@ -332,14 +333,14 @@ fun GlassListPanel(
                                 .onFocusChanged { focused = it.isFocused }
                                 .background(Color.White.copy(alpha = if (focused) 0.16f else 0.05f), RoundedCornerShape(12.dp))
                                 .border(1.dp, Color.White.copy(alpha = if (focused) 0.9f else 0.1f), RoundedCornerShape(12.dp))
-                                .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { onRemove(id) }
+                                .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { if (removable) onRemove(id) }
                                 .padding(horizontal = 14.dp, vertical = 9.dp),
                         ) {
                             Text(texts.first, color = SilverNight.Silver, fontSize = 13.sp, fontWeight = FontWeight.Medium)
                             if (texts.second.isNotBlank()) {
                                 Text(texts.second, color = SilverNight.Silver.copy(alpha = 0.6f), fontSize = 11.sp)
                             }
-                            if (focused) {
+                            if (focused && removable) {
                                 Text("OK removes it", color = SilverNight.Signal, fontSize = 10.sp, textAlign = TextAlign.Start)
                             }
                         }

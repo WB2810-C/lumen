@@ -1000,6 +1000,8 @@ fun MorePanel(
     onMemory: () -> Unit,
     onCountdowns: () -> Unit,
     onRecap: () -> Unit,
+    onStudy: () -> Unit,
+    onBriefing: () -> Unit,
     updateLabel: String?,
     onUpdate: () -> Unit,
     onClose: () -> Unit,
@@ -1026,6 +1028,8 @@ fun MorePanel(
             MenuRow(stringResource(R.string.settings), Modifier, onSettings)
             MenuRow(stringResource(R.string.memory_title), Modifier, onMemory)
             MenuRow(stringResource(R.string.countdowns_title), Modifier, onCountdowns)
+            MenuRow(stringResource(R.string.briefing_title), Modifier, onBriefing)
+            MenuRow(stringResource(R.string.study_title), Modifier, onStudy)
             MenuRow(stringResource(R.string.recap_title), Modifier, onRecap)
             if (updateLabel != null) MenuRow(updateLabel, Modifier, onUpdate)
             MenuRow(stringResource(R.string.check_open), Modifier, onCheck)

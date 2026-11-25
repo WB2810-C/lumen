@@ -1,4 +1,23 @@
-# PlaizierOS 21.2 — a home screen for your Peaq Google TV
+# PlaizierOS 21.3 — a home screen for your Peaq Google TV
+
+## New in 21.3
+
+- **Study mode:** paste a summary on the phone remote (or share a PDF to the one-time iPhone Shortcut):
+  SPECTRE makes a spoken quiz, you answer out loud, and what you get wrong comes back until you know it.
+  Without an AI key it makes fill-in-the-blank questions from your own sentences.
+- **Vocabulary drills:** a word list ("chien = hond" per line): SPECTRE says the Dutch word, you say the
+  French (or English, German, Spanish, Italian) one, and the spelling appears.
+- **Connections** (phone remote → Connections; keys and passwords are encrypted on the TV):
+  - **Your bus** (De Lijn, live): on weekday mornings the Island says when it leaves.
+  - **Only the mail that matters** (Gmail app password): mail from people, school and deliveries in the
+    Island; newsletters and no-reply robots stay out.
+  - **Xbox:** wakes over Wi-Fi when you open its tile (Live device ID, Sleep power mode); with an OpenXBL
+    key the Island shows what's playing and the weekly recap counts your game time. Both consoles also
+    wake through HDMI-CEC when the TV switches to them.
+  - **Space station** (N2YO key): a note half an hour before a pass you can see.
+  - **Market glance** (Alpha Vantage key): up to 5 stocks in the briefing.
+  - **Strava:** your latest run and this week's kilometres on screen; never sent to SPECTRE.
+- **Briefing** (Settings → Briefing, or ask SPECTRE): all of it on one glass panel.
 
 ## New in 21.2
 

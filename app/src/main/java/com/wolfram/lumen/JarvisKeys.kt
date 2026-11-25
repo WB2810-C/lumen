@@ -88,6 +88,20 @@ object JarvisKeys {
         String(cipher.doFinal(sealed), Charsets.UTF_8)
     }.getOrNull()
 
+    /** Encrypts any secret (connection passwords and keys) with the same TV-only key. */
+    internal fun seal(text: String): String {
+        val cipher = Cipher.getInstance("AES/GCM/NoPadding")
+        cipher.init(Cipher.ENCRYPT_MODE, secretKey())
+        return pack(cipher.iv, cipher.doFinal(text.toByteArray(Charsets.UTF_8)))
+    }
+
+    internal fun open(stored: String?): String? = runCatching {
+        val (iv, sealed) = unpack(stored) ?: return null
+        val cipher = Cipher.getInstance("AES/GCM/NoPadding")
+        cipher.init(Cipher.DECRYPT_MODE, secretKey(), GCMParameterSpec(128, iv))
+        String(cipher.doFinal(sealed), Charsets.UTF_8)
+    }.getOrNull()
+
     fun has(context: Context, brain: Brain): Boolean = prefs(context).contains(brain.id)
 
     fun forget(context: Context, brain: Brain) {

@@ -196,4 +196,15 @@
     <string name="update_downloading">Update wordt gedownload…</string>
     <string name="update_failed">De update lukte niet. Probeer opnieuw, of gebruik het installatieprogramma op je laptop.</string>
     <string name="dream_label">PlaizierOS-scène</string>
+    <string name="note_making_quiz">SPECTRE maakt je quiz…</string>
+    <string name="study_failed">Kon geen vragen maken van die tekst.</string>
+    <string name="study_none">Stuur eerst een samenvatting of woordenlijst vanaf de telefoonafstandsbediening (kaart Studeren).</string>
+    <string name="study_title">Studeren</string>
+    <string name="briefing_title">Briefing</string>
+    <string name="briefing_hint">Je bus, mail die ertoe doet, beurs, het ruimtestation, de Xbox en je loopjes. Stel ze in op de kaart Verbindingen van de telefoonafstandsbediening.</string>
+    <string name="briefing_empty">Laden… Zie je niets, vul dan je gegevens in op de kaart Verbindingen van de telefoonafstandsbediening.</string>
+    <string name="note_xbox">Xbox: speelt %1$s</string>
+    <string name="note_mail">Mail van %1$s: %2$s</string>
+    <string name="note_run">Nieuwe loop: %1$s</string>
+    <string name="note_iss">Ruimtestation boven je om %1$s · kijk %2$s</string>
 </resources>

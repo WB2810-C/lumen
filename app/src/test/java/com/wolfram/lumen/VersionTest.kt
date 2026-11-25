@@ -5,7 +5,7 @@ import org.junit.Test
 
 class VersionTest {
     @Test
-    fun versionIs21_2() {
-        assertEquals("21.2", BuildConfig.VERSION_NAME)
+    fun versionIs21_3() {
+        assertEquals("21.3", BuildConfig.VERSION_NAME)
     }
 }

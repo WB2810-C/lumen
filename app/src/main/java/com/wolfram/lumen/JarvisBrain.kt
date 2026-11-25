@@ -217,6 +217,22 @@ class GroqClient(private val apiKey: String) {
         return answer
     }
 
+    /** One question without tools or history (making a quiz, sorting mail): just the answer's text. */
+    suspend fun once(system: String, question: String): String {
+        val messages = JSONArray()
+            .put(JSONObject().put("role", "system").put("content", system))
+            .put(JSONObject().put("role", "user").put("content", question))
+        val response = try {
+            post(JarvisBrain.groqBody(model, messages, JSONArray()).put("max_completion_tokens", 2048))
+        } catch (e: ClaudeException) {
+            if (e.code != 429 || model == JarvisBrain.GROQ_SMALL) throw e
+            model = JarvisBrain.GROQ_SMALL
+            post(JarvisBrain.groqBody(model, messages, JSONArray()).put("max_completion_tokens", 2048))
+        }
+        val message = response.getJSONArray("choices").getJSONObject(0).getJSONObject("message")
+        return if (message.isNull("content")) "" else message.optString("content").trim()
+    }
+
     private suspend fun post(body: JSONObject): JSONObject = withContext(Dispatchers.IO) {
         val connection = (URL("https://api.groq.com/openai/v1/chat/completions").openConnection() as HttpURLConnection).apply {
             requestMethod = "POST"

@@ -59,11 +59,11 @@ object WeekLog {
     private fun prefs(context: Context) = context.getSharedPreferences("recap", Context.MODE_PRIVATE)
     private const val WEEK = 7 * 24 * 3_600_000L
 
-    private fun add(context: Context, key: String, text: String) {
+    private fun add(context: Context, key: String, text: String, dedupe: Boolean = true) {
         val now = System.currentTimeMillis()
         val list = parseLog(prefs(context).getString(key, null)).filter { now - it.at < 2 * WEEK }
         // The same song reported twice in a row (pause, play) counts once.
-        if (list.lastOrNull()?.let { it.text == text && now - it.at < 10 * 60_000L } == true) return
+        if (dedupe && list.lastOrNull()?.let { it.text == text && now - it.at < 10 * 60_000L } == true) return
         prefs(context).edit().putString(key, logJson((list + LogEntry(text, now)).takeLast(400))).apply()
     }
 
@@ -71,6 +71,13 @@ object WeekLog {
         add(context, "songs", if (artist.isBlank()) title else "$title · $artist")
 
     fun result(context: Context, text: String) = add(context, "results", text)
+
+    /** One 3-minute sample of an Xbox game being played (from OpenXBL). */
+    fun game(context: Context, title: String) = add(context, "games", title, dedupe = false)
+
+    /** Minutes per game this week. */
+    fun games(context: Context): List<Pair<String, Long>> =
+        topEntries(parseLog(prefs(context).getString("games", null)), System.currentTimeMillis() - WEEK).map { it.first to it.second * 3L }
 
     fun songs(context: Context): List<Pair<String, Int>> =
         topEntries(parseLog(prefs(context).getString("songs", null)), System.currentTimeMillis() - WEEK)
@@ -97,6 +104,7 @@ fun RecapPanel(glass: ImageBitmap?, labels: Map<String, String>, context: Contex
     val songs = remember { WeekLog.songs(context) }
     val results = remember { WeekLog.results(context) }
     val apps = remember { WeekLog.appMinutes(context, labels) }
+    val games = remember { WeekLog.games(context) }
     val focus = remember { FocusRequester() }
     LaunchedEffect(Unit) {
         delay(60)
@@ -128,6 +136,11 @@ fun RecapPanel(glass: ImageBitmap?, labels: Map<String, String>, context: Contex
                     Section("Time per app")
                     if (apps.isEmpty()) Quiet("Run Install-PlaizierOS.bat once more to switch this on.")
                     apps.forEach { (app, minutes) -> Line(app, durationText(minutes)) }
+                    if (games.isNotEmpty()) {
+                        Spacer(Modifier.padding(4.dp))
+                        Section("Xbox")
+                        games.forEach { (game, minutes) -> Line(game, durationText(minutes)) }
+                    }
                 }
             }
         }

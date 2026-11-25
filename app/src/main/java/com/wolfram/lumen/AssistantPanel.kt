@@ -89,9 +89,9 @@ import java.util.Locale
 
 /* ---------- Voice ---------- */
 
-private fun speechIntent(context: Context) = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH)
+private fun speechIntent(context: Context, language: String? = null) = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH)
     .putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-    .putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.getDefault().toLanguageTag())
+    .putExtra(RecognizerIntent.EXTRA_LANGUAGE, language ?: Locale.getDefault().toLanguageTag())
     .putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
     .putExtra(RecognizerIntent.EXTRA_CALLING_PACKAGE, context.packageName)
 
@@ -102,6 +102,8 @@ class VoiceInput(
     private val partialCallback: (String) -> Unit,
     private val finalCallback: (String) -> Unit,
     private val errorCallback: (Int) -> Unit,
+    /** The language to listen for ("fr-FR" in a French vocabulary drill); null = the TV's language. */
+    private val language: String? = null,
 ) {
     val available: Boolean = runCatching { SpeechRecognizer.isRecognitionAvailable(context) }.getOrDefault(false)
 
@@ -188,7 +190,7 @@ class VoiceInput(
             override fun onEvent(eventType: Int, params: Bundle?) = Unit
         })
         try {
-            r.startListening(speechIntent(context))
+            r.startListening(speechIntent(context, language))
         } catch (e: Exception) {
             Log.w(LOG_TAG, "speech: startListening failed", e)
             finish(mySession) { errorCallback(ERROR_NOT_STARTED) }

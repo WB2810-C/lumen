@@ -199,6 +199,60 @@
   </section>
 
   <section class="card">
+    <div class="label">Study</div>
+    <div class="sub" style="margin-top:0">Paste your summary: SPECTRE makes a spoken quiz on the TV. Or a word list (one pair per line, like <i>chien = hond</i>) for a vocabulary drill.</div>
+    <form id="studyForm" style="display:flex;flex-direction:column;gap:8px;margin-top:10px">
+      <input id="studyTitle" placeholder="Title, e.g. History chapter 4" autocomplete="off">
+      <textarea id="studyText" rows="6" placeholder="Summary text, or word pairs" style="border-radius:14px;border:none;background:var(--soft);padding:12px;font:16px -apple-system,Inter,sans-serif;color:var(--ink);resize:vertical"></textarea>
+      <div class="chips">
+        <button class="chip" type="submit" data-kind="quiz">Make a quiz</button>
+        <button class="chip" type="submit" data-kind="vocab">Word drill</button>
+        <select id="studyLang" style="border-radius:14px;border:none;background:var(--soft);padding:8px 10px;font-size:15px">
+          <option value="fr">French</option><option value="en">English</option><option value="de">German</option><option value="es">Spanish</option><option value="it">Italian</option>
+        </select>
+      </div>
+    </form>
+    <details style="margin-top:8px">
+      <summary class="sub" style="cursor:pointer">Straight from a PDF on your iPhone (one-time Shortcut)</summary>
+      <div class="sub" style="margin-top:8px;line-height:1.5">
+        Shortcuts: <b>+</b> → <b>Receive</b> <i>PDFs</i> from the <b>Share Sheet</b> → <b>Get Text from PDF</b> →
+        <b>Get contents of URL</b> with this address, Method <b>POST</b>, Request Body <b>JSON</b>, key <b>text</b> = <i>Text</i>:
+        <div id="studyUrl" style="font-family:ui-monospace,monospace;word-break:break-all;background:var(--soft);padding:8px;border-radius:10px;margin:6px 0"></div>
+        Name it "Study on TV" and share a summary PDF to it.
+      </div>
+    </details>
+  </section>
+
+  <section class="card">
+    <div class="label">Connections</div>
+    <div class="sub" style="margin-top:0">Fill in what you want; leave the rest empty. Keys and passwords are encrypted on the TV and never shown again.</div>
+    <form id="connForm" style="display:flex;flex-direction:column;gap:8px;margin-top:10px">
+      <div class="sub" style="margin:6px 0 0"><b>Bus</b> · key from data.delijn.be (Open Data Free) and your stop number (6 digits, on the stop's sign)</div>
+      <input name="delijn_key" type="password" placeholder="De Lijn key" autocomplete="off">
+      <div class="row"><input name="delijn_stop" placeholder="Stop number" inputmode="numeric"><input name="delijn_line" placeholder="Line (optional)"></div>
+      <div class="sub" style="margin:6px 0 0"><b>Gmail</b> · myaccount.google.com → Security → App passwords</div>
+      <input name="gmail_address" placeholder="you@gmail.com" autocomplete="off" autocapitalize="off">
+      <input name="gmail_password" type="password" placeholder="App password (16 letters)" autocomplete="off">
+      <div class="sub" style="margin:6px 0 0"><b>Xbox</b> · Live device ID: Xbox Settings → Devices &amp; connections → Remote features. Now playing: free key at xbl.io</div>
+      <div class="row"><input name="xbox_liveid" placeholder="Live device ID (F4…)" autocapitalize="characters"><input name="xbox_ip" placeholder="Xbox IP (optional)" inputmode="decimal"></div>
+      <input name="openxbl_key" type="password" placeholder="OpenXBL key (optional)" autocomplete="off">
+      <div class="sub" style="margin:6px 0 0"><b>Space station</b> · free key at n2yo.com (Profile → API key)</div>
+      <input name="n2yo_key" type="password" placeholder="N2YO key" autocomplete="off">
+      <div class="sub" style="margin:6px 0 0"><b>Markets</b> · free key at alphavantage.co, up to 5 stocks</div>
+      <input name="alpha_key" type="password" placeholder="Alpha Vantage key" autocomplete="off">
+      <input name="symbols" placeholder="Symbols, e.g. ASML, AAPL, KBC.BR" autocapitalize="characters">
+      <div class="sub" style="margin:6px 0 0"><b>Strava</b> · strava.com/settings/api (Authorization Callback Domain: <span id="tvHost"></span>)</div>
+      <div class="row"><input name="strava_client_id" placeholder="Client ID" inputmode="numeric"><input name="strava_client_secret" type="password" placeholder="Client Secret"></div>
+      <button class="go" style="width:100%">Save connections</button>
+    </form>
+    <div class="chips" style="margin-top:10px">
+      <button class="chip" id="stravaOn">Connect Strava</button>
+      <button class="chip" id="stravaOff" style="display:none">Disconnect Strava</button>
+    </div>
+    <div class="sub" id="connState" style="margin:8px 0 0"></div>
+  </section>
+
+  <section class="card">
     <div class="label">Countdowns</div>
     <div id="cdList"></div>
     <form id="cdForm" style="display:flex;flex-direction:column;gap:8px;margin-top:10px">
@@ -407,6 +461,32 @@
     pad.addEventListener('touchend', () => { if (!moved) padKey('ok'); });
   })();
 
+  // Study.
+  $('studyUrl').textContent = location.origin + '/api/study?k=' + key;
+  $('studyForm').addEventListener('submit', async e => {
+    e.preventDefault();
+    const kind = (e.submitter && e.submitter.dataset.kind) || 'quiz';
+    const body = { title: $('studyTitle').value.trim(), text: $('studyText').value };
+    if (kind === 'vocab') body.language = $('studyLang').value;
+    const r = await api(kind === 'vocab' ? '/api/vocab' : '/api/study', body).catch(() => ({ error: 'The TV didn’t answer.' }));
+    if (r.ok) { toast(kind === 'vocab' ? 'Word drill on the TV' : 'SPECTRE is making your quiz'); } else toast(r.error || 'Couldn’t send it');
+  });
+
+  // Connections.
+  $('tvHost').textContent = location.hostname;
+  $('connForm').addEventListener('submit', async e => {
+    e.preventDefault();
+    const body = {};
+    new FormData($('connForm')).forEach((v, k) => { if (String(v).trim()) body[k] = String(v).trim(); });
+    const r = await api('/api/connections', body).catch(() => ({}));
+    if (r.ok) { $('connForm').querySelectorAll('input[type=password]').forEach(i => i.value = ''); toast('Saved on the TV'); refresh(); } else toast('Couldn’t save');
+  });
+  $('stravaOn').addEventListener('click', async () => {
+    const r = await api('/api/strava/login', {}).catch(() => ({}));
+    if (r.url) location.href = r.url; else toast(r.error || 'Couldn’t start Strava');
+  });
+  $('stravaOff').addEventListener('click', async () => { await api('/api/strava/logout', {}); refresh(); });
+
   // Countdowns and SPECTRE memory.
   function listRows(box, rows, onRemove) {
     box.innerHTML = '';
@@ -435,6 +515,17 @@
 
   let lastApps = '', lastThemes = '', lastLists = '';
   function render(state) {
+    const conn = state.connections || {};
+    const form = $('connForm');
+    ['delijn_stop', 'delijn_line', 'gmail_address', 'xbox_liveid', 'xbox_ip', 'symbols', 'strava_client_id'].forEach(n => {
+      const input = form.querySelector('[name=' + n + ']');
+      if (input && document.activeElement !== input && !input.value) input.value = conn[n] || '';
+    });
+    const on = { 'Bus': conn.has_delijn_key && conn.delijn_stop, 'Gmail': conn.has_gmail_password, 'Xbox wake': conn.xbox_liveid,
+      'Xbox now playing': conn.has_openxbl_key, 'Space station': conn.has_n2yo_key, 'Markets': conn.has_alpha_key && conn.symbols, 'Strava': conn.strava_connected };
+    const list = Object.keys(on).filter(k => on[k]);
+    $('connState').textContent = list.length ? 'On: ' + list.join(', ') + ' ✓' : 'Nothing connected yet.';
+    $('stravaOff').style.display = conn.strava_connected ? 'inline-block' : 'none';
     const listsKey = JSON.stringify([state.countdowns, state.memory]);
     if (listsKey !== lastLists) {
       lastLists = listsKey;

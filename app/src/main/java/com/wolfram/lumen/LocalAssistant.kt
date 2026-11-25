@@ -135,6 +135,12 @@ class LocalAssistant {
             return LocalReply(say("Dit heb ik onthouden:\n", "This is what I remember:\n") + outcome.result)
         }
 
+        // Study: "quiz me", "overhoor me".
+        if (phrase("quiz me", "overhoor me", "study mode", "studeermodus", "start studying")) {
+            val outcome = actions.tool("start_study", JSONObject())
+            return LocalReply(if (outcome.isError) outcome.result else say("Daar gaan we.", "Let's go."))
+        }
+
         // The weekly recap.
         if (phrase("weekly recap", "my week", "weekoverzicht", "mijn week", "week recap")) {
             actions.tool("show_recap", JSONObject())

@@ -181,6 +181,8 @@ fun LumenApp(
         }
     }
     var recapOpen by remember { mutableStateOf(false) }
+    var studySet by remember { mutableStateOf<StudySet?>(null) }
+    var briefing by remember { mutableStateOf<List<Pair<String, String>>?>(null) }
     var victoryTick by remember { mutableIntStateOf(0) }
     var update by remember { mutableStateOf<Release?>(null) }
     val memory = remember(dataTick) { SpectreMemory.all(context) }
@@ -483,6 +485,9 @@ fun LumenApp(
                     spot == null -> chooser = console
                     else -> {
                         repo.markOpened(tile.key)
+                        // The Xbox wakes over Wi-Fi (with its Live device ID); both consoles also wake through
+                        // HDMI-CEC when the TV switches to their input.
+                        if (console == Console.XBOX) scope.launch { wakeXbox(context) }
                         onOpenAs(tile, from, tile.copy(kind = TileKind.INPUT, key = spot.inputId))
                     }
                 }
@@ -641,6 +646,20 @@ fun LumenApp(
                 focusUntil = System.currentTimeMillis() + minutes * 60_000L
                 ToolOutcome("Focus mode is on for $minutes minutes.", chip = context.getString(R.string.action_focus, minutes))
             }
+            "start_study" -> {
+                val last = StudyStore.load(context)
+                if (last == null) {
+                    ToolOutcome("There's nothing to study yet: send a summary or a word list from the phone remote first.", isError = true)
+                } else {
+                    assistantOpen = false
+                    studySet = last
+                    ToolOutcome("Study mode: ${last.title}.")
+                }
+            }
+            "briefing" -> {
+                val lines = briefingLines(context, forAi = true)
+                ToolOutcome(lines.joinToString("\n") { "${it.first}: ${it.second}" }.ifBlank { "No connections set up yet (bus, mail, markets, Xbox, space station)." })
+            }
             "show_recap" -> {
                 assistantOpen = false
                 recapOpen = true
@@ -774,6 +793,30 @@ fun LumenApp(
                     Toast.makeText(context, context.getString(R.string.send_no_app), Toast.LENGTH_LONG).show()
                 }
             }
+            is RemoteCommand.Study -> {
+                phoneOpen = false
+                onAmbientChange(false)
+                showNote(IslandNote(context.getString(R.string.note_making_quiz), SilverNight.Silver), 20_000L)
+                scope.launch {
+                    val made = runCatching { assistant.complete(QUIZ_PROMPT, cmd.text.take(15_000)) }.getOrNull()?.let(::parseQuiz).orEmpty()
+                    val items = made.takeIf { it.size >= 3 } ?: localQuiz(cmd.text)
+                    if (items.isEmpty()) {
+                        Toast.makeText(context, context.getString(R.string.study_failed), Toast.LENGTH_LONG).show()
+                    } else {
+                        val set = StudySet(cmd.title, vocab = false, language = guessLanguage(cmd.text), items = items)
+                        StudyStore.save(context, set)
+                        note = null
+                        studySet = set
+                    }
+                }
+            }
+            is RemoteCommand.Vocab -> {
+                phoneOpen = false
+                onAmbientChange(false)
+                val set = StudySet(cmd.title, vocab = true, language = cmd.language, items = parseVocab(cmd.text).shuffled())
+                StudyStore.save(context, set)
+                studySet = set
+            }
             is RemoteCommand.DataChanged -> {
                 dataTick++
                 if (cmd.message.isNotBlank()) Toast.makeText(context, cmd.message, Toast.LENGTH_SHORT).show()
@@ -820,6 +863,7 @@ fun LumenApp(
                 JSONArray(countdowns.map { JSONObject().put("id", it.id).put("title", it.title).put("date", it.date).put("days", daysUntil(it.date, today) ?: -1) }),
             )
             .put("memory", JSONArray(memory.map { JSONObject().put("id", it.id).put("text", it.text) }))
+            .put("connections", Connections.stateJson(context))
             .put(
                 "nowPlaying",
                 current?.let { JSONObject().put("title", it.title).put("artist", it.artist).put("app", it.appName).put("playing", it.isPlaying) }
@@ -831,7 +875,7 @@ fun LumenApp(
     // The island only shows on the home screen itself.
     // Only whether the welcome animation is over matters here (not each of its frames).
     val introDone by remember { androidx.compose.runtime.derivedStateOf { intro.value >= 1f } }
-    val islandVisible = tab == Tab.HOME && !assistantOpen && !phoneOpen && !moreOpen && !checkOpen && !memoryOpen && !countdownsOpen && !recapOpen &&
+    val islandVisible = tab == Tab.HOME && !assistantOpen && !phoneOpen && !moreOpen && !checkOpen && !memoryOpen && !countdownsOpen && !recapOpen && studySet == null && briefing == null &&
         focusUntil == 0L && !agendaOpen && viewer == null && chooser == null && !ambient && !takeover.isBusy && introDone
     val latestIslandVisible by rememberUpdatedState(islandVisible)
     LaunchedEffect(goal) {
@@ -896,6 +940,71 @@ fun LumenApp(
                 else -> ""
             }
             showNote(IslandNote(context.getString(R.string.note_welcome, extra).trim(), SilverNight.Silver), 12_000L)
+        }
+    }
+
+    // Your connections in the Island: the bus in the morning, mail that matters, the space station, a new
+    // run, what's playing on the Xbox. Each does nothing until its details are filled in on the phone.
+    LaunchedEffect(dataTick) {
+        while (true) {
+            val calendar = java.util.Calendar.getInstance()
+            val minutes = calendar.get(java.util.Calendar.HOUR_OF_DAY) * 60 + calendar.get(java.util.Calendar.MINUTE)
+            val weekday = calendar.get(java.util.Calendar.DAY_OF_WEEK) in java.util.Calendar.MONDAY..java.util.Calendar.FRIDAY
+            if (weekday && minutes in (6 * 60 + 30)..(8 * 60 + 45) && Foreground.visible) {
+                runCatching { nextBuses(context) }.getOrNull()?.firstOrNull { it.at - System.currentTimeMillis() < 25 * 60_000L }?.let {
+                    showNote(IslandNote(busText(it, System.currentTimeMillis()), Color(0xFFFFD27A)), 110_000L)
+                }
+            }
+            delay(2 * 60_000L)
+        }
+    }
+    LaunchedEffect(dataTick) {
+        val seenMail = HashSet<String>()
+        var firstMail = true
+        var lastGame: String? = null
+        var lastRun = context.getSharedPreferences("spectre", android.content.Context.MODE_PRIVATE).getLong("last_run", 0L)
+        var issShown = 0L
+        var round = 0
+        while (true) {
+            // Xbox: every 3 minutes (also counts game time for the weekly recap).
+            runCatching { xboxNowPlaying(context) }.onSuccess { game ->
+                if (game != null) {
+                    WeekLog.game(context, game)
+                    if (game != lastGame) showNote(IslandNote(context.getString(R.string.note_xbox, game), Console.XBOX.glow), 15_000L)
+                }
+                lastGame = game
+            }
+            if (round % 7 == 0) {
+                // Mail that matters: every 21 minutes, a note for anything new.
+                runCatching { importantMail(context) }.getOrNull()?.let { mail ->
+                    val fresh = mail.filter { seenMail.add(it.from + "|" + it.subject) }
+                    if (!firstMail) fresh.firstOrNull()?.let {
+                        showNote(IslandNote(context.getString(R.string.note_mail, it.from, it.subject), Color(0xFF9FD3FF)), 20_000L)
+                        FloatingIsland.show(context, context.getString(R.string.note_mail, it.from, it.subject), 0xFF9FD3FF.toInt())
+                    }
+                    firstMail = false
+                }
+                // Strava: a new run shows on screen (never sent to SPECTRE).
+                runCatching { StravaRuns.runs(context) }.getOrNull()?.firstOrNull()?.let { run ->
+                    if (run.id != lastRun) {
+                        if (lastRun != 0L) showNote(IslandNote(context.getString(R.string.note_run, runText(run)), Color(0xFFFC4C02)), 20_000L)
+                        lastRun = run.id
+                        context.getSharedPreferences("spectre", android.content.Context.MODE_PRIVATE).edit().putLong("last_run", run.id).apply()
+                    }
+                }
+            }
+            if (round % 20 == 0) {
+                // The space station: a note half an hour before a pass you can see.
+                runCatching { issPasses(context) }.getOrNull()?.firstOrNull { it.start - System.currentTimeMillis() in 0..35 * 60_000L }?.let {
+                    if (it.start != issShown) {
+                        issShown = it.start
+                        val time = java.text.SimpleDateFormat("HH:mm", java.util.Locale.getDefault()).format(java.util.Date(it.start))
+                        showNote(IslandNote(context.getString(R.string.note_iss, time, it.direction), Color(0xFFC9CED6)), 60_000L)
+                    }
+                }
+            }
+            round++
+            delay(3 * 60_000L)
         }
     }
 
@@ -1073,6 +1182,17 @@ fun LumenApp(
                     onMemory = { moreOpen = false; memoryOpen = true },
                     onCountdowns = { moreOpen = false; countdownsOpen = true },
                     onRecap = { moreOpen = false; recapOpen = true },
+                    onStudy = {
+                        moreOpen = false
+                        val last = StudyStore.load(context)
+                        if (last != null) studySet = last
+                        else Toast.makeText(context, context.getString(R.string.study_none), Toast.LENGTH_LONG).show()
+                    },
+                    onBriefing = {
+                        moreOpen = false
+                        briefing = emptyList()
+                        scope.launch { briefing = briefingLines(context, forAi = false) }
+                    },
                     updateLabel = update?.let { context.getString(R.string.update_row, it.build) },
                     onUpdate = {
                         moreOpen = false
@@ -1120,6 +1240,21 @@ fun LumenApp(
                         dataTick++
                     },
                     onClose = { countdownsOpen = false },
+                )
+            }
+            studySet?.let { set ->
+                StudyPanel(set, loadedScene?.glassImage, onClose = { studySet = null })
+            }
+            briefing?.let { lines ->
+                GlassListPanel(
+                    glass = loadedScene?.glassImage,
+                    title = stringResource(R.string.briefing_title),
+                    hint = stringResource(R.string.briefing_hint),
+                    empty = stringResource(R.string.briefing_empty),
+                    entries = lines.mapIndexed { i, (a, b) -> i.toLong() to (b to a) },
+                    onRemove = {},
+                    onClose = { briefing = null },
+                    removable = false,
                 )
             }
             if (recapOpen) {
