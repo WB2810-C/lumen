@@ -79,10 +79,11 @@ fun Fireworks(modifier: Modifier = Modifier) {
 
 /** A short red glint across the lake when Bayern win ([progress] 0 → 1). */
 @Composable
-fun VictoryGlint(progress: Float, modifier: Modifier = Modifier) {
-    if (progress <= 0f || progress >= 1f) return
+fun VictoryGlint(modifier: Modifier = Modifier, progress: () -> Float) {
     Canvas(modifier.fillMaxSize()) {
-        val x = size.width * (progress * 1.4f - 0.2f)
+        val p = progress()
+        if (p <= 0f || p >= 1f) return@Canvas
+        val x = size.width * (p * 1.4f - 0.2f)
         drawRect(
             Brush.linearGradient(
                 listOf(Color.Transparent, Color(0xFFDC052D).copy(alpha = 0.45f), Color.Transparent),

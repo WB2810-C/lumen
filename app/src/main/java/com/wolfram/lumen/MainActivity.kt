@@ -46,6 +46,9 @@ class MainActivity : ComponentActivity() {
         window.setBackgroundDrawable(null)
         requestSharpestPicture()
         Sounds.init(applicationContext)
+        // The small download cache (pictures, feeds) opens its folder away from the screen.
+        val app = applicationContext
+        Thread({ Net.installDiskCache(app) }, "net-cache").start()
         PhoneRemoteServer.start(applicationContext)
         WakeToHome.register(applicationContext)
         // The welcome animation only plays when the TV has just started, never when you come back

@@ -157,29 +157,14 @@ fun WeatherSky(
     val sky = weather.sky
     val falling = sky == Sky.RAIN || sky == Sky.DRIZZLE || sky == Sky.THUNDER || sky == Sky.SNOW
     val stars = !noStars && !weather.isDay && (sky == Sky.CLEAR || sky == Sky.PARTLY)
-    val animated = !calm && LumenConfig.LIVING_BACKGROUND && (falling || stars || sky == Sky.FOG || sky == Sky.THUNDER)
+    // Falling rain is one of the extras that stop while the TV can't keep up (see Smoothness).
+    val animated = !calm && LumenConfig.LIVING_BACKGROUND && !Smoothness.reduced.value &&
+        (falling || stars || sky == Sky.FOG || sky == Sky.THUNDER)
 
     var time by remember { mutableFloatStateOf(0f) }
     var flash by remember { mutableFloatStateOf(0f) }
     val random = remember { Random(9) }
-    val drops = remember(sky, weather.intensity) {
-        val full = when (sky) {
-            Sky.SNOW -> (70 + 90 * weather.intensity).toInt()
-            Sky.DRIZZLE -> 70
-            else -> (90 + 120 * weather.intensity).toInt()
-        }
-        // Half as many on small TV sticks: still looks like rain, half the work per frame.
-        val count = if (Perf.lite) full / 2 else full
-        List(count) {
-            Drop(
-                x = random.nextFloat(), y = random.nextFloat(),
-                speed = if (sky == Sky.SNOW) 0.03f + random.nextFloat() * 0.05f else 0.9f + random.nextFloat() * 0.7f,
-                length = if (sky == Sky.SNOW) 2f + random.nextFloat() * 3.5f else 0.025f + random.nextFloat() * 0.035f,
-                alpha = 0.25f + random.nextFloat() * 0.5f,
-                sway = random.nextFloat() * 6.28f,
-            )
-        }
-    }
+    val drops = remember(sky, weather.intensity) { makeDrops(sky, weather.intensity, random) }
     val starField = remember { List(if (Perf.lite) 60 else 110) { Triple(random.nextFloat(), random.nextFloat() * 0.6f, random.nextFloat()) } }
     var nextFlashAt by remember { mutableStateOf(8f) }
 
@@ -216,21 +201,64 @@ fun WeatherSky(
 
     val ink = if (theme.isLight) Ink else Color.White
     Canvas(modifier.fillMaxSize()) {
-        // Grey skies are a little darker at the top.
-        if (sky == Sky.CLOUDY || falling || sky == Sky.FOG) {
-            drawRect(
-                Brush.verticalGradient(
-                    listOf(Color(0xFF5A6478).copy(alpha = if (theme.isLight) 0.22f else 0.30f), Color.Transparent),
-                    endY = size.height * 0.7f,
-                ),
-            )
+        drawWeather(sky, drops, ink, time, flash, if (stars) starField else null)
+    }
+}
+
+/** The rain drops or snow flakes: half as many on small TV sticks (still looks like rain, half the work). */
+private fun makeDrops(sky: Sky, intensity: Float, random: Random): List<Drop> {
+    val full = when (sky) {
+        Sky.SNOW -> (70 + 90 * intensity).toInt()
+        Sky.DRIZZLE -> 70
+        else -> (90 + 120 * intensity).toInt()
+    }
+    val count = if (Perf.lite) full / 2 else full
+    return List(count) {
+        Drop(
+            x = random.nextFloat(), y = random.nextFloat(),
+            speed = if (sky == Sky.SNOW) 0.03f + random.nextFloat() * 0.05f else 0.9f + random.nextFloat() * 0.7f,
+            length = if (sky == Sky.SNOW) 2f + random.nextFloat() * 3.5f else 0.025f + random.nextFloat() * 0.035f,
+            alpha = 0.25f + random.nextFloat() * 0.5f,
+            sway = random.nextFloat() * 6.28f,
+        )
+    }
+}
+
+/**
+ * The weather standing still, as the home scene shows it: grey clouds, rain or snow where it fell, fog.
+ * Painted once into the background picture (see [SkyLook]), so it costs nothing per frame.
+ */
+fun DrawScope.drawCalmWeather(sky: Sky, intensity: Float, ink: Color) {
+    val falling = sky == Sky.RAIN || sky == Sky.DRIZZLE || sky == Sky.THUNDER || sky == Sky.SNOW
+    drawWeather(sky, if (falling) makeDrops(sky, intensity, Random(9)) else emptyList(), ink, time = 0f, flash = 0f, starField = null)
+}
+
+private fun DrawScope.drawWeather(
+    sky: Sky,
+    drops: List<Drop>,
+    ink: Color,
+    time: Float,
+    flash: Float,
+    starField: List<Triple<Float, Float, Float>>?,
+) {
+    val falling = sky == Sky.RAIN || sky == Sky.DRIZZLE || sky == Sky.THUNDER || sky == Sky.SNOW
+    // Grey skies are a little darker at the top.
+    if (sky == Sky.CLOUDY || falling || sky == Sky.FOG) {
+        drawRect(
+            Brush.verticalGradient(
+                listOf(Color(0xFF5A6478).copy(alpha = if (ink == Ink) 0.22f else 0.30f), Color.Transparent),
+                endY = size.height * 0.7f,
+            ),
+        )
+    }
+    if (starField != null) drawStars(starField, time)
+    when (sky) {
+        Sky.SNOW -> drops.forEach { d ->
+            drawCircle(Color.White.copy(alpha = d.alpha), radius = d.length, center = Offset(d.x * size.width, d.y * size.height))
         }
-        if (stars) drawStars(starField, time)
-        when (sky) {
-            Sky.SNOW -> drops.forEach { d ->
-                drawCircle(Color.White.copy(alpha = d.alpha), radius = d.length, center = Offset(d.x * size.width, d.y * size.height))
-            }
-            Sky.RAIN, Sky.DRIZZLE, Sky.THUNDER -> drops.forEach { d ->
+        Sky.RAIN, Sky.DRIZZLE, Sky.THUNDER -> {
+            val stroke = 1.6.dp.toPx() * 0.6f
+            drops.forEach { d ->
                 val start = Offset(d.x * size.width, d.y * size.height)
                 val len = d.length * size.height * (if (sky == Sky.DRIZZLE) 0.55f else 1f)
                 drawLine(
@@ -239,14 +267,14 @@ fun WeatherSky(
                         start = start, end = start + Offset(len * 0.25f, len),
                     ),
                     start = start, end = start + Offset(len * 0.25f, len),
-                    strokeWidth = 1.6.dp.toPx() * 0.6f, cap = StrokeCap.Round,
+                    strokeWidth = stroke, cap = StrokeCap.Round,
                 )
             }
-            Sky.FOG -> drawFog(time)
-            else -> Unit
         }
-        if (flash > 0f) drawRect(Color.White.copy(alpha = flash * 0.35f))
+        Sky.FOG -> drawFog(time)
+        else -> Unit
     }
+    if (flash > 0f) drawRect(Color.White.copy(alpha = flash * 0.35f))
 }
 
 private fun DrawScope.drawStars(stars: List<Triple<Float, Float, Float>>, time: Float) {

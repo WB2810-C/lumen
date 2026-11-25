@@ -1,6 +1,9 @@
 package com.wolfram.lumen
 
+import android.content.Context
 import android.graphics.BitmapFactory
+import android.net.http.HttpResponseCache
+import android.util.Log
 import android.util.LruCache
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.State
@@ -15,14 +18,36 @@ import java.net.URL
 /** Small helpers for downloading text and pictures. */
 object Net {
     private const val USER_AGENT = "PlaizierOS-TV/4.2 (personal Android TV home screen)"
-    private val images = LruCache<String, ImageBitmap>(48)
+
+    /**
+     * Pictures kept in memory, counted in bytes (not in pictures): a 1 GB TV stick keeps at most 12 MB
+     * of them, a bigger TV 24 MB. Before, 48 large photos could take up to 80 MB.
+     */
+    private val images = object : LruCache<String, ImageBitmap>(if (Perf.lite) 12 * 1024 * 1024 else 24 * 1024 * 1024) {
+        override fun sizeOf(key: String, value: ImageBitmap): Int = value.width * value.height * 4
+    }
+
+    /**
+     * A small cache on the TV's storage for everything Net downloads: pictures (crests, album art, news
+     * photos) come back instantly after a restart, and the news, scores and weather are only sent again
+     * when they've changed (the servers' own caching rules decide). Installed once, away from the screen.
+     */
+    fun installDiskCache(context: Context) {
+        if (HttpResponseCache.getInstalled() != null) return
+        runCatching { HttpResponseCache.install(java.io.File(context.cacheDir, "http"), 24L * 1024 * 1024) }
+            .onFailure { Log.w(LOG_TAG, "net: no disk cache", it) }
+    }
 
     suspend fun get(url: String, timeoutMs: Int = 15_000): String = withContext(Dispatchers.IO) {
         val connection = (URL(url).openConnection() as HttpURLConnection).apply {
             connectTimeout = timeoutMs
             readTimeout = timeoutMs
             setRequestProperty("User-Agent", USER_AGENT)
-            setRequestProperty("Accept-Encoding", "identity")
+            // No "Accept-Encoding" of our own: Android then asks for gzip and unpacks it by itself,
+            // so the news feed and the scores come in several times smaller.
+            // Always fresh (a goal must never wait for a cache): the disk cache only lets the server
+            // answer "unchanged" instead of sending everything again.
+            setRequestProperty("Cache-Control", "no-cache")
         }
         try {
             val code = connection.responseCode
@@ -44,6 +69,7 @@ object Net {
                     setRequestProperty("User-Agent", USER_AGENT)
                 }
                 val bytes = try {
+                    if (connection.responseCode !in 200..299) return@runCatching null
                     connection.inputStream.use { it.readBytes() }
                 } finally {
                     connection.disconnect()

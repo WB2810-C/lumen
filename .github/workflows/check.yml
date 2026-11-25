@@ -1,0 +1,37 @@
+# Checks a work branch: compiles PlaizierOS and runs the unit tests, without publishing anything.
+# (Only "Build PlaizierOS" on main makes a release that the TV updates to.)
+
+name: Check PlaizierOS
+
+on:
+  push:
+    branches: ["claude/**"]
+    paths-ignore: ["**.md"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: check-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: 8.11.1
+
+      - name: Compile and run the unit tests
+        shell: bash
+        run: gradle testReleaseUnitTest --console=plain --stacktrace

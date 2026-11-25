@@ -45,6 +45,8 @@ object Updater {
             val file = java.io.File(context.cacheDir, "update.apk")
             val connection = URL(release.apkUrl).openConnection() as HttpURLConnection
             connection.instanceFollowRedirects = true
+            // The update goes straight to its own file, not through the small download cache.
+            connection.useCaches = false
             connection.connectTimeout = 20_000
             connection.readTimeout = 60_000
             connection.inputStream.use { input -> file.outputStream().use { input.copyTo(it) } }

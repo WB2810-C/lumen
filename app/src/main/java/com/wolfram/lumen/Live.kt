@@ -34,6 +34,7 @@ class HttpError(val code: Int, url: String) : java.io.IOException("HTTP $code fo
  * - When it fails it tries again soon: after 10 s, 20 s, 40 s … up to every 5 minutes.
  * - It also tries again as soon as the Wi-Fi comes back, and when Lumen comes back on screen
  *   ([wakeKey] changes) with old or missing data. (A sleeping TV pauses timers, so this matters.)
+ * - While another app is on screen it waits (once it has something), and catches up when Lumen is back.
  */
 @Composable
 fun <T : Any> rememberLive(name: String, everyMs: Long, wakeKey: Any?, load: suspend () -> T?): State<Live<T>> {
@@ -61,6 +62,11 @@ fun <T : Any> rememberLive(name: String, everyMs: Long, wakeKey: Any?, load: sus
     LaunchedEffect(Unit) {
         var failures = 0
         while (true) {
+            // Away in another app (Netflix, a game): nothing of this is on screen, so the TV stick keeps its
+            // breath for that app. Coming back on screen with old data asks for a fresh copy at once.
+            while (!Foreground.visible && state.value.value != null) {
+                withTimeoutOrNull(60_000L) { nudge.receive() }
+            }
             try {
                 val value = latestLoad()
                 if (value != null) {

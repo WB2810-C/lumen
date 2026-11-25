@@ -102,8 +102,10 @@ object RemoteBridge {
  * the QR code (the link has a secret key in it). It serves the remote page and a few commands.
  */
 object PhoneRemoteServer {
+    @Volatile
     private var server: ServerSocket? = null
     private val pool = Executors.newCachedThreadPool()
+    @Volatile
     private var filesDir: java.io.File? = null
     private var appContext: Context? = null
 
@@ -112,23 +114,34 @@ object PhoneRemoteServer {
     var token: String = ""
         private set
 
+    @Volatile
+    private var starting = false
+
     fun start(context: Context) {
-        if (!LumenConfig.PHONE_REMOTE || server != null) return
+        if (!LumenConfig.PHONE_REMOTE || server != null || starting) return
+        starting = true
         val prefs = context.getSharedPreferences("lumen", Context.MODE_PRIVATE)
+        // The key is ready at once (the QR code on screen needs it); the rest happens away from the screen.
         token = prefs.getString("remote_token", null) ?: ByteArray(12).also { SecureRandom().nextBytes(it) }
             .joinToString("") { "%02x".format(it) }
             .also { prefs.edit().putString("remote_token", it).apply() }
-        val page = context.assets.open("remote.html").bufferedReader().use { it.readText() }
-        filesDir = FileStore.dir(context)
-        appContext = context.applicationContext
-        val socket = runCatching {
-            ServerSocket().apply {
-                reuseAddress = true
-                bind(InetSocketAddress(LumenConfig.REMOTE_PORT))
-            }
-        }.getOrNull() ?: return
-        server = socket
+        val app = context.applicationContext
+        appContext = app
+        // Speed: reading the 36 KB page and opening the port no longer hold up the first picture.
         pool.execute {
+            val page = runCatching { app.assets.open("remote.html").bufferedReader().use { it.readText() } }.getOrNull()
+            filesDir = FileStore.dir(app)
+            val socket = page?.let {
+                runCatching {
+                    ServerSocket().apply {
+                        reuseAddress = true
+                        bind(InetSocketAddress(LumenConfig.REMOTE_PORT))
+                    }
+                }.getOrNull()
+            }
+            server = socket
+            starting = false
+            if (socket == null || page == null) return@execute
             while (!socket.isClosed) {
                 val client = runCatching { socket.accept() }.getOrNull() ?: continue
                 pool.execute { runCatching { handle(client, page) }; runCatching { client.close() } }

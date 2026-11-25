@@ -263,7 +263,14 @@ private val bakeLock = kotlinx.coroutines.sync.Mutex()
 
 /** The background: one ready-made picture. On the other pages it's shown darker and without the clock. */
 @Composable
-fun SceneStage(loaded: LoadedScene?, showClock: Boolean, clockFont: ClockFont = ClockFont.ANTONIO, dimmed: Boolean = false) {
+fun SceneStage(
+    loaded: LoadedScene?,
+    showClock: Boolean,
+    clockFont: ClockFont = ClockFont.ANTONIO,
+    dimmed: Boolean = false,
+    /** The living sky over the home scene, painted into the same picture as the clock. */
+    sky: SkyLook? = null,
+) {
     val context = LocalContext.current
     val now = rememberNow()
     val time = remember(now) { android.text.format.DateFormat.getTimeFormat(context).format(Date(now)) }
@@ -289,10 +296,10 @@ fun SceneStage(loaded: LoadedScene?, showClock: Boolean, clockFont: ClockFont = 
         }
     }
 
-    LaunchedEffect(loaded, time, clockFont, size) {
+    LaunchedEffect(loaded, time, clockFont, size, sky) {
         val s = loaded ?: return@LaunchedEffect
         if (size.width <= 0 || size.height <= 0) return@LaunchedEffect
-        val made = bakeStage(context, s, time, clockFont, size, density) ?: return@LaunchedEffect
+        val made = bakeStage(context, s, time, clockFont, size, density, sky) ?: return@LaunchedEffect
         val old = withClock
         withClock = Baked(made, s.key)
         retire(old)
@@ -357,6 +364,7 @@ private suspend fun bakeStage(
     font: ClockFont,
     size: IntSize,
     density: Float,
+    sky: SkyLook? = null,
 ): ImageBitmap? = withContext(Dispatchers.Default) {
     bakeLock.withLock {
     try {
@@ -402,6 +410,16 @@ private suspend fun bakeStage(
             intArrayOf(Color.Transparent.toArgb(), Color.Black.copy(alpha = 0.5f).toArgb()), null, Shader.TileMode.CLAMP,
         )
         canvas.drawRect(0f, h * 0.6f, w.toFloat(), h.toFloat(), shade)
+        // The living sky (sunlight, northern lights, rain standing still) goes into the same picture:
+        // one flat image on screen instead of up to three extra full-screen layers blended every frame.
+        if (sky != null) {
+            androidx.compose.ui.graphics.drawscope.CanvasDrawScope().draw(
+                androidx.compose.ui.unit.Density(density),
+                androidx.compose.ui.unit.LayoutDirection.Ltr,
+                androidx.compose.ui.graphics.Canvas(canvas),
+                Size(w.toFloat(), h.toFloat()),
+            ) { drawSkyLook(sky) }
+        }
         // Hand it to the graphics chip once; after that, showing it costs next to nothing.
         val onChip = runCatching { canvasBitmap.copy(Bitmap.Config.HARDWARE, false) }.getOrNull()
         if (onChip != null) {

@@ -80,6 +80,8 @@ internal suspend fun httpGet(url: String, headers: Map<String, String> = emptyMa
     val c = (URL(url).openConnection() as HttpURLConnection).apply {
         connectTimeout = 15_000
         readTimeout = 20_000
+        // Live data (buses, mail, the Xbox): always asked fresh, the disk cache may only confirm "unchanged".
+        setRequestProperty("Cache-Control", "no-cache")
         headers.forEach { (k, v) -> setRequestProperty(k, v) }
     }
     try {

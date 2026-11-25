@@ -1,4 +1,20 @@
-# PlaizierOS 21.4 — a home screen for your Peaq Google TV
+# PlaizierOS 21.5 — a home screen for your Peaq Google TV
+
+## New in 21.5: smoother and lighter
+
+- **Smoother home screen:** the living sky (sunlight, the northern lights, rain and fog as they are
+  outside) is now painted into the background picture itself, once, instead of being blended over the
+  whole screen on every frame. Moving along your favourites has less to do, most of all on rainy days.
+- **A Bayern win no longer redraws the whole home screen** while the red glint sweeps over the lake.
+- **Falling rain also stops when frames run late** (as the glint on the tiles already did).
+- **Lighter on memory:** pictures from the internet are kept up to 12 MB on a 1 GB TV stick (24 MB on
+  bigger TVs) instead of up to 48 photos; shrinking app logos frees each in-between copy straight away.
+- **Faster downloads:** feeds and scores now come in gzipped (several times smaller), and a small cache on the TV
+  brings back crests, album art and news photos instantly after a restart. Scores, buses and mail are still
+  always asked fresh; the server just answers "unchanged" when nothing changed.
+- **Quieter in the background:** while Netflix or a console is on screen, news, weather and the northern-lights
+  check wait, and catch up as soon as you're back (goals and the Island over apps keep working).
+- **Faster start:** the phone remote's server opens away from the screen, so the first picture comes sooner.
 
 ## New in 21.4
 

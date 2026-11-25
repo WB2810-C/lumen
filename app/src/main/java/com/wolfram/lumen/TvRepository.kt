@@ -379,7 +379,13 @@ internal fun fitShrink(src: Bitmap, maxWidth: Int, maxHeight: Int): Bitmap {
 /** Shrinks a picture to [width] pixels wide in halving steps, which keeps fine logo edges smooth. */
 internal fun smoothShrink(src: Bitmap, width: Int): Bitmap {
     var b = if (src.config == Bitmap.Config.HARDWARE) src.copy(Bitmap.Config.ARGB_8888, false) else src
-    while (b.width / 2 >= width) b = Bitmap.createScaledBitmap(b, b.width / 2, (b.height / 2).coerceAtLeast(1), true)
-    if (b.width > width) b = Bitmap.createScaledBitmap(b, width, (width.toFloat() * b.height / b.width).roundToInt().coerceAtLeast(1), true)
+    // Each in-between copy is freed straight away (the caller's own picture is left alone), so loading
+    // all the app logos never piles up memory on a 1 GB TV stick.
+    fun step(next: Bitmap) {
+        if (next !== b && b !== src) b.recycle()
+        b = next
+    }
+    while (b.width / 2 >= width) step(Bitmap.createScaledBitmap(b, b.width / 2, (b.height / 2).coerceAtLeast(1), true))
+    if (b.width > width) step(Bitmap.createScaledBitmap(b, width, (width.toFloat() * b.height / b.width).roundToInt().coerceAtLeast(1), true))
     return b
 }

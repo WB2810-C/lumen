@@ -1098,15 +1098,28 @@ fun LumenApp(
         Box(Modifier.fillMaxSize()) {
             val loadedScene = sceneState.value
             // One ready-made picture; on the other pages the same picture, darker and without the clock.
-            SceneStage(loadedScene, showClock = tab == Tab.HOME, clockFont = ClockFont.byId(clockFontId), dimmed = tab != Tab.HOME)
+            // The living sky: the light follows the real sun; rain and fog show as they are outside.
+            // Painted into the background picture itself (redone only when it changes), not as layers on top.
+            val skyNow = rememberNow()
+            val skyLook = SkyLook(
+                phase = skyPhase(skyNow, weather?.sunrise, weather?.sunset, weather?.isDay ?: false),
+                aurora = aurora,
+                weather = weather?.sky,
+                intensity = weather?.intensity ?: 0f,
+                lightInk = theme.isLight,
+            )
+            SceneStage(
+                loadedScene,
+                showClock = tab == Tab.HOME,
+                clockFont = ClockFont.byId(clockFontId),
+                dimmed = tab != Tab.HOME,
+                sky = skyLook,
+            )
             if (tab == Tab.HOME) {
-                // The living sky: the light follows the real sun; rain and fog show as they are outside.
-                val skyNow = rememberNow()
-                SkyLight(skyPhase(skyNow, weather?.sunrise, weather?.sunset, weather?.isDay ?: false), aurora)
-                WeatherSky(weather, calm = true, force = true, noStars = true)
                 // The scene celebrates: fireworks at New Year, a red glint over the lake when Bayern win.
                 if (newYear) Fireworks()
-                VictoryGlint(glint.value)
+                // Read while drawing only: the glint sweeping by never recomposes the home screen.
+                VictoryGlint { glint.value }
             }
             if (tab == Tab.HOME) {
                 SceneHome(
