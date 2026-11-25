@@ -9,6 +9,7 @@ import org.junit.Test
 class JarvisKeysTest {
     private val claudeKey = "sk-ant-api03-" + "a".repeat(80)
     private val geminiKey = "AIza" + "b".repeat(35)
+    private val groqKey = "gsk_" + "c".repeat(52)
 
     @Test
     fun keysAreTrimmedAndChecked() {
@@ -35,6 +36,17 @@ class JarvisKeysTest {
         assertNotNull(back)
         assertArrayEquals(iv, back!!.first)
         assertArrayEquals(sealed, back.second)
+    }
+
+    @Test
+    fun groqKeysAreRecognised() {
+        assertEquals(Brain.GROQ, JarvisKeys.detect(" $groqKey "))
+        assertEquals(Brain.CLAUDE, JarvisKeys.detect(claudeKey))
+        assertEquals(Brain.GEMINI, JarvisKeys.detect(geminiKey))
+        assertNull(JarvisKeys.detect("hello"))
+        assertNull(JarvisKeys.check(Brain.GROQ, groqKey))
+        assertNotNull(JarvisKeys.check(Brain.CLAUDE, groqKey))
+        assertNotNull(JarvisKeys.check(Brain.GROQ, "gsk_short"))
     }
 
     @Test

@@ -25,8 +25,8 @@ android {
         applicationId = "com.wolfram.lumen"
         minSdk = 26          // Android TV 8.0 and newer
         targetSdk = 35
-        versionCode = 22
-        versionName = "21.0"
+        versionCode = 23
+        versionName = "21.0.1"
         buildConfigField("String", "OLLAMA_HOST", "\"$ollamaHost\"")
     }
 

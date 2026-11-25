@@ -125,7 +125,7 @@ object HomeHealth {
         val overlay = runCatching { Settings.canDrawOverlays(context) }.getOrDefault(false)
         val mic = context.checkSelfPermission(android.Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
         val brain = JarvisKeys.brain(context)
-        val hasKey = JarvisKeys.has(context, Brain.CLAUDE) || JarvisKeys.has(context, Brain.GEMINI)
+        val hasKey = Brain.entries.any { JarvisKeys.has(context, it) }
         val rerun = context.getString(R.string.check_fix_installer)
         return listOf(
             HealthItem(context.getString(R.string.check_home), home == context.packageName, if (home == context.packageName) "" else rerun),
@@ -133,7 +133,7 @@ object HomeHealth {
             HealthItem(context.getString(R.string.check_overlay), overlay, if (overlay) "" else rerun),
             HealthItem(context.getString(R.string.check_mic), mic, if (mic) "" else rerun),
             HealthItem(
-                context.getString(R.string.check_jarvis, if (brain == Brain.GEMINI) "Gemini" else "Claude"),
+                context.getString(R.string.check_jarvis, brain.label),
                 hasKey,
                 if (hasKey) "" else context.getString(R.string.check_fix_key),
             ),

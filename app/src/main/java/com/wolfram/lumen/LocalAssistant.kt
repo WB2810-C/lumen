@@ -263,7 +263,15 @@ class LocalAssistant {
     }
 }
 
-/** Background for the optional laptop AI: what Lumen knows right now, so it can answer about it. */
+/** What PlaizierOS knows right now (weather, live football, headlines), for an AI that can't search the web. */
+fun liveInfoText(info: LiveInfo): String {
+    val weather = info.weather?.let { "${it.temperature}°C, ${it.sky.name.lowercase()}, high ${it.high}°, low ${it.low}°" } ?: "unknown"
+    val news = info.news.items.take(6).joinToString("\n") { "- ${it.title}" }.ifBlank { "not loaded" }
+    val scores = info.matches.joinToString("; ") { "${it.home.name} ${it.home.score}-${it.away.score} ${it.away.name} (${it.clock})" }.ifBlank { "no live matches" }
+    return "Weather in ${LumenConfig.CITY}: $weather\nLive football: $scores\nVRT NWS headlines:\n$news"
+}
+
+/** Background for the optional laptop AI (and Gemini): what Lumen knows right now, so it can answer about it. */
 fun freeAssistantPrompt(info: LiveInfo, apps: List<Tile>): String {
     val now = SimpleDateFormat("EEEE d MMMM yyyy, HH:mm", Locale.ENGLISH).format(Date())
     val owner = LumenConfig.OWNER_NAME.ifBlank { "the owner" }

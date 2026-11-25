@@ -51,4 +51,29 @@ class JarvisBrainTest {
         assertEquals("Hallo Wolfram", geminiText(response))
         assertEquals("", geminiText(JSONObject()))
     }
+
+    @Test
+    fun groqGetsTheTvToolsOnly() {
+        val tools = JSONArray()
+            .put(JSONObject().put("name", "open_app").put("description", "Open an app").put("input_schema", JSONObject().put("type", "object")))
+            .put(JSONObject().put("type", "web_search_20250305").put("name", "web_search"))
+        val messages = JSONArray().put(JSONObject().put("role", "user").put("content", "open Netflix"))
+        val body = JarvisBrain.groqBody(JarvisBrain.GROQ_MODEL, messages, tools)
+        assertEquals("openai/gpt-oss-120b", body.getString("model"))
+        assertEquals("low", body.getString("reasoning_effort"))
+        val sent = body.getJSONArray("tools")
+        assertEquals(1, sent.length())
+        assertEquals("function", sent.getJSONObject(0).getString("type"))
+        assertEquals("open_app", sent.getJSONObject(0).getJSONObject("function").getString("name"))
+        assertFalse(JarvisBrain.groqBody(JarvisBrain.GROQ_MODEL, messages, JSONArray()).has("tools"))
+    }
+
+    @Test
+    fun picksTheBrainThatHasAKey() {
+        assertEquals(Engine.GROQ, JarvisBrain.pickEngine(Brain.GROQ, claude = true, groq = true, gemini = false, laptop = false))
+        assertEquals(Engine.CLAUDE, JarvisBrain.pickEngine(Brain.CLAUDE, claude = true, groq = true, gemini = false, laptop = false))
+        assertEquals(Engine.GROQ, JarvisBrain.pickEngine(Brain.CLAUDE, claude = false, groq = true, gemini = false, laptop = false))
+        assertEquals(Engine.LAPTOP, JarvisBrain.pickEngine(Brain.GROQ, claude = false, groq = false, gemini = false, laptop = true))
+        assertEquals(Engine.NONE, JarvisBrain.pickEngine(Brain.GROQ, claude = false, groq = false, gemini = false, laptop = false))
+    }
 }

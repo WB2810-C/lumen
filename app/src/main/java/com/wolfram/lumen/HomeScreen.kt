@@ -271,6 +271,7 @@ fun LumenApp(
         AssistantController(
             claudeKey = JarvisKeys.load(context, Brain.CLAUDE).orEmpty(),
             geminiKey = JarvisKeys.load(context, Brain.GEMINI).orEmpty(),
+            groqKey = JarvisKeys.load(context, Brain.GROQ).orEmpty(),
             brain = JarvisKeys.brain(context),
             ollamaHost = BuildConfig.OLLAMA_HOST,
             ollamaModel = LumenConfig.OLLAMA_MODEL,
@@ -522,8 +523,8 @@ fun LumenApp(
         }
     }
     val latestRunTool by rememberUpdatedState(runTool)
-    val latestPrompt by rememberUpdatedState {
-        assistantSystemPrompt(apps, inputs, themeById(themeId)) { context.getString(it.name) }
+    val latestPrompt by rememberUpdatedState<(Boolean) -> String> { webSearch ->
+        assistantSystemPrompt(apps, inputs, themeById(themeId), webSearch) { context.getString(it.name) }
     }
     // First Lumen tries to handle it by itself (free, instant). Only other questions go to an AI.
     val liveInfo = LiveInfo(weather, news, matches, history, inputs, nowPlaying.current != null)
@@ -565,7 +566,14 @@ fun LumenApp(
                 assistant.hasAi -> assistant.ask(
                     scope = scope,
                     question = question,
-                    system = { if (assistant.usesClaude) latestPrompt() else freeAssistantPrompt(latestLiveInfo, apps) },
+                    system = {
+                        when (assistant.engine) {
+                            Engine.CLAUDE -> latestPrompt(true)
+                            // Groq can use the TV tools but can't search the web: it gets what PlaizierOS knows.
+                            Engine.GROQ -> latestPrompt(false) + "\n\n" + liveInfoText(latestLiveInfo)
+                            else -> freeAssistantPrompt(latestLiveInfo, apps)
+                        }
+                    },
                     runTool = { n, i -> latestRunTool(n, i) },
                     errorText = { assistantErrorText(context, it, laptop = assistant.usesLaptop) },
                     onDone = onDone,
@@ -635,6 +643,7 @@ fun LumenApp(
             // Only whether a key is there, never the key itself.
             .put("jarvisClaude", JarvisKeys.has(context, Brain.CLAUDE))
             .put("jarvisGemini", JarvisKeys.has(context, Brain.GEMINI))
+            .put("jarvisGroq", JarvisKeys.has(context, Brain.GROQ))
             .put("jarvisBrain", JarvisKeys.brain(context).id)
             .put(
                 "nowPlaying",

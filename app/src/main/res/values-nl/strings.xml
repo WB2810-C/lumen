@@ -53,10 +53,10 @@
     <string name="assistant_suggest_theme">Zet het thema op Oceaan</string>
     <string name="assistant_suggest_weather">Wat voor weer is het vandaag?</string>
     <string name="assistant_setup_title">Geef Jarvis een brein</string>
-    <string name="assistant_setup_body">Open de telefoonafstandsbediening (Instellingen → Telefoon als afstandsbediening) en plak een Claude- of Gemini-API-sleutel in de Jarvis-kaart. De tv bewaart hem versleuteld. Tot dan doet Jarvis tv-opdrachten zoals “open Netflix”.</string>
+    <string name="assistant_setup_body">Open de telefoonafstandsbediening (Instellingen → Telefoon als afstandsbediening) en plak een sleutel in de Jarvis-kaart. Groq is gratis (console.groq.com → API Keys). De tv bewaart hem versleuteld. Tot dan doet Jarvis tv-opdrachten zoals “open Netflix”.</string>
     <string name="assistant_error_key">De API-sleutel van Jarvis werkt niet. Plak hem opnieuw op de telefoonafstandsbediening (Jarvis-kaart).</string>
     <string name="assistant_error_credit">Je API-tegoed is op. Vul het aan in de Claude Console.</string>
-    <string name="assistant_error_busy">Claude heeft het nu druk. Probeer het zo meteen opnieuw.</string>
+    <string name="assistant_error_busy">De AI is druk bezig, of de gratis limiet van vandaag is op. Probeer het zo opnieuw.</string>
     <string name="assistant_error_network">Geen internetverbinding. Controleer de wifi van de tv.</string>
     <string name="assistant_error_generic">Er ging iets mis. Probeer het opnieuw.</string>
     <string name="action_opened">%1$s geopend</string>
@@ -164,6 +164,6 @@
     <string name="check_mic">Microfoon voor Jarvis</string>
     <string name="check_jarvis">Jarvis heeft een brein (%1$s)</string>
     <string name="check_fix_installer">Start Install-PlaizierOS.bat opnieuw op je laptop: dat zet dit aan.</string>
-    <string name="check_fix_key">Plak een Claude- of Gemini-sleutel in de Jarvis-kaart op de telefoonafstandsbediening.</string>
+    <string name="check_fix_key">Plak een sleutel in de Jarvis-kaart op de telefoonafstandsbediening. Groq is gratis: console.groq.com → API Keys.</string>
     <string name="check_last_key">Laatste knop op de afstandsbediening: %1$s</string>
 </resources>

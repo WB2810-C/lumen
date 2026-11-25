@@ -1,4 +1,4 @@
-# PlaizierOS 21.0 — a home screen for your Peaq Google TV
+# PlaizierOS 21.0.1 — a home screen for your Peaq Google TV
 
 ## New in 21.0
 
@@ -9,8 +9,10 @@
   Under them, circles for All apps, News, Files, Agenda, **Jarvis** and Settings.
 - **Resting home.** After 20 seconds without the remote the tiles fade away and only the scene, the clock
   and the greeting stay. The first button press brings them back (and does nothing else).
-- **Jarvis, on its own brain, without the laptop.** Paste a Claude (or Gemini) API key on the phone
-  remote, in the new **Jarvis** card. The TV keeps it encrypted (Android Keystore); it is never in the
+- **Jarvis, on its own brain, without the laptop — free with Groq.** Make a free key at
+  console.groq.com (API Keys, no card) and paste it on the phone remote, in the new **Jarvis** card.
+  Groq runs OpenAI's open gpt-oss model very fast and can open apps, switch HDMI and search YouTube
+  for you. A Claude (or Gemini) key works in the same field if you ever want the paid brains. The TV keeps it encrypted (Android Keystore); it is never in the
   app or on GitHub. TV commands stay free and instant. Everyday questions go to Claude Haiku 5.5;
   questions that need thinking ("why…", "leg uit…", homework, plans) go to Claude Opus 5.5.
   The fixed part of every request is cached, so repeat questions cost a fraction.

@@ -122,29 +122,25 @@
 
   <section class="card" id="jarvisCard">
     <div class="label">Jarvis</div>
-    <div class="sub" style="margin-top:0">Jarvis's brain. Paste an API key once: the TV keeps it encrypted and only ever sends it to Claude or Gemini.</div>
-    <div class="chips" style="margin-top:12px">
-      <button class="chip" data-brain="claude">Claude</button>
-      <button class="chip" data-brain="gemini">Gemini</button>
-    </div>
-    <form id="jvClaudeForm" style="display:flex;flex-direction:column;gap:8px;margin-top:14px">
-      <div class="sub" style="margin:0" id="jvClaudeText"></div>
+    <div class="sub" style="margin-top:0">Give Jarvis a brain. <b>Groq is free</b>: console.groq.com → sign up → API Keys → Create API Key (no card needed). Paste the key here once: the TV keeps it encrypted.</div>
+    <form id="jvForm" style="display:flex;flex-direction:column;gap:8px;margin-top:12px">
       <div class="row">
-        <input id="jvClaude" type="password" placeholder="Claude key: sk-ant-…" autocomplete="off" autocapitalize="off" spellcheck="false">
-        <button class="go">Save</button>
-      </div>
-    </form>
-    <form id="jvGeminiForm" style="display:flex;flex-direction:column;gap:8px;margin-top:12px">
-      <div class="sub" style="margin:0" id="jvGeminiText"></div>
-      <div class="row">
-        <input id="jvGemini" type="password" placeholder="Gemini key: AIza…" autocomplete="off" autocapitalize="off" spellcheck="false">
+        <input id="jvKey" type="password" placeholder="Paste a key: gsk_… (Groq), sk-ant-… or AIza…" autocomplete="off" autocapitalize="off" spellcheck="false">
         <button class="go">Save</button>
       </div>
     </form>
     <div class="sub" id="jvMsg" style="margin:8px 0 0"></div>
+    <div class="sub" style="margin:12px 0 6px">Jarvis thinks with:</div>
+    <div class="chips">
+      <button class="chip" data-brain="groq">Groq · free</button>
+      <button class="chip" data-brain="claude">Claude</button>
+      <button class="chip" data-brain="gemini">Gemini</button>
+    </div>
+    <div class="sub" id="jvKeys" style="margin:10px 0 0"></div>
     <div class="chips" style="margin-top:8px">
-      <button class="chip" id="jvForgetClaude" style="display:none">Forget Claude key</button>
-      <button class="chip" id="jvForgetGemini" style="display:none">Forget Gemini key</button>
+      <button class="chip" data-forget="groq" style="display:none">Forget Groq key</button>
+      <button class="chip" data-forget="claude" style="display:none">Forget Claude key</button>
+      <button class="chip" data-forget="gemini" style="display:none">Forget Gemini key</button>
     </div>
   </section>
 
@@ -273,20 +269,19 @@
     } catch { $('calMsg').textContent = 'The TV didn’t answer.'; }
   });
   $('calOff').addEventListener('click', async () => { await api('/api/calendar/logout', {}); refresh(); });
-  // Jarvis: keys and brain. The key goes to the TV once and is never shown again.
-  async function saveJarvisKey(brain, field) {
-    const value = $(field).value.trim(); if (!value) return;
+  // Jarvis: one field for any key (the TV sees which AI it's for). The key is never shown again.
+  $('jvForm').addEventListener('submit', async e => {
+    e.preventDefault();
+    const value = $('jvKey').value.trim(); if (!value) return;
     $('jvMsg').textContent = 'Saving on the TV…';
     try {
-      const r = await api('/api/jarvis/key', { brain, key: value });
-      if (r.ok) { $(field).value = ''; $('jvMsg').textContent = ''; toast('Saved on the TV'); refresh(); }
+      const r = await api('/api/jarvis/key', { key: value });
+      if (r.ok) { $('jvKey').value = ''; $('jvMsg').textContent = ''; toast('Saved on the TV'); refresh(); }
       else $('jvMsg').textContent = r.error || 'Couldn’t save the key.';
     } catch { $('jvMsg').textContent = 'The TV didn’t answer.'; }
-  }
-  $('jvClaudeForm').addEventListener('submit', e => { e.preventDefault(); saveJarvisKey('claude', 'jvClaude'); });
-  $('jvGeminiForm').addEventListener('submit', e => { e.preventDefault(); saveJarvisKey('gemini', 'jvGemini'); });
-  $('jvForgetClaude').addEventListener('click', async () => { await api('/api/jarvis/forget', { brain: 'claude' }); refresh(); });
-  $('jvForgetGemini').addEventListener('click', async () => { await api('/api/jarvis/forget', { brain: 'gemini' }); refresh(); });
+  });
+  document.querySelectorAll('[data-forget]').forEach(b =>
+    b.addEventListener('click', async () => { await api('/api/jarvis/forget', { brain: b.dataset.forget }); refresh(); }));
   document.querySelectorAll('[data-brain]').forEach(b =>
     b.addEventListener('click', async () => { await api('/api/jarvis/brain', { brain: b.dataset.brain }); refresh(); }));
 
@@ -320,15 +315,12 @@
     $('spOn').style.display = state.spotify ? 'block' : 'none';
     $('spSetup').style.display = state.spotify ? 'none' : 'block';
     $('spText').textContent = 'Connected' + (state.spotifyPlaylist ? ' · ' + state.spotifyPlaylist : '') + '.';
+    const saved = { groq: !!state.jarvisGroq, claude: !!state.jarvisClaude, gemini: !!state.jarvisGemini };
     document.querySelectorAll('[data-brain]').forEach(b => b.classList.toggle('on', b.dataset.brain === (state.jarvisBrain || 'claude')));
-    $('jvClaudeText').textContent = state.jarvisClaude
-      ? 'Claude key saved ✓ Paste a new one to replace it.'
-      : 'Claude: platform.claude.com → API keys → Create key.';
-    $('jvGeminiText').textContent = state.jarvisGemini
-      ? 'Gemini key saved ✓ Paste a new one to replace it.'
-      : 'Gemini: aistudio.google.com → Get API key.';
-    $('jvForgetClaude').style.display = state.jarvisClaude ? 'inline-block' : 'none';
-    $('jvForgetGemini').style.display = state.jarvisGemini ? 'inline-block' : 'none';
+    document.querySelectorAll('[data-forget]').forEach(b => b.style.display = saved[b.dataset.forget] ? 'inline-block' : 'none');
+    const names = { groq: 'Groq', claude: 'Claude', gemini: 'Gemini' };
+    const have = Object.keys(saved).filter(k => saved[k]).map(k => names[k]);
+    $('jvKeys').textContent = have.length ? 'Keys on the TV: ' + have.join(', ') + ' ✓' : 'No key on the TV yet: Jarvis only does TV commands.';
     $('calOn').style.display = state.calendar ? 'block' : 'none';
     $('calForm').style.display = state.calendar ? 'none' : 'flex';
     const np = state.nowPlaying;

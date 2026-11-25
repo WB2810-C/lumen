@@ -10,10 +10,14 @@ import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
 import javax.crypto.spec.GCMParameterSpec
 
-/** Which AI answers Jarvis's questions. Claude is the default; Gemini is the switch in the phone remote. */
-enum class Brain(val id: String, val label: String) {
-    CLAUDE("claude", "Claude"),
-    GEMINI("gemini", "Gemini");
+/**
+ * Which AI answers Jarvis's questions, and how its keys begin. Groq is free (no card needed);
+ * Claude and Gemini are paid. Pick one on the phone remote.
+ */
+enum class Brain(val id: String, val label: String, val prefix: String) {
+    CLAUDE("claude", "Claude", "sk-ant-"),
+    GEMINI("gemini", "Gemini", "AIza"),
+    GROQ("groq", "Groq", "gsk_");
 
     companion object {
         fun byId(id: String?): Brain? = entries.firstOrNull { it.id == id }
@@ -32,15 +36,20 @@ object JarvisKeys {
     /** Keys never contain spaces: whatever the phone added when pasting (spaces, new lines) goes. */
     fun cleanKey(raw: String): String = raw.filterNot { it.isWhitespace() }
 
+    /** Which AI a key belongs to, from how it begins (null when it isn't one of them). */
+    fun detect(key: String): Brain? {
+        val k = cleanKey(key)
+        return Brain.entries.firstOrNull { k.startsWith(it.prefix) }
+    }
+
     /** Null when [key] looks right for [brain]; otherwise what to tell the person. */
     fun check(brain: Brain, key: String): String? {
         val k = cleanKey(key)
+        val found = detect(k)
         return when {
             k.isEmpty() -> "Paste the key first."
-            brain == Brain.CLAUDE && k.startsWith("AIza") -> "That's a Gemini key. Paste it under Gemini."
-            brain == Brain.GEMINI && k.startsWith("sk-ant-") -> "That's a Claude key. Paste it under Claude."
-            brain == Brain.CLAUDE && !k.startsWith("sk-ant-") -> "A Claude key starts with sk-ant-. Copy the whole key."
-            brain == Brain.GEMINI && !k.startsWith("AIza") -> "A Gemini key starts with AIza. Copy the whole key."
+            found != null && found != brain -> "That's a ${found.label} key, not a ${brain.label} key."
+            found == null -> "A ${brain.label} key starts with ${brain.prefix}. Copy the whole key."
             k.length < 30 -> "That key is too short. Copy the whole key."
             k.length > 200 -> "That's more than a key. Copy only the key."
             else -> null

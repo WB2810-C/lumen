@@ -279,16 +279,18 @@ object PhoneRemoteServer {
             // Jarvis: the API key is checked, encrypted on the TV, and never sent back to the phone.
             method == "POST" && path == "/api/jarvis/key" -> {
                 val context = appContext ?: return respond(out, 400, "application/json", """{"error":"not ready"}""")
-                val brain = Brain.byId(json.optString("brain")) ?: return respond(out, 400, "application/json", """{"error":"Pick Claude or Gemini."}""")
                 val key = json.optString("key")
+                // Any key works in the one field: the TV sees from how it begins whether it's Groq, Claude or Gemini.
+                val brain = Brain.byId(json.optString("brain")) ?: JarvisKeys.detect(key)
+                    ?: return respond(out, 400, "application/json", """{"error":"That isn't a Groq, Claude or Gemini key. Copy the whole key."}""")
                 JarvisKeys.check(brain, key)?.let { problem ->
                     return respond(out, 400, "application/json", JSONObject().put("error", problem).toString())
                 }
+                // If the chosen brain has no key yet, the new key's brain takes over; otherwise the switch decides.
+                val takeOver = !JarvisKeys.has(context, JarvisKeys.brain(context))
                 runCatching { JarvisKeys.save(context, brain, key) }
                     .onSuccess {
-                        // The first key decides the brain; after that the switch on the phone does.
-                        val other = if (brain == Brain.CLAUDE) Brain.GEMINI else Brain.CLAUDE
-                        if (!JarvisKeys.has(context, other)) JarvisKeys.setBrain(context, brain)
+                        if (takeOver) JarvisKeys.setBrain(context, brain)
                         RemoteBridge.commands.trySend(RemoteCommand.AccountsChanged("Jarvis: ${brain.label} key saved"))
                         respond(out, 200, "application/json", """{"ok":true}""")
                     }
@@ -298,13 +300,13 @@ object PhoneRemoteServer {
             }
             method == "POST" && path == "/api/jarvis/forget" -> {
                 val context = appContext ?: return respond(out, 400, "application/json", """{"error":"not ready"}""")
-                val brain = Brain.byId(json.optString("brain")) ?: return respond(out, 400, "application/json", """{"error":"Pick Claude or Gemini."}""")
+                val brain = Brain.byId(json.optString("brain")) ?: return respond(out, 400, "application/json", """{"error":"Pick Groq, Claude or Gemini."}""")
                 JarvisKeys.forget(context, brain)
                 command(out, RemoteCommand.AccountsChanged("Jarvis: ${brain.label} key removed"))
             }
             method == "POST" && path == "/api/jarvis/brain" -> {
                 val context = appContext ?: return respond(out, 400, "application/json", """{"error":"not ready"}""")
-                val brain = Brain.byId(json.optString("brain")) ?: return respond(out, 400, "application/json", """{"error":"Pick Claude or Gemini."}""")
+                val brain = Brain.byId(json.optString("brain")) ?: return respond(out, 400, "application/json", """{"error":"Pick Groq, Claude or Gemini."}""")
                 JarvisKeys.setBrain(context, brain)
                 command(out, RemoteCommand.AccountsChanged("Jarvis now thinks with ${brain.label}"))
             }

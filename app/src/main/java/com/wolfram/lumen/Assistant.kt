@@ -100,29 +100,31 @@ data class ToolOutcome(val result: String, val chip: String? = null, val isError
 private data class Reply(val text: String, val sources: List<String>)
 
 /**
- * Holds Jarvis's conversation. Claude (Haiku, or Opus for hard questions) runs the full tool loop;
- * Gemini answers when it is chosen on the phone remote; the laptop (Ollama) is the free fallback.
+ * Holds Jarvis's conversation. Claude (Haiku, or Opus for hard questions) and Groq (free) run the full
+ * tool loop; Gemini answers; the laptop (Ollama) is the fallback when there is no key at all.
  */
 @Stable
 class AssistantController(
     claudeKey: String,
     geminiKey: String = "",
+    groqKey: String = "",
     brain: Brain = Brain.CLAUDE,
     ollamaHost: String = "",
     ollamaModel: String = "",
 ) {
     private val client = if (claudeKey.isBlank()) null else ClaudeClient(claudeKey)
     private val gemini = if (geminiKey.isBlank()) null else GeminiClient(geminiKey, LumenConfig.GEMINI_MODEL)
-    private val ollama = if (client != null || gemini != null || ollamaHost.isBlank()) null else OllamaClient(ollamaHost, ollamaModel)
+    private val groq = if (groqKey.isBlank()) null else GroqClient(groqKey)
+    private val ollama = if (client != null || gemini != null || groq != null || ollamaHost.isBlank()) null else OllamaClient(ollamaHost, ollamaModel)
 
-    /** Gemini answers when it's the chosen brain, or when it's the only key there is. */
-    private val useGemini = gemini != null && (brain == Brain.GEMINI || client == null)
-    val hasKey: Boolean get() = client != null || gemini != null
+    /** What answers: the brain chosen on the phone if it has a key, otherwise whichever has one. */
+    val engine: Engine = JarvisBrain.pickEngine(brain, client != null, groq != null, gemini != null, ollama != null)
+    val hasKey: Boolean get() = client != null || gemini != null || groq != null
 
-    /** An AI is switched on (Claude, Gemini, or the free one on your laptop). Without it, only built-in commands work. */
-    val hasAi: Boolean get() = client != null || gemini != null || ollama != null
-    val usesClaude: Boolean get() = client != null && !useGemini
-    val usesLaptop: Boolean get() = ollama != null
+    /** An AI is switched on. Without it, only built-in commands work. */
+    val hasAi: Boolean get() = engine != Engine.NONE
+    val usesClaude: Boolean get() = engine == Engine.CLAUDE
+    val usesLaptop: Boolean get() = engine == Engine.LAPTOP
 
     /** The model that answered last ("Haiku", "Opus", "Gemini"). */
     var lastBrain by mutableStateOf("")
@@ -159,18 +161,26 @@ class AssistantController(
             try {
                 val claude = client
                 val g = gemini
-                val reply = if (useGemini && g != null) {
-                    lastBrain = "Gemini"
-                    Reply(g.ask(system(), q), emptyList())
-                } else if (claude != null) {
-                    val model = JarvisBrain.pickModel(q)
-                    lastBrain = if (model == JarvisBrain.OPUS) "Opus" else "Haiku"
-                    converse(claude, model, q, system(), runTool) { chip ->
-                        turns[index] = turns[index].copy(actions = turns[index].actions + chip)
+                val fast = groq
+                val addChip: (String) -> Unit = { chip -> turns[index] = turns[index].copy(actions = turns[index].actions + chip) }
+                val reply = when {
+                    engine == Engine.GROQ && fast != null -> {
+                        lastBrain = "Groq"
+                        Reply(fast.ask(system(), q, lumenTools(), runTool, addChip), emptyList())
                     }
-                } else {
-                    lastBrain = ""
-                    Reply(askOllama(q, system()), emptyList())
+                    engine == Engine.GEMINI && g != null -> {
+                        lastBrain = "Gemini"
+                        Reply(g.ask(system(), q), emptyList())
+                    }
+                    engine == Engine.CLAUDE && claude != null -> {
+                        val model = JarvisBrain.pickModel(q)
+                        lastBrain = if (model == JarvisBrain.OPUS) "Opus" else "Haiku"
+                        converse(claude, model, q, system(), runTool, addChip)
+                    }
+                    else -> {
+                        lastBrain = ""
+                        Reply(askOllama(q, system()), emptyList())
+                    }
                 }
                 turns[index] = turns[index].copy(answer = reply.text, sources = reply.sources)
                 onDone(turns[index])
@@ -329,8 +339,14 @@ fun assistantSystemPrompt(
     apps: List<Tile>,
     inputs: List<Tile>,
     theme: LumenTheme,
+    webSearch: Boolean = true,
     themeName: (LumenTheme) -> String,
 ): String {
+    val current = if (webSearch) {
+        "For current information (weather, news, sports, opening hours, what's on TV) use web search and keep the answer short."
+    } else {
+        "For the weather, the news and live scores use the information at the end. You can't search the web: for other current things, say so briefly."
+    }
     val now = SimpleDateFormat("EEEE d MMMM yyyy, HH:mm", Locale.ENGLISH).format(Date())
     val owner = LumenConfig.OWNER_NAME.ifBlank { "the owner" }
     return """
@@ -340,8 +356,7 @@ fun assistantSystemPrompt(
 
         You can control the TV with tools: open apps, switch HDMI inputs, change the colour theme,
         show pages, search YouTube, read the VRT NWS headlines and start the screensaver. When asked to do one of these, use the
-        tool, then confirm in a few words. For current information (weather, news, sports, opening
-        hours, what's on TV) use web search and keep the answer short.
+        tool, then confirm in a few words. $current
 
         Installed apps: ${apps.joinToString { it.label }.ifBlank { "unknown" }}
         HDMI inputs: ${inputs.joinToString { it.label }.ifBlank { "none (this is a TV stick)" }}

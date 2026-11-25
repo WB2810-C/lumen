@@ -54,10 +54,10 @@
     <string name="assistant_suggest_theme">Change the theme to Ocean</string>
     <string name="assistant_suggest_weather">What\'s the weather today?</string>
     <string name="assistant_setup_title">Give Jarvis a brain</string>
-    <string name="assistant_setup_body">Open the phone remote (Settings → Phone remote), and paste a Claude or Gemini API key in the Jarvis card. The TV keeps it encrypted. Until then, Jarvis does TV commands like “open Netflix”.</string>
+    <string name="assistant_setup_body">Open the phone remote (Settings → Phone remote) and paste a key in the Jarvis card. Groq is free (console.groq.com → API Keys). The TV keeps it encrypted. Until then, Jarvis does TV commands like “open Netflix”.</string>
     <string name="assistant_error_key">Jarvis\'s API key isn\'t working. Paste it again on the phone remote (Jarvis card).</string>
     <string name="assistant_error_credit">Your API credit has run out. Top it up in the Claude Console.</string>
-    <string name="assistant_error_busy">Claude is busy right now. Try again in a moment.</string>
+    <string name="assistant_error_busy">The AI is busy, or today\'s free limit is used up. Try again in a moment.</string>
     <string name="assistant_error_network">No internet connection. Check the TV\'s Wi-Fi.</string>
     <string name="assistant_error_generic">Something went wrong. Please try again.</string>
     <string name="action_opened">%1$s opened</string>
@@ -165,6 +165,6 @@
     <string name="check_mic">Microphone for Jarvis</string>
     <string name="check_jarvis">Jarvis has a brain (%1$s)</string>
     <string name="check_fix_installer">Run Install-PlaizierOS.bat on your laptop again: it switches this on.</string>
-    <string name="check_fix_key">Paste a Claude or Gemini key in the Jarvis card on the phone remote.</string>
+    <string name="check_fix_key">Paste a key in the Jarvis card on the phone remote. Groq is free: console.groq.com → API Keys.</string>
     <string name="check_last_key">Last remote button: %1$s</string>
 </resources>
