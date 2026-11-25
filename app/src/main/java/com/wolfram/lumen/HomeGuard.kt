@@ -63,11 +63,12 @@ fun guardEnabled(enabledServices: String?, component: String): Boolean {
 }
 
 /**
- * The picture is at its best: the TV is in its highest mode, and things are drawn at the screen's own
- * size (up to 1920 × 1080, which stays smooth on this TV; films and games still use the full picture).
+ * The picture is at its best: the TV is in its highest mode, and everything is drawn at 1920 × 1080
+ * (smooth on this TV; films and games still use the full picture).
  */
+@Suppress("UNUSED_PARAMETER")
 fun pictureIsMax(nowWidth: Int, nowHeight: Int, bestWidth: Int, bestHeight: Int, drawnWidth: Int): Boolean =
-    nowWidth.toLong() * nowHeight >= bestWidth.toLong() * bestHeight && drawnWidth >= minOf(bestWidth, 1920)
+    nowWidth.toLong() * nowHeight >= bestWidth.toLong() * bestHeight && drawnWidth >= 1920
 
 /**
  * The second home lock. Google TV sometimes ignores the chosen home screen; this service catches the

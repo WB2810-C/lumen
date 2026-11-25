@@ -158,14 +158,33 @@ class TvRepository(private val context: Context) {
     private val dockBanners = android.util.LruCache<String, ImageBitmap>(40)
 
     /**
-     * The app's logo for the dock: taken from the best resolution it ships and shrunk in halving steps
-     * to 320 pixels wide (smooth and sharp, where one big jump would look rough on the TV).
+     * The app's logo for a favourite: taken from the best resolution it ships and shrunk in halving steps
+     * to exactly [widthPx] (the pixels it gets on screen when selected), so it's drawn 1:1, razor sharp.
      */
-    fun dockBanner(pkg: String): ImageBitmap? {
-        dockBanners.get(pkg)?.let { return it }
+    fun dockBanner(pkg: String, widthPx: Int): ImageBitmap? {
+        val cacheKey = "$pkg@$widthPx"
+        dockBanners.get(cacheKey)?.let { return it }
         val big = hiResBanner(pkg)?.asAndroidBitmap() ?: return null
-        return smoothShrink(big, 320).asImageBitmap().also { dockBanners.put(pkg, it) }
+        return smoothShrink(big, widthPx).asImageBitmap().also { dockBanners.put(cacheKey, it) }
     }
+
+    /**
+     * The app's icon for a favourite without a TV banner: from the sharpest density it ships, at exactly
+     * [sizePx] (icons drawn as shapes are painted straight at that size; pictures are shrunk in halving steps).
+     */
+    fun dockIcon(pkg: String, sizePx: Int): ImageBitmap? = runCatching {
+        @Suppress("DEPRECATION")
+        val app = pm.getApplicationInfo(pkg, 0)
+        val intent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LEANBACK_LAUNCHER).setPackage(pkg)
+        @Suppress("DEPRECATION")
+        val activity = pm.queryIntentActivities(intent, 0).firstOrNull()?.activityInfo
+        val id = activity?.iconResource?.takeIf { it != 0 } ?: app.icon
+        val drawable = (if (id != 0) pm.getResourcesForApplication(app).getDrawableForDensity(id, android.util.DisplayMetrics.DENSITY_XXXHIGH, null) else null)
+            ?: pm.getApplicationIcon(pkg)
+        val picture = (drawable as? android.graphics.drawable.BitmapDrawable)?.bitmap
+        val bitmap = if (picture != null && picture.width >= sizePx) smoothShrink(picture, sizePx) else drawable.toBitmap(sizePx, sizePx, Bitmap.Config.ARGB_8888)
+        bitmap.asImageBitmap()
+    }.getOrNull()
 
     /**
      * The app's TV logo in the highest resolution it ships (for the big preview at the top), sharp at 1080p.
@@ -207,10 +226,27 @@ class TvRepository(private val context: Context) {
         val label = info.loadLabel(pm).toString()
 
         // The real logo: TV apps ship a 16:9 "banner"; otherwise fall back to the normal icon.
-        val bannerDrawable = runCatching {
-            info.activityInfo.loadBanner(pm) ?: pm.getApplicationBanner(pkg)
+        // Taken from the sharpest density the app ships, then shrunk smoothly to the most pixels a big
+        // tile ever gets on screen (160 dp, selected): sharp at 1920 × 1080 without wasting memory.
+        val bannerWidth = logoPixels(160f, context.resources.displayMetrics.density, 1.16f)
+        val banner = runCatching {
+            val activity = info.activityInfo
+            val id = activity.banner.takeIf { it != 0 } ?: activity.applicationInfo.banner
+            val sharp = if (id != 0) {
+                pm.getResourcesForApplication(activity.applicationInfo)
+                    .getDrawableForDensity(id, android.util.DisplayMetrics.DENSITY_XXXHIGH, null)
+            } else {
+                null
+            }
+            val drawable = sharp ?: activity.loadBanner(pm) ?: pm.getApplicationBanner(pkg)
+            val picture = (drawable as? android.graphics.drawable.BitmapDrawable)?.bitmap
+            when {
+                picture != null && picture.width > bannerWidth -> smoothShrink(picture, bannerWidth)
+                picture != null -> picture.softwareCopy()
+                drawable != null -> drawable.toSafeBitmap(maxSide = bannerWidth, fallbackW = bannerWidth, fallbackH = bannerWidth * 9 / 16)
+                else -> null
+            }
         }.getOrNull()
-        val banner = bannerDrawable?.toSafeBitmap(maxSide = 640, fallbackW = 320, fallbackH = 180)
         // The icon for the square dock tiles, in a high resolution so it stays sharp at 1080p.
         val icon = runCatching {
             val app = info.activityInfo.applicationInfo
@@ -332,6 +368,13 @@ private fun darken(color: Color, amount: Float): Color =
         green = color.green * (1f - amount),
         blue = color.blue * (1f - amount),
     )
+
+/** Shrinks a picture so it fits inside [maxWidth] × [maxHeight] (never grows it), in smooth halving steps. */
+internal fun fitShrink(src: Bitmap, maxWidth: Int, maxHeight: Int): Bitmap {
+    val scale = minOf(maxWidth.toFloat() / src.width, maxHeight.toFloat() / src.height)
+    if (scale >= 1f) return src
+    return smoothShrink(src, (src.width * scale).roundToInt().coerceAtLeast(1))
+}
 
 /** Shrinks a picture to [width] pixels wide in halving steps, which keeps fine logo edges smooth. */
 internal fun smoothShrink(src: Bitmap, width: Int): Bitmap {

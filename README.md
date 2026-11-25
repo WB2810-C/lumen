@@ -1,4 +1,4 @@
-# PlaizierOS 21.0.2 — a home screen for your Peaq Google TV
+# PlaizierOS 21.0.3 — a home screen for your Peaq Google TV
 
 ## New in 21.0
 
@@ -24,8 +24,10 @@
   The installer switches it on; Back-to-Google-TV switches it off again.
 - **Highest picture, by itself.** The installer reads every picture mode the TV supports and picks the
   highest (resolution first, then refresh rate) for everything, not only PlaizierOS. PlaizierOS and your
-  apps are drawn at the screen's own size, up to 1920 × 1080 (on a 4K TV films, series and games still
-  play in 4K; only the menus are drawn at 1080p, so they stay smooth on a 2 GB TV).
+  apps are always drawn at 1920 × 1080 (on a 4K TV films, series and games still play in 4K).
+- **Logos at full resolution.** Every logo is taken from the sharpest version the app ships and made at
+  exactly the pixels it gets on screen at 1920 × 1080 (a favourite's logo: 199 × 113), so the TV draws it
+  1:1 and never stretches it.
 - **PlaizierOS check** (Settings): sharpest picture, PlaizierOS the home screen, the lock on, a key for Jarvis.
 
 PlaizierOS (inside the code still called Lumen) replaces the Google TV home screen with your own, in the **Cinema** layout (like Apple TV,

@@ -803,7 +803,7 @@ private fun GlassTile(
         modifier
             .size(width = HomeLayout.TileWidth, height = HomeLayout.TileHeight)
             .graphicsLayer {
-                val s = 1f + 0.08f * lift
+                val s = 1f + (HomeLayout.FOCUS_SCALE - 1f) * lift
                 scaleX = s
                 scaleY = s
                 translationY = -2.dp.toPx() * lift
@@ -952,7 +952,7 @@ private fun DockFace(tile: Tile) {
                     filterQuality = androidx.compose.ui.graphics.FilterQuality.High, modifier = Modifier.fillMaxSize(),
                 )
                 icon != null -> Box(Modifier.fillMaxSize().background(tile.takeoverColor), contentAlignment = Alignment.Center) {
-                    Image(icon, contentDescription = tile.label, contentScale = ContentScale.Fit, colorFilter = dim, filterQuality = androidx.compose.ui.graphics.FilterQuality.High, modifier = Modifier.fillMaxHeight(0.78f))
+                    Image(icon, contentDescription = tile.label, contentScale = ContentScale.Fit, colorFilter = dim, filterQuality = androidx.compose.ui.graphics.FilterQuality.High, modifier = Modifier.fillMaxHeight(HomeLayout.ICON_FILL))
                 }
                 else -> Box(Modifier.fillMaxSize().background(Color(0xFF2A2A30)), contentAlignment = Alignment.Center) {
                     Text(tile.label, color = Color.White, fontSize = 9.sp, fontWeight = FontWeight.SemiBold, maxLines = 2)

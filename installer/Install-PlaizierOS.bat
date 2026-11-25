@@ -119,7 +119,7 @@ echo   Setting the TV picture to the highest resolution it supports...
 call :maxpicture
 echo   Switching on HDR for films, series and games [every HDR type the TV can show]...
 %ADB% -s %TARGET% shell settings put global are_user_disabled_hdr_formats_allowed 1 >nul 2>&1
-echo   Drawing PlaizierOS and your apps as sharp as the screen allows...
+echo   Drawing PlaizierOS and your apps at 1920x1080...
 call :sethd
 echo   Opening PlaizierOS on the TV...
 %ADB% -s %TARGET% shell am start -n %PKG%/.MainActivity >nul 2>&1
@@ -259,8 +259,8 @@ echo   Couldn't read the TV's picture modes, so using 1920x1080 at 60 Hz.
 %ADB% -s %TARGET% shell cmd display set-user-preferred-display-mode 1920 1080 60 >nul 2>&1
 exit /b 0
 
-rem Draws PlaizierOS and your apps at the sharpest size: the screen's own size, up to 1920x1080
-rem (smooth on this TV; films, series and games still play at the full picture), same size on screen.
+rem Draws PlaizierOS and your apps at 1920x1080, density 320: same size on screen, full sharpness
+rem (films, series and games still play at the full picture).
 :sethd
 %ADB% -s %TARGET% shell wm size %UIW%x%UIH% >nul 2>&1
 %ADB% -s %TARGET% shell wm density %UDENS% >nul 2>&1

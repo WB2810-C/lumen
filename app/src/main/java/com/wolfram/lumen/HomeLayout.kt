@@ -30,6 +30,7 @@ import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
 import java.util.Locale
+import kotlin.math.ceil
 
 /**
  * Where everything sits on the Silver Night home (dp on the 960 × 540 dp screen; 1 dp = 2 px at 1080p).
@@ -50,7 +51,28 @@ object HomeLayout {
     val RowToCircles = 10.dp
     val CircleSize = 38.dp
     val CircleGap = 14.dp
+
+    /** How much a favourite grows when it's selected. */
+    const val FOCUS_SCALE = 1.08f
+
+    /** The logo inside a favourite (the tile minus its glass rim), in dp. */
+    const val LOGO_WIDTH_DP = 92f
+    const val LOGO_HEIGHT_DP = 52f
+
+    /** An app without a TV banner shows its icon at this share of the logo's height. */
+    const val ICON_FILL = 0.78f
+
+    /** Padding around a console's logo on its tile (each side), in dp. */
+    const val CONSOLE_PADDING_DP = 7f
 }
+
+/**
+ * How many screen pixels a logo really gets at its biggest (selected) size. Logos are made at exactly this
+ * size from the sharpest picture the app ships, so the TV draws them 1:1 and never stretches them.
+ * At 1920 × 1080 (density 2) a favourite's logo is 199 × 113 pixels.
+ */
+fun logoPixels(dp: Float, density: Float, scale: Float = HomeLayout.FOCUS_SCALE): Int =
+    ceil(dp * density * scale - 0.01f).toInt().coerceAtLeast(1)
 
 /** Whether the home screen should rest now: only when nothing else is open and the remote has been quiet. */
 fun shouldRest(idleMs: Long, bareHome: Boolean): Boolean = bareHome && idleMs >= HomeLayout.REST_AFTER_MS

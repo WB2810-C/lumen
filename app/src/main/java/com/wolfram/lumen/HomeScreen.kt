@@ -63,6 +63,9 @@ import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asAndroidBitmap
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.platform.LocalContext
@@ -356,13 +359,41 @@ fun LumenApp(
     }
 
     // The dock: only your favourites — real apps, Xbox and PlayStation.
-    // Their logos in the dock come in a sharp, smoothly shrunk version, loaded in the background.
+    // Their logos are made in the background at exactly the pixels they get on screen at 1920 × 1080
+    // (from the sharpest version each app ships), so the TV draws them 1:1: maximum sharpness.
+    val logoDensity = LocalDensity.current.density
     var dockBanners by remember { mutableStateOf<Map<String, ImageBitmap>>(emptyMap()) }
-    LaunchedEffect(favourites.map { it.key }) {
-        val wanted = favourites.filter { it.kind == TileKind.APP }
-        dockBanners = withContext(Dispatchers.IO) { wanted.mapNotNull { t -> repo.dockBanner(t.key)?.let { t.key to it } }.toMap() }
+    var dockIcons by remember { mutableStateOf<Map<String, ImageBitmap>>(emptyMap()) }
+    LaunchedEffect(favourites.map { it.key to (it.banner != null) }, logoDensity) {
+        val bannerPx = logoPixels(HomeLayout.LOGO_WIDTH_DP, logoDensity)
+        val iconPx = logoPixels(HomeLayout.LOGO_HEIGHT_DP * HomeLayout.ICON_FILL, logoDensity)
+        val consoleWidth = logoPixels(HomeLayout.LOGO_WIDTH_DP - 2 * HomeLayout.CONSOLE_PADDING_DP, logoDensity)
+        val consoleHeight = logoPixels(HomeLayout.LOGO_HEIGHT_DP - 2 * HomeLayout.CONSOLE_PADDING_DP, logoDensity)
+        val tiles = favourites
+        val (banners, icons) = withContext(Dispatchers.IO) {
+            val banners = HashMap<String, ImageBitmap>()
+            val icons = HashMap<String, ImageBitmap>()
+            for (t in tiles) {
+                when (t.kind) {
+                    TileKind.APP -> {
+                        val banner = repo.dockBanner(t.key, bannerPx)
+                        if (banner != null) banners[t.key] = banner else repo.dockIcon(t.key, iconPx)?.let { icons[t.key] = it }
+                    }
+                    TileKind.CONSOLE -> t.banner?.let { logo ->
+                        runCatching { fitShrink(logo.asAndroidBitmap(), consoleWidth, consoleHeight).asImageBitmap() }.getOrNull()
+                            ?.let { banners[t.key] = it }
+                    }
+                    else -> Unit
+                }
+            }
+            banners to icons
+        }
+        dockBanners = banners
+        dockIcons = icons
     }
-    val dock = remember(favourites, dockBanners) { favourites.map { t -> dockBanners[t.key]?.let { t.copy(banner = it) } ?: t } }
+    val dock = remember(favourites, dockBanners, dockIcons) {
+        favourites.map { t -> t.copy(banner = dockBanners[t.key] ?: t.banner, icon = dockIcons[t.key] ?: t.icon) }
+    }
 
     /** Plays the logo takeover for [shown] and then opens [target] (a console's tile opens its HDMI input). */
     val onOpenAs: (Tile, Rect, Tile) -> Unit = { shown, from, target ->
