@@ -1,4 +1,4 @@
-# PlaizierOS 21.0.1 — a home screen for your Peaq Google TV
+# PlaizierOS 21.0.2 — a home screen for your Peaq Google TV
 
 ## New in 21.0
 
@@ -22,7 +22,11 @@
 - **Stays the home screen.** A second home lock (an accessibility service that only sees the Home
   button and which app opened) brings PlaizierOS back if Google TV's home screen shows up anyway.
   The installer switches it on; Back-to-Google-TV switches it off again.
-- **PlaizierOS check** (Settings): is PlaizierOS the home screen, is the lock on, does Jarvis have a key.
+- **Highest picture, by itself.** The installer reads every picture mode the TV supports and picks the
+  highest (resolution first, then refresh rate) for everything, not only PlaizierOS. PlaizierOS and your
+  apps are drawn at the screen's own size, up to 1920 × 1080 (on a 4K TV films, series and games still
+  play in 4K; only the menus are drawn at 1080p, so they stay smooth on a 2 GB TV).
+- **PlaizierOS check** (Settings): sharpest picture, PlaizierOS the home screen, the lock on, a key for Jarvis.
 
 PlaizierOS (inside the code still called Lumen) replaces the Google TV home screen with your own, in the **Cinema** layout (like Apple TV,
 but better): tabs at the top, a floating glass dock with your favourites at the bottom, and a big
@@ -91,7 +95,7 @@ GitHub builds the app for you in the cloud, for free (`.github/workflows/build.y
 2. Download **PlaizierOS-installer.zip** from the repository's **Releases** page (or Claude sends it).
 3. Unzip it on your laptop and double-click **Install-PlaizierOS.bat**. It downloads Google's small adb tool by itself, connects to
    the TV, installs Lumen, switches on the microphone and Now Playing, checks that Lumen starts,
-   sets the TV picture to 1080p, and only then asks whether to make it your home screen.
+   sets the TV picture to the highest resolution it supports, and only then asks whether to make it your home screen.
    Undo with **Back-to-Google-TV.bat**. Something not working? It saves **plaizieros-report.txt**
    (or run **PlaizierOS-report.bat**): that file shows what the TV says about the picture, the
    internet and voice.

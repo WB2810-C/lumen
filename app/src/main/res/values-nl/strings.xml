@@ -166,4 +166,6 @@
     <string name="check_fix_installer">Start Install-PlaizierOS.bat opnieuw op je laptop: dat zet dit aan.</string>
     <string name="check_fix_key">Plak een sleutel in de Jarvis-kaart op de telefoonafstandsbediening. Groq is gratis: console.groq.com → API Keys.</string>
     <string name="check_last_key">Laatste knop op de afstandsbediening: %1$s</string>
+    <string name="check_picture">Scherpste beeld: %1$s, getekend op %2$s</string>
+    <string name="check_fix_picture">Deze tv kan %1$s tonen. Start Install-PlaizierOS.bat opnieuw: die kiest zelf het hoogste beeld.</string>
 </resources>

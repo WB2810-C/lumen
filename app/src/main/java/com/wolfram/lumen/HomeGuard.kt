@@ -41,6 +41,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
+import kotlin.math.roundToInt
 
 /** The Google TV home screens that PlaizierOS stands in for. */
 val STOCK_LAUNCHERS = setOf(
@@ -60,6 +61,13 @@ fun guardEnabled(enabledServices: String?, component: String): Boolean {
     val short = component.replace("/$pkg.", "/.")
     return enabledServices.split(':').any { it.equals(component, ignoreCase = true) || it.equals(short, ignoreCase = true) }
 }
+
+/**
+ * The picture is at its best: the TV is in its highest mode, and things are drawn at the screen's own
+ * size (up to 1920 × 1080, which stays smooth on this TV; films and games still use the full picture).
+ */
+fun pictureIsMax(nowWidth: Int, nowHeight: Int, bestWidth: Int, bestHeight: Int, drawnWidth: Int): Boolean =
+    nowWidth.toLong() * nowHeight >= bestWidth.toLong() * bestHeight && drawnWidth >= minOf(bestWidth, 1920)
 
 /**
  * The second home lock. Google TV sometimes ignores the chosen home screen; this service catches the
@@ -127,7 +135,29 @@ object HomeHealth {
         val brain = JarvisKeys.brain(context)
         val hasKey = Brain.entries.any { JarvisKeys.has(context, it) }
         val rerun = context.getString(R.string.check_fix_installer)
-        return listOf(
+        val picture = runCatching {
+            val display = context.getSystemService(android.hardware.display.DisplayManager::class.java)
+                .getDisplay(android.view.Display.DEFAULT_DISPLAY)
+            val now = display.mode
+            val best = display.supportedModes.maxWith(
+                compareBy<android.view.Display.Mode>({ it.physicalWidth.toLong() * it.physicalHeight }, { it.refreshRate }),
+            )
+            val drawn = context.resources.displayMetrics
+            val drawnWidth = maxOf(drawn.widthPixels, drawn.heightPixels)
+            val drawnHeight = minOf(drawn.widthPixels, drawn.heightPixels)
+            val ok = pictureIsMax(now.physicalWidth, now.physicalHeight, best.physicalWidth, best.physicalHeight, drawnWidth)
+            HealthItem(
+                context.getString(
+                    R.string.check_picture,
+                    "${now.physicalWidth}×${now.physicalHeight} · ${now.refreshRate.roundToInt()} Hz",
+                    "${drawnWidth}×$drawnHeight",
+                ),
+                ok,
+                if (ok) "" else context.getString(R.string.check_fix_picture, "${best.physicalWidth}×${best.physicalHeight}"),
+            )
+        }.getOrNull()
+        return listOfNotNull(
+            picture,
             HealthItem(context.getString(R.string.check_home), home == context.packageName, if (home == context.packageName) "" else rerun),
             HealthItem(context.getString(R.string.check_guard), guard, if (guard) "" else rerun),
             HealthItem(context.getString(R.string.check_overlay), overlay, if (overlay) "" else rerun),

@@ -167,4 +167,6 @@
     <string name="check_fix_installer">Run Install-PlaizierOS.bat on your laptop again: it switches this on.</string>
     <string name="check_fix_key">Paste a key in the Jarvis card on the phone remote. Groq is free: console.groq.com → API Keys.</string>
     <string name="check_last_key">Last remote button: %1$s</string>
+    <string name="check_picture">Sharpest picture: %1$s, drawn at %2$s</string>
+    <string name="check_fix_picture">This TV can show %1$s. Run Install-PlaizierOS.bat again: it picks the highest picture by itself.</string>
 </resources>

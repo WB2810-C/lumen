@@ -115,19 +115,12 @@ echo   Switching on the microphone and Now Playing for PlaizierOS...
 %ADB% -s %TARGET% shell appops set %PKG% SYSTEM_ALERT_WINDOW allow >nul 2>&1
 echo   Making PlaizierOS as fast as this TV allows [up to a minute or two, please wait]...
 %ADB% -s %TARGET% shell cmd package compile -m speed -f %PKG% >nul 2>&1
-echo   Setting the TV picture to 1080p...
-%ADB% -s %TARGET% shell cmd display set-user-preferred-display-mode 1920 1080 60 >nul 2>&1
+echo   Setting the TV picture to the highest resolution it supports...
+call :maxpicture
 echo   Switching on HDR for films, series and games [every HDR type the TV can show]...
 %ADB% -s %TARGET% shell settings put global are_user_disabled_hdr_formats_allowed 1 >nul 2>&1
-echo.
-echo   Your TV lets apps draw at 1280x720 and stretches that to its 1920x1080 screen.
-echo   PlaizierOS can ask it to draw everything at 1920x1080 instead. On some TVs that is
-echo   sharper; on others the TV's chip still shrinks it, and then it is only a bit slower.
-echo   You can always undo it with Back-to-720p.bat.
-choice /c YN /n /m "  Draw at 1920x1080? [Y/N] "
-if errorlevel 2 goto :skiphd
+echo   Drawing PlaizierOS and your apps as sharp as the screen allows...
 call :sethd
-:skiphd
 echo   Opening PlaizierOS on the TV...
 %ADB% -s %TARGET% shell am start -n %PKG%/.MainActivity >nul 2>&1
 echo.
@@ -240,13 +233,38 @@ if defined ACC %ADB% -s %TARGET% shell settings put secure enabled_accessibility
 if not defined ACC %ADB% -s %TARGET% shell settings delete secure enabled_accessibility_services >nul 2>&1
 exit /b 0
 
-rem Asks the TV to draw at 1920x1080, keeping everything the same size on screen.
+rem Finds the TV's highest picture mode (max-picture.ps1 reads it from the TV) and makes it the TV's choice.
+:maxpicture
+set "MW="
+set "MH="
+set "MF="
+set "UIW=1920"
+set "UIH=1080"
+set "UDENS=320"
+%ADB% -s %TARGET% shell dumpsys display > "%TEMP%\lumen-display.txt" 2>&1
+for /f "tokens=1-6" %%a in ('powershell -NoProfile -ExecutionPolicy Bypass -File "max-picture.ps1" "%TEMP%\lumen-display.txt" 2^>nul') do (
+  set "MW=%%a"
+  set "MH=%%b"
+  set "MF=%%c"
+  set "UIW=%%d"
+  set "UIH=%%e"
+  set "UDENS=%%f"
+)
+if not defined MW goto :maxpicturedefault
+echo   Highest picture this TV can show: %MW%x%MH% at %MF% Hz.
+%ADB% -s %TARGET% shell cmd display set-user-preferred-display-mode %MW% %MH% %MF% >nul 2>&1
+exit /b 0
+:maxpicturedefault
+echo   Couldn't read the TV's picture modes, so using 1920x1080 at 60 Hz.
+%ADB% -s %TARGET% shell cmd display set-user-preferred-display-mode 1920 1080 60 >nul 2>&1
+exit /b 0
+
+rem Draws PlaizierOS and your apps at the sharpest size: the screen's own size, up to 1920x1080
+rem (smooth on this TV; films, series and games still play at the full picture), same size on screen.
 :sethd
-rem 320 is the standard Android TV density for 1920x1080: everything keeps its normal size, just sharper.
-set "NEWD=320"
-%ADB% -s %TARGET% shell wm size 1920x1080 >nul 2>&1
-%ADB% -s %TARGET% shell wm density %NEWD% >nul 2>&1
-echo   The TV now draws at 1920x1080 [density %NEWD%].
+%ADB% -s %TARGET% shell wm size %UIW%x%UIH% >nul 2>&1
+%ADB% -s %TARGET% shell wm density %UDENS% >nul 2>&1
+echo   The TV now draws at %UIW%x%UIH% [density %UDENS%].
 exit /b 0
 
 :res720
