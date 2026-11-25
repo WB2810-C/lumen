@@ -291,7 +291,7 @@ object PhoneRemoteServer {
                 runCatching { JarvisKeys.save(context, brain, key) }
                     .onSuccess {
                         if (takeOver) JarvisKeys.setBrain(context, brain)
-                        RemoteBridge.commands.trySend(RemoteCommand.AccountsChanged("Jarvis: ${brain.label} key saved"))
+                        RemoteBridge.commands.trySend(RemoteCommand.AccountsChanged("SPECTRE: ${brain.label} key saved"))
                         respond(out, 200, "application/json", """{"ok":true}""")
                     }
                     .onFailure {
@@ -302,13 +302,13 @@ object PhoneRemoteServer {
                 val context = appContext ?: return respond(out, 400, "application/json", """{"error":"not ready"}""")
                 val brain = Brain.byId(json.optString("brain")) ?: return respond(out, 400, "application/json", """{"error":"Pick Groq, Claude or Gemini."}""")
                 JarvisKeys.forget(context, brain)
-                command(out, RemoteCommand.AccountsChanged("Jarvis: ${brain.label} key removed"))
+                command(out, RemoteCommand.AccountsChanged("SPECTRE: ${brain.label} key removed"))
             }
             method == "POST" && path == "/api/jarvis/brain" -> {
                 val context = appContext ?: return respond(out, 400, "application/json", """{"error":"not ready"}""")
                 val brain = Brain.byId(json.optString("brain")) ?: return respond(out, 400, "application/json", """{"error":"Pick Groq, Claude or Gemini."}""")
                 JarvisKeys.setBrain(context, brain)
-                command(out, RemoteCommand.AccountsChanged("Jarvis now thinks with ${brain.label}"))
+                command(out, RemoteCommand.AccountsChanged("SPECTRE now thinks with ${brain.label}"))
             }
             else -> respond(out, 404, "application/json", """{"error":"not found"}""")
         }

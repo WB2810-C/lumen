@@ -1,4 +1,4 @@
-# PlaizierOS 21.0.3 — a home screen for your Peaq Google TV
+# PlaizierOS 21.0.4 — a home screen for your Peaq Google TV
 
 ## New in 21.0
 
@@ -6,18 +6,18 @@
   The glass clock stands behind the peaks, "Good evening, Wolfram" sits on the lake under it.
 - **Lit glass favourites.** Your apps, Xbox and PlaizierOS sit on frosted glass that glows in each
   app's own colour. Selected, a tile grows, its rim turns white and a glint of light runs over it.
-  Under them, circles for All apps, News, Files, Agenda, **Jarvis** and Settings.
+  Under them, circles for All apps, News, Files, Agenda, **SPECTRE** and Settings.
 - **Resting home.** After 20 seconds without the remote the tiles fade away and only the scene, the clock
   and the greeting stay. The first button press brings them back (and does nothing else).
-- **Jarvis, on its own brain, without the laptop — free with Groq.** Make a free key at
-  console.groq.com (API Keys, no card) and paste it on the phone remote, in the new **Jarvis** card.
+- **SPECTRE, on its own brain, without the laptop — free with Groq.** Make a free key at
+  console.groq.com (API Keys, no card) and paste it on the phone remote, in the new **SPECTRE** card.
   Groq runs OpenAI's open gpt-oss model very fast and can open apps, switch HDMI and search YouTube
   for you. A Claude (or Gemini) key works in the same field if you ever want the paid brains. The TV keeps it encrypted (Android Keystore); it is never in the
   app or on GitHub. TV commands stay free and instant. Everyday questions go to Claude Haiku 5.5;
   questions that need thinking ("why…", "leg uit…", homework, plans) go to Claude Opus 5.5.
   The fixed part of every request is cached, so repeat questions cost a fraction.
-  Switch Jarvis to Gemini on the same card.
-- **The Jarvis button.** The remote's search / assistant button opens Jarvis (if the TV passes it on:
+  Switch SPECTRE to Gemini on the same card.
+- **The SPECTRE button.** The remote's search / assistant button opens SPECTRE (if the TV passes it on:
   Settings → PlaizierOS check shows the last button it saw).
 - **Stays the home screen.** A second home lock (an accessibility service that only sees the Home
   button and which app opened) brings PlaizierOS back if Google TV's home screen shows up anyway.
@@ -28,7 +28,7 @@
 - **Logos at full resolution.** Every logo is taken from the sharpest version the app ships and made at
   exactly the pixels it gets on screen at 1920 × 1080 (a favourite's logo: 199 × 113), so the TV draws it
   1:1 and never stretches it.
-- **PlaizierOS check** (Settings): sharpest picture, PlaizierOS the home screen, the lock on, a key for Jarvis.
+- **PlaizierOS check** (Settings): sharpest picture, PlaizierOS the home screen, the lock on, a key for SPECTRE.
 
 PlaizierOS (inside the code still called Lumen) replaces the Google TV home screen with your own, in the **Cinema** layout (like Apple TV,
 but better): tabs at the top, a floating glass dock with your favourites at the bottom, and a big
@@ -151,7 +151,7 @@ Commands like "open Netflix" still work instantly without the AI; only other que
 your laptop. The AI knows the weather, the headlines and the live scores that Lumen has, but it
 can't search the internet.
 
-*(Since 21.0 Jarvis doesn't need the laptop: paste a Claude or Gemini API key in the **Jarvis** card
+*(Since 21.0 SPECTRE doesn't need the laptop: paste a Claude or Gemini API key in the **SPECTRE** card
 on the phone remote. The TV keeps it encrypted. Keys never go in `local.properties` or on GitHub.)*
 
 The first time you press the microphone, the TV asks whether Lumen may use the microphone.

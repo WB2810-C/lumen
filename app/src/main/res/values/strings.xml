@@ -35,7 +35,7 @@
     <string name="theme_stone">Stone</string>
     <string name="theme_silver">Silver</string>
     <string name="theme_cloud">Cloud</string>
-    <string name="assistant_title">Jarvis</string>
+    <string name="assistant_title">SPECTRE</string>
     <string name="assistant_subtitle">Ask anything · open apps · change themes</string>
     <string name="assistant_intro">Try “open Netflix”, “HDMI 1”, “theme Ocean”, “search YouTube for…”, “what\'s the weather?” or “the news”.</string>
     <string name="assistant_error_laptop">I can\'t reach the AI on your laptop. Is it switched on, with Ollama running?</string>
@@ -53,9 +53,9 @@
     <string name="assistant_suggest_hdmi">Switch to HDMI 1</string>
     <string name="assistant_suggest_theme">Change the theme to Ocean</string>
     <string name="assistant_suggest_weather">What\'s the weather today?</string>
-    <string name="assistant_setup_title">Give Jarvis a brain</string>
-    <string name="assistant_setup_body">Open the phone remote (Settings → Phone remote) and paste a key in the Jarvis card. Groq is free (console.groq.com → API Keys). The TV keeps it encrypted. Until then, Jarvis does TV commands like “open Netflix”.</string>
-    <string name="assistant_error_key">Jarvis\'s API key isn\'t working. Paste it again on the phone remote (Jarvis card).</string>
+    <string name="assistant_setup_title">Give SPECTRE a brain</string>
+    <string name="assistant_setup_body">Open the phone remote (Settings → Phone remote) and paste a key in the SPECTRE card. Groq is free (console.groq.com → API Keys). The TV keeps it encrypted. Until then, SPECTRE does TV commands like “open Netflix”.</string>
+    <string name="assistant_error_key">SPECTRE\'s API key isn\'t working. Paste it again on the phone remote (SPECTRE card).</string>
     <string name="assistant_error_credit">Your API credit has run out. Top it up in the Claude Console.</string>
     <string name="assistant_error_busy">The AI is busy, or today\'s free limit is used up. Try again in a moment.</string>
     <string name="assistant_error_network">No internet connection. Check the TV\'s Wi-Fi.</string>
@@ -162,10 +162,10 @@
     <string name="check_home">PlaizierOS is the home screen</string>
     <string name="check_guard">Home lock is on</string>
     <string name="check_overlay">Back to PlaizierOS after standby</string>
-    <string name="check_mic">Microphone for Jarvis</string>
-    <string name="check_jarvis">Jarvis has a brain (%1$s)</string>
+    <string name="check_mic">Microphone for SPECTRE</string>
+    <string name="check_jarvis">SPECTRE has a brain (%1$s)</string>
     <string name="check_fix_installer">Run Install-PlaizierOS.bat on your laptop again: it switches this on.</string>
-    <string name="check_fix_key">Paste a key in the Jarvis card on the phone remote. Groq is free: console.groq.com → API Keys.</string>
+    <string name="check_fix_key">Paste a key in the SPECTRE card on the phone remote. Groq is free: console.groq.com → API Keys.</string>
     <string name="check_last_key">Last remote button: %1$s</string>
     <string name="check_picture">Sharpest picture: %1$s, drawn at %2$s</string>
     <string name="check_fix_picture">This TV can show %1$s. Run Install-PlaizierOS.bat again: it picks the highest picture by itself.</string>

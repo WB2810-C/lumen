@@ -121,8 +121,8 @@
   </section>
 
   <section class="card" id="jarvisCard">
-    <div class="label">Jarvis</div>
-    <div class="sub" style="margin-top:0">Give Jarvis a brain. <b>Groq is free</b>: console.groq.com → sign up → API Keys → Create API Key (no card needed). Paste the key here once: the TV keeps it encrypted.</div>
+    <div class="label">SPECTRE</div>
+    <div class="sub" style="margin-top:0">Give SPECTRE a brain. <b>Groq is free</b>: console.groq.com → sign up → API Keys → Create API Key (no card needed). Paste the key here once: the TV keeps it encrypted.</div>
     <form id="jvForm" style="display:flex;flex-direction:column;gap:8px;margin-top:12px">
       <div class="row">
         <input id="jvKey" type="password" placeholder="Paste a key: gsk_… (Groq), sk-ant-… or AIza…" autocomplete="off" autocapitalize="off" spellcheck="false">
@@ -130,7 +130,7 @@
       </div>
     </form>
     <div class="sub" id="jvMsg" style="margin:8px 0 0"></div>
-    <div class="sub" style="margin:12px 0 6px">Jarvis thinks with:</div>
+    <div class="sub" style="margin:12px 0 6px">SPECTRE thinks with:</div>
     <div class="chips">
       <button class="chip" data-brain="groq">Groq · free</button>
       <button class="chip" data-brain="claude">Claude</button>
@@ -269,7 +269,7 @@
     } catch { $('calMsg').textContent = 'The TV didn’t answer.'; }
   });
   $('calOff').addEventListener('click', async () => { await api('/api/calendar/logout', {}); refresh(); });
-  // Jarvis: one field for any key (the TV sees which AI it's for). The key is never shown again.
+  // SPECTRE: one field for any key (the TV sees which AI it's for). The key is never shown again.
   $('jvForm').addEventListener('submit', async e => {
     e.preventDefault();
     const value = $('jvKey').value.trim(); if (!value) return;
@@ -320,7 +320,7 @@
     document.querySelectorAll('[data-forget]').forEach(b => b.style.display = saved[b.dataset.forget] ? 'inline-block' : 'none');
     const names = { groq: 'Groq', claude: 'Claude', gemini: 'Gemini' };
     const have = Object.keys(saved).filter(k => saved[k]).map(k => names[k]);
-    $('jvKeys').textContent = have.length ? 'Keys on the TV: ' + have.join(', ') + ' ✓' : 'No key on the TV yet: Jarvis only does TV commands.';
+    $('jvKeys').textContent = have.length ? 'Keys on the TV: ' + have.join(', ') + ' ✓' : 'No key on the TV yet: SPECTRE only does TV commands.';
     $('calOn').style.display = state.calendar ? 'block' : 'none';
     $('calForm').style.display = state.calendar ? 'none' : 'flex';
     const np = state.nowPlaying;

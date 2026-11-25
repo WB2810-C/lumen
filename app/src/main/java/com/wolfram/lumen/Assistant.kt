@@ -350,7 +350,7 @@ fun assistantSystemPrompt(
     val now = SimpleDateFormat("EEEE d MMMM yyyy, HH:mm", Locale.ENGLISH).format(Date())
     val owner = LumenConfig.OWNER_NAME.ifBlank { "the owner" }
     return """
-        You are Jarvis, the assistant built into PlaizierOS, $owner's own TV home screen (an Android TV launcher).
+        You are SPECTRE, the assistant built into PlaizierOS, $owner's own TV home screen (an Android TV launcher).
         Your answers are shown on a TV and read from the sofa: reply in the language the user speaks
         (usually Dutch or English) in one to three short sentences. No markdown, no lists unless asked.
 

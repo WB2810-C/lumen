@@ -42,9 +42,9 @@ object LumenConfig {
      */
     const val DEFAULT_THEME = "auto"
 
-    /* ----- Jarvis -----
-     * PlaizierOS does TV commands itself, for free. For everything else Jarvis uses Claude (or Gemini):
-     * paste the API key on the phone remote (Jarvis card); the TV keeps it encrypted.
+    /* ----- SPECTRE (the assistant; called Jarvis inside the code) -----
+     * PlaizierOS does TV commands itself, for free. For everything else SPECTRE uses Claude (or Gemini):
+     * paste the API key on the phone remote (SPECTRE card); the TV keeps it encrypted.
      * The free AI on your laptop (Ollama, local.properties) still works when there is no key.
      */
 
