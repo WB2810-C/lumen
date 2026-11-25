@@ -190,7 +190,8 @@ fun LumenApp(
     val dutchUi = java.util.Locale.getDefault().language == "nl"
     // The couch-tv scenes behind everything; they take turns while you're not using the remote.
     // The background you picked on the Themes page (while browsing there, the one you are on).
-    val sceneState = rememberSceneRotation(lastInputAt, previewTheme?.id ?: themeId)
+    var sceneTick by remember { mutableIntStateOf(0) }
+    val sceneState = rememberSceneRotation(lastInputAt, previewTheme?.id ?: themeId, sceneTick)
 
     // Photos, videos and files sent from the phone (also from iCloud Drive), and the viewer.
     var files by remember { mutableStateOf(FileStore.list(context)) }
@@ -431,8 +432,14 @@ fun LumenApp(
         dockBanners = banners
         dockIcons = icons
     }
-    val dock = remember(favourites, dockBanners, dockIcons) {
-        favourites.map { t -> t.copy(banner = dockBanners[t.key] ?: t.banner, icon = dockIcons[t.key] ?: t.icon) }
+    val dock = remember(favourites, dockBanners, dockIcons, consoleSpots) {
+        favourites.map { t ->
+            t.copy(
+                banner = dockBanners[t.key] ?: t.banner,
+                icon = dockIcons[t.key] ?: t.icon,
+                previewInput = Console.byKey(t.key)?.let { consoleSpots[it]?.inputId },
+            )
+        }
     }
 
     /** Plays the logo takeover for [shown] and then opens [target] (a console's tile opens its HDMI input). */
@@ -807,6 +814,22 @@ fun LumenApp(
                         StudyStore.save(context, set)
                         note = null
                         studySet = set
+                    }
+                }
+            }
+            is RemoteCommand.SceneChanged -> {
+                phoneOpen = false
+                onAmbientChange(false)
+                showNote(IslandNote(context.getString(R.string.note_making_scene), SilverNight.Silver), 30_000L)
+                scope.launch {
+                    if (makePhotoScene(context)) {
+                        forgetBackground(PHOTO_BACKGROUND.id)
+                        note = null
+                        tab = Tab.HOME
+                        chooseTheme(PHOTO_BACKGROUND)
+                        sceneTick++
+                    } else {
+                        Toast.makeText(context, context.getString(R.string.scene_failed), Toast.LENGTH_LONG).show()
                     }
                 }
             }

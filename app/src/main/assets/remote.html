@@ -98,6 +98,13 @@
   </section>
 
   <section class="card">
+    <div class="label">Your photo as the scene</div>
+    <button class="pick" id="scenePick">Pick a photo</button>
+    <input type="file" id="sceneFile" accept="image/*" hidden>
+    <div class="sub" id="sceneSub">The person or thing in front stands before the glass clock, like an iPhone lock screen.</div>
+  </section>
+
+  <section class="card">
     <div class="label">Send to TV</div>
     <form class="row" id="sendForm">
       <input id="sendUrl" placeholder="Paste a YouTube, Spotify, Netflix or web link" autocomplete="off" enterkeyhint="send">
@@ -426,6 +433,18 @@
       try { rec.start(); } catch (err) { rec = null; $('micMsg').textContent = 'Tap the field and use the microphone on your iPhone keyboard.'; }
     });
   })();
+
+  // Your photo as the scene.
+  $('scenePick').addEventListener('click', () => $('sceneFile').click());
+  $('sceneFile').addEventListener('change', async () => {
+    const f = $('sceneFile').files[0]; if (!f) return;
+    $('sceneSub').textContent = 'Sending…';
+    try {
+      const r = await fetch('/api/upload?k=' + encodeURIComponent(key) + '&scene=1&name=' + encodeURIComponent(f.name), { method: 'POST', body: f }).then(r => r.json());
+      $('sceneSub').textContent = r.ok ? 'The TV is making your scene (about 10 seconds).' : 'Couldn’t send it (' + (r.error || 'error') + ').';
+    } catch { $('sceneSub').textContent = 'The TV didn’t answer.'; }
+    $('sceneFile').value = '';
+  });
 
   // Send to TV.
   $('shortcutUrl').textContent = location.origin + '/api/send?k=' + key;

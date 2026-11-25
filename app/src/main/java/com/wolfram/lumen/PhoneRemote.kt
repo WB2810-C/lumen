@@ -80,6 +80,8 @@ sealed class RemoteCommand {
     data class DataChanged(val message: String) : RemoteCommand()
     /** A summary to study (text from the phone, or the PDF text an iPhone Shortcut sends). */
     data class Study(val title: String, val text: String) : RemoteCommand()
+    /** A photo from the phone to become the home screen's scene. */
+    data object SceneChanged : RemoteCommand()
     /** A vocabulary list ("chien = hond" per line) in [language] ("fr", "en", "de", "es"). */
     data class Vocab(val title: String, val language: String, val text: String) : RemoteCommand()
 }
@@ -194,6 +196,34 @@ object PhoneRemoteServer {
             target.delete()
             part.renameTo(target)
             RemoteBridge.commands.trySend(RemoteCommand.LogoChanged(logoFor.id))
+            return respond(out, 200, "application/json", "{\"ok\":true}")
+        }
+        // A photo to become your scene (the glass clock tucks behind the subject).
+        if (method == "POST" && path == "/api/upload" && query["scene"] != null) {
+            val context = appContext
+            if (context == null || contentLength <= 0 || contentLength > 30L * 1024 * 1024) {
+                return respond(out, 400, "application/json", "{\"error\":\"too big\"}")
+            }
+            client.soTimeout = 60_000
+            val target = PhotoScene.source(context)
+            val part = java.io.File(target.parentFile, "source.part")
+            var remaining = contentLength
+            part.outputStream().use { file ->
+                val buffer = ByteArray(64 * 1024)
+                while (remaining > 0) {
+                    val r = input.read(buffer, 0, minOf(buffer.size.toLong(), remaining).toInt())
+                    if (r == -1) break
+                    file.write(buffer, 0, r)
+                    remaining -= r
+                }
+            }
+            if (remaining > 0) {
+                part.delete()
+                return respond(out, 400, "application/json", "{\"error\":\"incomplete\"}")
+            }
+            target.delete()
+            part.renameTo(target)
+            RemoteBridge.commands.trySend(RemoteCommand.SceneChanged)
             return respond(out, 200, "application/json", "{\"ok\":true}")
         }
         if (method == "POST" && path == "/api/upload") {

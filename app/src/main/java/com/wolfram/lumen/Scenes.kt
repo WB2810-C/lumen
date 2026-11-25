@@ -155,6 +155,12 @@ enum class Scene(
         photoBrightness = 0.84f, photoSaturation = 0.3f, fillBrightness = 1.2f, fillSaturation = 0.3f, fillAlpha = 0.9f,
         rimFill = Color.White.copy(alpha = 0.07f), rimStroke = Color.White.copy(alpha = 0.55f),
     ),
+    // Your own photo from the iPhone: the subject (when found) stands in front of the glass clock.
+    PHOTO(
+        "photo", true, clockTop = 75f, clockSize = 200f, dateTop = 48f,
+        photoBrightness = 0.9f, fillBrightness = 1.15f, fillAlpha = 0.9f,
+        rimFill = Color.White.copy(alpha = 0.07f), rimStroke = Color.White.copy(alpha = 0.55f),
+    ),
     // The soft colour backgrounds from the earlier PlaizierOS versions, with the same glass clock.
     AURORA("aurora", false, clockTop = 75f, clockSize = 200f, dateTop = 48f, aurora = "cinema"),
 }
@@ -175,12 +181,32 @@ private suspend fun loadBackground(context: Context, key: String): LoadedScene? 
     synchronized(sceneCache) { sceneCache[key] }?.let { return@withContext it }
     val loaded = if (key == Scene.NIGHT.id) {
         loadScene(context, Scene.NIGHT)
+    } else if (key == Scene.PHOTO.id) {
+        // Your own photo; the mountains until you've sent one.
+        loadPhotoScene(context) ?: loadScene(context, Scene.NIGHT)
     } else {
         // A colour background: painted (small, it's all soft gradients) instead of loaded.
         val theme = themeById(key)
         LoadedScene(Scene.AURORA, paintAurora(theme, 480, 270).asImageBitmap(), null, frosted(paintAurora(theme, 240, 135)), key)
     }
     loaded?.also { synchronized(sceneCache) { sceneCache[key] = it } }
+}
+
+/** Forgets a loaded background, so a new photo shows straight away. */
+fun forgetBackground(key: String) {
+    synchronized(sceneCache) { sceneCache.remove(key) }
+}
+
+private suspend fun loadPhotoScene(context: Context): LoadedScene? = withContext(Dispatchers.IO) {
+    if (!PhotoScene.exists(context)) return@withContext null
+    runCatching {
+        LoadedScene(
+            scene = Scene.PHOTO,
+            photo = BitmapFactory.decodeFile(PhotoScene.photo(context).absolutePath).asImageBitmap(),
+            front = PhotoScene.front(context).takeIf { it.exists() }?.let { BitmapFactory.decodeFile(it.absolutePath)?.asImageBitmap() },
+            glass = BitmapFactory.decodeFile(PhotoScene.glass(context).absolutePath, BitmapFactory.Options().apply { inSampleSize = 2 }),
+        )
+    }.getOrNull()
 }
 
 private suspend fun loadScene(context: Context, scene: Scene): LoadedScene? = withContext(Dispatchers.IO) {
@@ -204,11 +230,11 @@ private suspend fun loadScene(context: Context, scene: Scene): LoadedScene? = wi
  * using the remote, so the change never gets in the way of moving around.
  */
 @Composable
-fun rememberSceneRotation(lastInputAt: () -> Long, choice: String): State<LoadedScene?> {
+fun rememberSceneRotation(lastInputAt: () -> Long, choice: String, refresh: Int = 0): State<LoadedScene?> {
     val context = LocalContext.current.applicationContext
     val latestInput by rememberUpdatedState(lastInputAt)
     // Keyed on the choice: picking (or previewing) another background switches straight to it.
-    return produceState<LoadedScene?>(null, choice) {
+    return produceState<LoadedScene?>(null, choice, refresh) {
         val order = if (choice == "auto") AUTO_BACKGROUNDS else listOf(choice)
         var index = 0 // "Automatic" always starts on the nightfall mountains
         loadBackground(context, order[index])?.let { value = it }
@@ -874,6 +900,19 @@ private fun GlassTile(
             contentAlignment = Alignment.Center,
         ) {
             DockFace(tile)
+            // Hover over the Xbox, PlayStation or Proximus tile for a moment: its live picture (to test).
+            val input = tile.previewInput
+            if (input != null && LumenConfig.HDMI_PREVIEW) {
+                var live by remember { mutableStateOf(false) }
+                LaunchedEffect(focused) {
+                    live = false
+                    if (focused) {
+                        delay(1_400)
+                        live = true
+                    }
+                }
+                if (live) HdmiPreview(input, Modifier.fillMaxSize())
+            }
         }
     }
 }

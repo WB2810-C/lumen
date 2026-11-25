@@ -207,4 +207,7 @@
     <string name="note_mail">Mail van %1$s: %2$s</string>
     <string name="note_run">Nieuwe loop: %1$s</string>
     <string name="note_iss">Ruimtestation boven je om %1$s · kijk %2$s</string>
+    <string name="theme_photo">Je foto</string>
+    <string name="note_making_scene">Je scène wordt gemaakt…</string>
+    <string name="scene_failed">Van die foto kon geen scène gemaakt worden. Probeer een andere.</string>
 </resources>

@@ -25,8 +25,8 @@ android {
         applicationId = "com.wolfram.lumen"
         minSdk = 26          // Android TV 8.0 and newer
         targetSdk = 35
-        versionCode = 29
-        versionName = "21.3"
+        versionCode = 30
+        versionName = "21.4"
         buildConfigField("String", "OLLAMA_HOST", "\"$ollamaHost\"")
         // The GitHub build number, so PlaizierOS knows when a newer build is out (self-updates).
         buildConfigField("int", "BUILD_NUMBER", System.getenv("GITHUB_RUN_NUMBER") ?: "0")
@@ -97,6 +97,8 @@ dependencies {
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     // Installs the baseline profile (src/main/baseline-prof.txt): faster from the very first start.
     implementation("androidx.profileinstaller:profileinstaller:1.4.1")
+    // Your photos as scenes: finds the person or thing in front, on the TV itself (no internet).
+    implementation("com.google.android.gms:play-services-mlkit-subject-segmentation:16.0.0-beta1")
 
     // Unit tests for the pure logic (run by GitHub before every build).
     testImplementation("junit:junit:4.13.2")

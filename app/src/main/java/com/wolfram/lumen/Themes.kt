@@ -69,8 +69,11 @@ val AUTO_BACKGROUND = LumenTheme("auto", R.string.theme_auto, Color(0xFF09070E),
 /** The nightfall mountains. */
 val NIGHT_BACKGROUND = LumenTheme("night", R.string.theme_night, Color(0xFF0B1020), Color(0xFF3A3F6E), Color(0xFFE9A6B8), Color(0xFF1C2B3A), Color(0xFF0E1A14))
 
+/** Your own photo from the iPhone (phone remote → Scene). */
+val PHOTO_BACKGROUND = LumenTheme("photo", R.string.theme_photo, Color(0xFF0A0C10), Color(0xFF454C56), Color(0xFFF4F6F8), Color(0xFF1F242C), Color(0xFF767D87))
+
 /** What the Themes page offers: each one is the home screen's background (no light ones: they'd be white). */
-val BACKGROUNDS: List<LumenTheme> = listOf(AUTO_BACKGROUND, NIGHT_BACKGROUND) + THEMES.filter { !it.isLight && it.id != "app" }
+val BACKGROUNDS: List<LumenTheme> = listOf(AUTO_BACKGROUND, NIGHT_BACKGROUND, PHOTO_BACKGROUND) + THEMES.filter { !it.isLight && it.id != "app" }
 
 fun backgroundById(id: String?): LumenTheme = BACKGROUNDS.firstOrNull { it.id == id } ?: AUTO_BACKGROUND
 

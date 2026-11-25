@@ -73,6 +73,11 @@
             </intent-filter>
         </activity>
 
+        <!-- Downloads Google's on-device subject finder (for your photos as scenes) in the background -->
+        <meta-data
+            android:name="com.google.mlkit.vision.DEPENDENCIES"
+            android:value="subject_segment" />
+
         <!-- The Silver Night scene as the TV's screensaver -->
         <service
             android:name=".SceneDream"

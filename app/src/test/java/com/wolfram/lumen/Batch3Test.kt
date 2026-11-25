@@ -91,3 +91,14 @@ class Batch3Test {
         assertEquals("fr-FR", languageTag("fr"))
     }
 }
+
+class PhotoSceneTest {
+    @Test
+    fun photosAreCroppedTo16by9() {
+        // A tall iPhone photo: the middle band.
+        org.junit.Assert.assertArrayEquals(intArrayOf(0, 1165, 3024, 1701), coverCrop(3024, 4032))
+        // A wide panorama: the middle part.
+        org.junit.Assert.assertArrayEquals(intArrayOf(1440, 0, 2560, 1440), coverCrop(5440, 1440))
+        org.junit.Assert.assertArrayEquals(intArrayOf(0, 0, 1920, 1080), coverCrop(1920, 1080))
+    }
+}

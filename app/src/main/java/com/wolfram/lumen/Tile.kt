@@ -28,4 +28,6 @@ data class Tile(
     val takeoverColor: Color,
     /** The logo's main colour, used for the background glow when this tile is selected. */
     val glow: Color,
+    /** For a console or TV box on HDMI: its input, for the live preview in its tile. */
+    val previewInput: String? = null,
 )

@@ -42,6 +42,9 @@ object LumenConfig {
      */
     const val DEFAULT_THEME = "auto"
 
+    /** The live picture of an HDMI input in its tile while you hover over it (switch off if your TV doesn't like it). */
+    const val HDMI_PREVIEW = true
+
     /* ----- SPECTRE (the assistant; called Jarvis inside the code) -----
      * PlaizierOS does TV commands itself, for free. For everything else SPECTRE uses Claude (or Gemini):
      * paste the API key on the phone remote (SPECTRE card); the TV keeps it encrypted.

@@ -1,4 +1,13 @@
-# PlaizierOS 21.3 — a home screen for your Peaq Google TV
+# PlaizierOS 21.4 — a home screen for your Peaq Google TV
+
+## New in 21.4
+
+- **Your photos as scenes, with depth:** phone remote → "Your photo as the scene". The TV crops it,
+  frosts a copy for the glass, and Google's on-device subject finder (no internet) cuts out the person or
+  thing in front so the glass clock tucks behind it. Without a subject, the clock just sits in front.
+  Themes → "Your photo" switches back to it later.
+- **Live preview in the console tiles (to test):** hover over the Xbox, PlayStation or Proximus tile for a
+  moment and its live HDMI picture shows inside the tile. If your TV doesn't allow it, the logo stays.
 
 ## New in 21.3
 

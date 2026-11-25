@@ -208,4 +208,7 @@
     <string name="note_mail">Mail from %1$s: %2$s</string>
     <string name="note_run">New run: %1$s</string>
     <string name="note_iss">Space station over you at %1$s · look %2$s</string>
+    <string name="theme_photo">Your photo</string>
+    <string name="note_making_scene">Making your scene…</string>
+    <string name="scene_failed">That photo couldn\'t become a scene. Try another one.</string>
 </resources>
