@@ -567,6 +567,7 @@ fun SceneHome(
     loaded: LoadedScene?,
     weather: WeatherNow?,
     dock: List<Tile>,
+    dockSize: DockFit,
     tools: List<Tile>,
     movingKey: String?,
     firstFocus: FocusRequester,
@@ -588,6 +589,7 @@ fun SceneHome(
         GreetingBlock(weather, countdown, Modifier.padding(top = HomeLayout.GreetingTop))
         SceneDock(
             dock = dock,
+            dockSize = dockSize,
             tools = tools,
             glass = glass,
             movingKey = movingKey,
@@ -709,6 +711,17 @@ fun agendaDayTitle(context: android.content.Context, date: java.time.LocalDate, 
 
 /* ---------- The dock ---------- */
 
+/** The favourites' size for this many favourites on this screen (see [dockFit]). */
+@Composable
+fun rememberDockFit(count: Int): DockFit {
+    val density = LocalDensity.current
+    val screenDp = androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp
+    return remember(count, density, screenDp) {
+        val rowPx = with(density) { minOf(screenDp.toFloat(), DOCK_MAX_WIDTH_DP).dp.roundToPx() }
+        dockFit(count, rowPx, density.density)
+    }
+}
+
 /** Moves the favourites row only when a tile would be off screen (see [favouritesScroll]), with a soft glide. */
 @OptIn(ExperimentalFoundationApi::class)
 private class StillRow(private val marginPx: Float) : BringIntoViewSpec {
@@ -721,6 +734,7 @@ private class StillRow(private val marginPx: Float) : BringIntoViewSpec {
 @Composable
 private fun SceneDock(
     dock: List<Tile>,
+    dockSize: DockFit,
     tools: List<Tile>,
     glass: ImageBitmap?,
     movingKey: String?,
@@ -737,16 +751,20 @@ private fun SceneDock(
     Column(modifier.onFocusChanged { hasFocus = it.hasFocus }, horizontalAlignment = Alignment.CenterHorizontally) {
         // Your favourites: lit glass, glowing in each app's own colour. The row stays still while you
         // move along it; it only slides when the next tile would be off screen.
+        // All of them fit at once (see dockFit), so normally there is nothing to slide at all.
         val density = LocalDensity.current
-        val stillRow = remember(density) { StillRow(with(density) { 16.dp.toPx() }) }
+        val stillRow = remember(density) { StillRow(with(density) { 8.dp.toPx() }) }
+        val tileWidth = with(density) { dockSize.tileWidthPx.toDp() }
+        val tileHeight = with(density) { dockSize.tileHeightPx.toDp() }
+        val tileGap = with(density) { dockSize.gapPx.toDp() }
         CompositionLocalProvider(LocalBringIntoViewSpec provides stillRow) {
         LazyRow(
-            horizontalArrangement = Arrangement.spacedBy(HomeLayout.TileGap),
+            horizontalArrangement = Arrangement.spacedBy(tileGap),
             // Room around the tiles, so the selected one (a little bigger) is never cut off.
-            contentPadding = PaddingValues(horizontal = 24.dp, vertical = 6.dp),
+            contentPadding = PaddingValues(horizontal = DOCK_EDGE_DP.dp, vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier
-                .widthIn(max = 950.dp)
+                .widthIn(max = DOCK_MAX_WIDTH_DP.dp)
                 .focusRestorer()
                 .onPreviewKeyEvent { event ->
                     if (movingKey == null) return@onPreviewKeyEvent false
@@ -771,6 +789,8 @@ private fun SceneDock(
                     GlassTile(
                         tile = tile,
                         glass = glass,
+                        width = tileWidth,
+                        height = tileHeight,
                         moving = tile.key == movingKey,
                         modifier = if (index == 0) Modifier.focusRequester(firstFocus) else Modifier,
                         onFocus = { selected = tile.key },
@@ -821,6 +841,8 @@ private fun SceneDock(
 private fun GlassTile(
     tile: Tile,
     glass: ImageBitmap?,
+    width: androidx.compose.ui.unit.Dp,
+    height: androidx.compose.ui.unit.Dp,
     moving: Boolean,
     modifier: Modifier,
     onFocus: () -> Unit,
@@ -848,7 +870,7 @@ private fun GlassTile(
     val glow = tile.glow
     Box(
         modifier
-            .size(width = HomeLayout.TileWidth, height = HomeLayout.TileHeight)
+            .size(width = width, height = height)
             .graphicsLayer {
                 val s = 1f + (HomeLayout.FOCUS_SCALE - 1f) * lift
                 scaleX = s

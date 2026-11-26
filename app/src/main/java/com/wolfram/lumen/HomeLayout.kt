@@ -74,6 +74,36 @@ object HomeLayout {
 fun logoPixels(dp: Float, density: Float, scale: Float = HomeLayout.FOCUS_SCALE): Int =
     ceil(dp * density * scale - 0.01f).toInt().coerceAtLeast(1)
 
+/** The favourites row: how wide it may get, the room at its ends for the bigger selected tile, and how far it may shrink. */
+const val DOCK_MAX_WIDTH_DP = 950f
+const val DOCK_EDGE_DP = 12f
+const val DOCK_GAP_DP = 13f
+const val DOCK_MIN_GAP_DP = 8f
+const val DOCK_MIN_SCALE = 0.62f
+
+/** The favourites' size and spacing in screen pixels. [fits] is false only when even the smallest tiles don't all fit. */
+data class DockFit(val tileWidthPx: Int, val tileHeightPx: Int, val gapPx: Int, val fits: Boolean)
+
+/**
+ * Sizes the favourites so all of them fit in the row at once, so the row never has to slide.
+ * Up to 8 favourites keep their full size; with more, the gaps close up first (down to 8 dp) and then the
+ * tiles get a little smaller (down to 62%). Works in whole pixels, so rounding can never make it a pixel too wide.
+ */
+fun dockFit(count: Int, rowWidthPx: Int, density: Float): DockFit {
+    val px = { dp: Float -> kotlin.math.round(dp * density).toInt() }
+    val tileW = px(HomeLayout.TileWidth.value)
+    val tileH = px(HomeLayout.TileHeight.value)
+    val gap = px(DOCK_GAP_DP)
+    val minGap = px(DOCK_MIN_GAP_DP)
+    val room = rowWidthPx - 2 * px(DOCK_EDGE_DP)
+    if (count <= 1 || count * tileW + (count - 1) * gap <= room) return DockFit(tileW, tileH, gap, true)
+    val closer = (room - count * tileW) / (count - 1)
+    if (closer >= minGap) return DockFit(tileW, tileH, closer, true)
+    val minW = ceil(tileW * DOCK_MIN_SCALE).toInt()
+    val w = (room - (count - 1) * minGap) / count
+    return if (w >= minW) DockFit(w, w * tileH / tileW, minGap, true) else DockFit(minW, minW * tileH / tileW, minGap, false)
+}
+
 /**
  * How far the favourites row slides to show the selected tile, in pixels (plus = the row slides left).
  * While the tile is fully on screen, with [margin] to spare for its bigger selected size, the row stays

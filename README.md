@@ -1,4 +1,8 @@
-# PlaizierOS 21.4.1 — a home screen for your Peaq Google TV
+# PlaizierOS 21.4.2 — a home screen for your Peaq Google TV
+
+## New in 21.4.2
+
+- All your favourites always fit in the row at once, so it never slides at all. Up to 8 keep their full size; with more, the gaps close up and the tiles get a little smaller (logos are still made at exactly their size).
 
 ## New in 21.4.1
 

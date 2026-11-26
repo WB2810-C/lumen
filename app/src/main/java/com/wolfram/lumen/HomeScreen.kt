@@ -403,13 +403,18 @@ fun LumenApp(
     // Their logos are made in the background at exactly the pixels they get on screen at 1920 × 1080
     // (from the sharpest version each app ships), so the TV draws them 1:1: maximum sharpness.
     val logoDensity = LocalDensity.current.density
+    // All favourites always fit in the row at once (smaller only when there are more than 8), so it never slides.
+    val dockSize = rememberDockFit(favourites.size)
     var dockBanners by remember { mutableStateOf<Map<String, ImageBitmap>>(emptyMap()) }
     var dockIcons by remember { mutableStateOf<Map<String, ImageBitmap>>(emptyMap()) }
-    LaunchedEffect(favourites.map { it.key to (it.banner != null) }, logoDensity) {
-        val bannerPx = logoPixels(HomeLayout.LOGO_WIDTH_DP, logoDensity)
-        val iconPx = logoPixels(HomeLayout.LOGO_HEIGHT_DP * HomeLayout.ICON_FILL, logoDensity)
-        val consoleWidth = logoPixels(HomeLayout.LOGO_WIDTH_DP - 2 * HomeLayout.CONSOLE_PADDING_DP, logoDensity)
-        val consoleHeight = logoPixels(HomeLayout.LOGO_HEIGHT_DP - 2 * HomeLayout.CONSOLE_PADDING_DP, logoDensity)
+    LaunchedEffect(favourites.map { it.key to (it.banner != null) }, logoDensity, dockSize) {
+        // The logo is the tile minus its glass rim: 92 x 52 dp at full size.
+        val logoW = dockSize.tileWidthPx / logoDensity - 2 * HomeLayout.TileInset.value
+        val logoH = dockSize.tileHeightPx / logoDensity - 2 * HomeLayout.TileInset.value
+        val bannerPx = logoPixels(logoW, logoDensity)
+        val iconPx = logoPixels(logoH * HomeLayout.ICON_FILL, logoDensity)
+        val consoleWidth = logoPixels(logoW - 2 * HomeLayout.CONSOLE_PADDING_DP, logoDensity)
+        val consoleHeight = logoPixels(logoH - 2 * HomeLayout.CONSOLE_PADDING_DP, logoDensity)
         val tiles = favourites
         val (banners, icons) = withContext(Dispatchers.IO) {
             val banners = HashMap<String, ImageBitmap>()
@@ -1113,6 +1118,7 @@ fun LumenApp(
                     loaded = loadedScene,
                     weather = weather,
                     dock = dock,
+                    dockSize = dockSize,
                     tools = tools,
                     movingKey = movingKey,
                     firstFocus = dockFocus,

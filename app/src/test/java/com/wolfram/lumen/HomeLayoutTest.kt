@@ -34,6 +34,31 @@ class HomeLayoutTest {
     }
 
     @Test
+    fun eightFavouritesFitAtFullSize() {
+        // 950 dp = 1900 px at 1080p. Proximus, Xbox, PlayStation and 5 apps: full-size tiles, normal gaps.
+        val fit = dockFit(8, 1900, 2f)
+        assertEquals(DockFit(208, 128, 26, true), fit)
+        assertTrue(8 * fit.tileWidthPx + 7 * fit.gapPx + 48 <= 1900)
+        assertEquals(DockFit(208, 128, 26, true), dockFit(1, 1900, 2f))
+        assertEquals(DockFit(208, 128, 26, true), dockFit(0, 1900, 2f))
+    }
+
+    @Test
+    fun moreFavouritesShrinkSoTheyStillAllFit() {
+        assertEquals(DockFit(191, 117, 16, true), dockFit(9, 1900, 2f))
+        // Every count up to 12 fits without the row ever sliding, never a pixel too wide.
+        for (n in 2..12) {
+            val f = dockFit(n, 1900, 2f)
+            assertTrue("count $n", f.fits)
+            assertTrue("count $n", n * f.tileWidthPx + (n - 1) * f.gapPx + 48 <= 1900)
+            assertTrue("count $n", f.tileWidthPx <= 208 && f.gapPx >= 16)
+        }
+        // Far too many: smallest tiles, and only then the row slides (just at the edges).
+        assertFalse(dockFit(20, 1900, 2f).fits)
+        assertEquals(129, dockFit(20, 1900, 2f).tileWidthPx)
+    }
+
+    @Test
     fun logosGetTheirExactPixelsAt1080p() {
         // At 1920 x 1080 (density 2) a selected favourite's logo is 199 x 113 screen pixels.
         assertEquals(199, logoPixels(HomeLayout.LOGO_WIDTH_DP, 2f))
