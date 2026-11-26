@@ -121,7 +121,7 @@ dependencies {
 // When a test fails, the build log shows exactly which check and why.
 tasks.withType<Test>().configureEach {
     testLogging {
-        events("failed")
+        events("passed", "failed")
         exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
     }
 }
