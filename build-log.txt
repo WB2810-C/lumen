@@ -1,0 +1,187 @@
+Starting a Gradle Daemon (subsequent builds will be faster)
+> Task :app:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :app:preBuild UP-TO-DATE
+> Task :app:preDebugBuild UP-TO-DATE
+> Task :app:generateDebugBuildConfig
+> Task :app:generateDebugResValues
+> Task :app:checkDebugAarMetadata
+> Task :app:mapDebugSourceSetPaths
+> Task :app:generateDebugResources
+> Task :app:packageDebugResources
+> Task :app:createDebugCompatibleScreenManifests
+> Task :app:extractDeepLinksDebug
+> Task :app:mergeDebugResources
+> Task :app:parseDebugLocalResources
+> Task :app:processDebugMainManifest
+> Task :app:processDebugManifest
+> Task :app:preDebugUnitTestBuild UP-TO-DATE
+> Task :app:javaPreCompileDebug
+> Task :app:javaPreCompileDebugUnitTest
+> Task :app:processDebugManifestForPackage
+> Task :app:mergeDebugShaders
+> Task :app:compileDebugShaders NO-SOURCE
+> Task :app:generateDebugAssets UP-TO-DATE
+> Task :app:mergeDebugAssets
+> Task :app:preReleaseBuild UP-TO-DATE
+> Task :app:mergeReleaseJniLibFolders
+> Task :app:mergeReleaseNativeLibs
+> Task :app:buildKotlinToolingMetadata
+
+> Task :app:stripReleaseDebugSymbols
+Unable to strip the following libraries, packaging them as they are: libandroidx.graphics.path.so.
+
+> Task :app:generateReleaseBuildConfig
+> Task :app:extractReleaseNativeSymbolTables
+> Task :app:mergeReleaseNativeDebugMetadata NO-SOURCE
+> Task :app:checkReleaseAarMetadata
+> Task :app:generateReleaseResValues
+> Task :app:checkReleaseDuplicateClasses
+> Task :app:mapReleaseSourceSetPaths
+> Task :app:generateReleaseResources
+> Task :app:processDebugResources
+> Task :app:mergeReleaseResources
+> Task :app:packageDebugUnitTestForUnitTest
+> Task :app:generateDebugUnitTestConfig
+> Task :app:packageReleaseResources
+> Task :app:createReleaseCompatibleScreenManifests
+> Task :app:parseReleaseLocalResources
+> Task :app:extractDeepLinksRelease
+> Task :app:processReleaseMainManifest
+> Task :app:processReleaseManifest
+> Task :app:processReleaseManifestForPackage
+> Task :app:javaPreCompileRelease
+> Task :app:mergeReleaseArtProfile
+> Task :app:extractProguardFiles
+> Task :app:mergeReleaseStartupProfile
+> Task :app:mergeReleaseShaders
+> Task :app:compileReleaseShaders NO-SOURCE
+> Task :app:generateReleaseAssets UP-TO-DATE
+> Task :app:mergeReleaseAssets
+> Task :app:compressReleaseAssets
+> Task :app:extractReleaseVersionControlInfo
+> Task :app:collectReleaseDependencies
+> Task :app:processReleaseResources
+> Task :app:sdkReleaseDependencyData
+> Task :app:validateSigningRelease
+> Task :app:writeReleaseAppMetadata
+> Task :app:writeReleaseSigningConfigVersions
+> Task :app:optimizeReleaseResources
+> Task :app:compileDebugKotlin
+> Task :app:compileReleaseKotlin
+w: file:///home/runner/work/lumen/lumen/app/src/main/java/com/wolfram/lumen/Smoothness.kt:38:44 'val defaultDisplay: Display!' is deprecated. Deprecated in Java.
+
+> Task :app:compileDebugKotlin
+w: file:///home/runner/work/lumen/lumen/app/src/main/java/com/wolfram/lumen/Smoothness.kt:38:44 'val defaultDisplay: Display!' is deprecated. Deprecated in Java.
+
+> Task :app:compileReleaseJavaWithJavac
+> Task :app:compileDebugJavaWithJavac
+> Task :app:bundleDebugClassesToRuntimeJar
+> Task :app:bundleDebugClassesToCompileJar
+> Task :app:processDebugJavaRes
+> Task :app:mergeReleaseGeneratedProguardFiles
+> Task :app:processReleaseJavaRes
+> Task :app:expandReleaseArtProfileWildcards
+> Task :app:mergeReleaseJavaResource
+> Task :app:compileDebugUnitTestKotlin
+> Task :app:compileDebugUnitTestJavaWithJavac NO-SOURCE
+> Task :app:processDebugUnitTestJavaRes
+
+> Task :app:testDebugUnitTest
+
+AbilitiesTest > netflixAndMemoryCommands PASSED
+
+AbilitiesTest > countdownsCountDays PASSED
+
+AbilitiesTest > focusCommands PASSED
+
+AbilitiesTest > volumeCommands PASSED
+
+AbilitiesTest > goodnightCommands PASSED
+
+AbilitiesTest > listsSurviveSaving PASSED
+
+Batch2Test > bayernWinsOnlyWhenFinishedAndAhead PASSED
+
+Batch2Test > clearTvCommandsAreActedOnMidSentence PASSED
+
+Batch2Test > updaterReadsTheRelease PASSED
+
+Batch2Test > recapCountsAndFormats PASSED
+
+Batch2Test > fireworksOnlyAroundMidnightOnNewYear PASSED
+
+Batch3Test > quizzesAndDrills PASSED
+
+Batch3Test > onlyTheMailThatMatters PASSED
+
+Batch3Test > busFromDeLijn PASSED
+
+Batch3Test > spaceStationMarketsAndXbox PASSED
+
+Batch3Test > runsOnScreenOnly PASSED
+
+DockFocusTest > eightFavouritesKeepTheirFullSize PASSED
+
+DockFocusTest > upAndDownStillWorkWhileAConsolePreviewIsShowing PASSED
+
+DockFocusTest > downReachesTheCirclesAndUpComesBack PASSED
+
+DockFocusTest > downWorksFromTheLastFavouriteToo PASSED
+
+HomeGuardTest > guardIgnoresOwnPackage PASSED
+
+HomeGuardTest > pictureMustBeTheHighest PASSED
+
+HomeGuardTest > guardEnabledParsesList PASSED
+
+HomeLayoutTest > moreFavouritesShrinkSoTheyStillAllFit PASSED
+
+HomeLayoutTest > eightFavouritesFitAtFullSize PASSED
+
+HomeLayoutTest > logosGetTheirExactPixelsAt1080p PASSED
+
+HomeLayoutTest > favouritesRowStaysStillWhileTheTileIsOnScreen PASSED
+
+HomeLayoutTest > restsOnlyOnBareHome PASSED
+
+HomeLayoutTest > favouritesRowSlidesJustEnoughAtTheEdges PASSED
+
+JarvisBrainTest > picksModelByQuestion PASSED
+
+JarvisBrainTest > groqGetsTheTvToolsOnly PASSED
+
+JarvisBrainTest > picksTheBrainThatHasAKey PASSED
+
+JarvisBrainTest > claudeBodyCachesPrompt PASSED
+
+JarvisBrainTest > readsGeminiText PASSED
+
+JarvisKeysTest > missingKeyLoadsNull PASSED
+
+JarvisKeysTest > groqKeysAreRecognised PASSED
+
+JarvisKeysTest > brainsHaveIds PASSED
+
+JarvisKeysTest > keysAreTrimmedAndChecked PASSED
+
+PhotoSceneTest > photosAreCroppedTo16by9 PASSED
+
+SkyTest > rainSoonFindsTheFirstWetSlot PASSED
+
+SkyTest > skyFollowsTheSun PASSED
+
+SkyTest > northernLightsOnlyInStrongStormsAtNight PASSED
+
+SkyTest > extrasGoOffWhenFramesRunLate PASSED
+
+VersionTest > versionIs21_4_3 PASSED
+
+> Task :app:minifyReleaseWithR8
+> Task :app:compileReleaseArtProfile
+> Task :app:packageRelease
+> Task :app:createReleaseApkListingFileRedirect
+> Task :app:assembleRelease
+gradle/actions: Writing build results to /home/runner/work/_temp/.gradle-actions/build-results/__run_2-1795710960843.json
+
+BUILD SUCCESSFUL in 2m 16s
+72 actionable tasks: 72 executed
