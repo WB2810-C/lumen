@@ -7,6 +7,7 @@ import android.media.tv.TvContract
 import android.media.tv.TvView
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.viewinterop.AndroidView
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.segmentation.subject.SubjectSegmentation
@@ -94,10 +95,14 @@ fun HdmiPreview(inputId: String, modifier: Modifier = Modifier) {
     AndroidView(
         factory = { ctx ->
             TvView(ctx).also { view ->
+                // Only a picture: it may never take the remote's focus or its buttons away from PlaizierOS.
+                view.isFocusable = false
+                view.isFocusableInTouchMode = false
+                view.descendantFocusability = android.view.ViewGroup.FOCUS_BLOCK_DESCENDANTS
                 runCatching { view.tune(inputId, TvContract.buildChannelUriForPassthroughInput(inputId)) }
             }
         },
         onRelease = { view -> runCatching { view.reset() } },
-        modifier = modifier,
+        modifier = modifier.focusProperties { canFocus = false },
     )
 }

@@ -105,6 +105,7 @@ import androidx.compose.ui.layout.positionInParent
 import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -711,14 +712,15 @@ fun agendaDayTitle(context: android.content.Context, date: java.time.LocalDate, 
 
 /* ---------- The dock ---------- */
 
-/** The favourites' size for this many favourites on this screen (see [dockFit]). */
+/**
+ * The favourites' size for this many favourites (see [dockFit]). PlaizierOS always lays out on its own
+ * 960 dp wide grid (TvGrid), so the row is 950 dp of that grid: not what the TV's own settings report.
+ */
 @Composable
 fun rememberDockFit(count: Int): DockFit {
     val density = LocalDensity.current
-    val screenDp = androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp
-    return remember(count, density, screenDp) {
-        val rowPx = with(density) { minOf(screenDp.toFloat(), DOCK_MAX_WIDTH_DP).dp.roundToPx() }
-        dockFit(count, rowPx, density.density)
+    return remember(count, density) {
+        dockFit(count, with(density) { DOCK_MAX_WIDTH_DP.dp.roundToPx() }, density.density)
     }
 }
 
@@ -870,6 +872,7 @@ private fun GlassTile(
     val glow = tile.glow
     Box(
         modifier
+            .testTag("fav:" + tile.key)
             .size(width = width, height = height)
             .graphicsLayer {
                 val s = 1f + (HomeLayout.FOCUS_SCALE - 1f) * lift

@@ -1,4 +1,9 @@
-# PlaizierOS 21.4.2 — a home screen for your Peaq Google TV
+# PlaizierOS 21.4.3 — a home screen for your Peaq Google TV
+
+## New in 21.4.3
+
+- Favourites are full size again: the row is sized on PlaizierOS's own 1920 × 1080 grid, not on what the TV's settings report.
+- ▲ ▼ between your favourites and the circles is checked by an automatic test on a pretend 1920 × 1080 TV before every build, also with a console's live preview showing. The live preview can never take the remote's focus.
 
 ## New in 21.4.2
 

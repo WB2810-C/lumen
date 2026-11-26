@@ -25,8 +25,8 @@ android {
         applicationId = "com.wolfram.lumen"
         minSdk = 26          // Android TV 8.0 and newer
         targetSdk = 35
-        versionCode = 32
-        versionName = "21.4.2"
+        versionCode = 33
+        versionName = "21.4.3"
         buildConfigField("String", "OLLAMA_HOST", "\"$ollamaHost\"")
         // The GitHub build number, so PlaizierOS knows when a newer build is out (self-updates).
         buildConfigField("int", "BUILD_NUMBER", System.getenv("GITHUB_RUN_NUMBER") ?: "0")
@@ -70,6 +70,13 @@ android {
         compose = true
         buildConfig = true
     }
+
+    // The home screen tests run on a pretend 1920 x 1080 TV (Robolectric) and need the app's resources.
+    testOptions {
+        unitTests {
+            isIncludeAndroidResources = true
+        }
+    }
 }
 
 kotlin {
@@ -103,4 +110,18 @@ dependencies {
     // Unit tests for the pure logic (run by GitHub before every build).
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.json:json:20240303")
+    // Tests that drive the home screen with the remote's arrow keys.
+    testImplementation(composeBom)
+    testImplementation("androidx.compose.ui:ui-test-junit4")
+    testImplementation("org.robolectric:robolectric:4.14.1")
+    testImplementation("androidx.test.ext:junit:1.2.1")
+    debugImplementation("androidx.compose.ui:ui-test-manifest")
+}
+
+// When a test fails, the build log shows exactly which check and why.
+tasks.withType<Test>().configureEach {
+    testLogging {
+        events("failed")
+        exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
+    }
 }
